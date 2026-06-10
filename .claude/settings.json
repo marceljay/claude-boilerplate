@@ -57,7 +57,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo CONTEXT_SAVE_TRIGGERED"
+            "command": "bash .claude/hooks/save-context.sh"
           }
         ]
       }

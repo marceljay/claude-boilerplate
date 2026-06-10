@@ -9,11 +9,17 @@ Run lint, format, and remove unused imports across changed files.
    - `git diff --cached --name-only` for staged changes
    - If nothing is changed, run against all source files
 
-2. Run available tools in order:
-   - **Linter**: `npm run lint -- --fix` (or eslint, biome, etc.)
-   - **Formatter**: `npx prettier --write` on changed files (if prettier is installed)
-   - **Unused imports**: Check for and remove unused imports in changed TypeScript/JavaScript files
-   - **Type check**: `npx tsc --noEmit` to verify no type errors
+2. Detect the stack from the files present, then run that ecosystem's
+   lint → format → type-check tools in order. Only run tools that are actually
+   installed/configured. Common mappings:
+   - **Node/TS** (`package.json`): `npm run lint -- --fix` (or eslint/biome),
+     `npx prettier --write`, remove unused imports, `npx tsc --noEmit`
+   - **Python** (`pyproject.toml`/`requirements.txt`): `ruff check --fix`,
+     `ruff format` (or `black`), `mypy` if configured
+   - **Rust** (`Cargo.toml`): `cargo clippy --fix`, `cargo fmt`
+   - **Go** (`go.mod`): `gofmt -w`, `go vet`
+   - **Any** (`Makefile` with a `lint`/`fmt` target): prefer `make lint` / `make fmt`
+   - If you can't tell the stack, ask the user rather than guessing.
 
 3. Show a summary of what was fixed:
    - Files modified

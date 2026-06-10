@@ -4,20 +4,22 @@ Start the development server in a separate terminal window and open the browser.
 
 ## Steps
 
-1. Read `package.json` to detect the dev command and port:
-   - Look for `scripts.dev` to determine the command
-   - Check for port hints in the dev script (default to `3000`)
-   - If no `package.json` exists, ask the user for the command and port
+1. Detect the dev command and port from the project's stack:
+   - **Node** (`package.json`): use `scripts.dev` (or `start`); read port hints,
+     default `3000`
+   - **Python**: `Makefile` `dev`/`run` target, `manage.py runserver` (Django,
+     port `8000`), or `uvicorn`/`flask run` (`8000`/`5000`)
+   - **Rust** (`Cargo.toml`): `cargo run`
+   - **Go** (`go.mod`): `go run .`
+   - **Any** (`Makefile`): prefer a `dev`/`run`/`serve` target
+   - If you can't determine the command or port, ask the user.
 
-2. Launch the dev server in a new terminal window:
+2. Launch the dev server in a new terminal window so it stays up independently:
    - **Windows (PowerShell)**:
      ```
-     Start-Process powershell -ArgumentList '-NoExit', '-Command', 'cd \"PROJECT_PATH\"; npm run dev'
+     Start-Process powershell -ArgumentList '-NoExit', '-Command', 'cd \"PROJECT_PATH\"; DEV_COMMAND'
      ```
-   - **macOS/Linux**:
-     Open a new terminal tab/window with the dev command.
-
-   This opens a separate terminal that stays open independently.
+   - **macOS/Linux**: open a new terminal tab/window running `DEV_COMMAND`.
 
 3. Wait 3 seconds for the server to start, then open the browser:
    - **Windows**: `Start-Process "http://localhost:PORT"`

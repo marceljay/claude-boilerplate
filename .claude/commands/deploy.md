@@ -12,7 +12,10 @@ Deploy the current project to production.
    - Fall back to asking the user
 
 2. Pre-deploy checks:
-   - Run `npm run build` (or equivalent) to verify the build succeeds
+   - Verify the build succeeds using the project's stack: `npm run build`
+     (Node), `cargo build --release` (Rust), `go build ./...` (Go),
+     `make build` if a Makefile defines it, or the project's documented command
+   - Run the test suite if one exists
    - Check for uncommitted changes — warn if working tree is dirty
    - Show the current branch and last commit
 

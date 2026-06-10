@@ -5,24 +5,26 @@ Scaffold the standard file structure for a new project.
 ## Steps
 
 1. Detect project context:
-   - Read `package.json` or other config files to determine project name and description
+   - Determine the tech stack and project name from whatever manifest exists:
+     `package.json` (Node), `pyproject.toml`/`requirements.txt` (Python),
+     `Cargo.toml` (Rust), `go.mod` (Go), or the directory name as a fallback
    - Check what already exists — don't overwrite existing files
-   - Determine the tech stack from existing files
 
 2. Create the following files if they don't exist:
 
-   **`.gitignore`** — with at minimum:
+   **`.gitignore`** — universal base (applies to any stack):
    ```
-   node_modules/
    .env*
-   .vercel/
-   .supabase/
    *.pem
    *.key
    .DS_Store
    Thumbs.db
    ```
-   Add framework-specific entries based on detected stack (e.g., `.next/` for Next.js, `dist/` for builds).
+   Then add entries for the **detected stack**, e.g.:
+   - Node: `node_modules/`, `dist/`, `.next/`, `.vercel/`
+   - Python: `__pycache__/`, `*.pyc`, `.venv/`, `.pytest_cache/`, `*.egg-info/`
+   - Rust: `target/`
+   - Go: built binaries / `bin/`
 
    **`.gitattributes`**:
    ```
@@ -63,8 +65,9 @@ Scaffold the standard file structure for a new project.
    - Project name (from package.json or directory name)
    - Brief description (ask user if not obvious)
    - Tech stack
-   - Setup/install instructions (`npm install`, env vars needed)
-   - Development commands (`npm run dev`, etc.)
+   - Setup/install instructions for the detected stack (`npm install`,
+     `pip install -r requirements.txt`, `cargo build`, `go mod download`, …)
+   - Development commands (`npm run dev`, `make dev`, `cargo run`, …)
    - Deployment info if detectable
 
    **`_planning/`** directory with:
@@ -87,9 +90,10 @@ Scaffold the standard file structure for a new project.
    Brief description.
 
    ## Commands
-   - Dev: `npm run dev`
-   - Build: `npm run build`
-   - Lint: `npm run lint`
+   <!-- Fill in the detected stack's commands -->
+   - Dev: `npm run dev` / `make dev` / `cargo run`
+   - Build: `npm run build` / `make build` / `cargo build`
+   - Lint: `npm run lint` / `ruff check` / `cargo clippy`
 
    ## Architecture
    <!-- Add project structure and key patterns here -->

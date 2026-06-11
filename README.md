@@ -45,11 +45,15 @@ LICENSE                # MIT
 ## Getting started
 
 1. **Copy this repo** as the seed for your new project (or use it as a template).
-2. Open it in the dev container (VS Code: "Reopen in Container") or your own env.
-3. Run **`/init`** in Claude Code. It detects your stack and scaffolds
+2. Run **`scripts/new-project.sh`** to detach the boilerplate: it renames this
+   README to `BOILERPLATE.md`, deletes the boilerplate's `LICENSE`, resets
+   `STATUS.md`/`CHANGELOG.md`/`_planning/` to empty templates, and removes
+   itself. Add `--fresh-git` to also drop the boilerplate's git history.
+3. Open it in the dev container (VS Code: "Reopen in Container") or your own env.
+4. Run **`/init`** in Claude Code. It detects your stack and scaffolds
    `README.md`, `STATUS.md`, `CHANGELOG.md`, `.gitignore`, `.gitattributes`, and
-   `_planning/`, and initializes git.
-4. Start building. Use `/status` and `/update-status` to track work, `/cleanup`
+   `_planning/`, and initializes git. Then add your project's own `LICENSE`.
+5. Start building. Use `/status` and `/update-status` to track work, `/cleanup`
    before commits, and `/pr` to open pull requests.
 
 New to how any of this works? Read [`.claude/README.md`](.claude/README.md) — it

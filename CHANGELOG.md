@@ -6,6 +6,9 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Added
+- `scripts/new-project.sh` — one-shot detach script for new projects: renames
+  README → BOILERPLATE.md, removes the boilerplate LICENSE, resets state files,
+  optionally re-inits git (`--fresh-git`), then deletes itself.
 - `/backup-memory` command — mirrors auto-memory (committed) and raw session
   transcripts (gitignored) into `_planning/` as a failsafe against Docker
   volume loss.

@@ -14,6 +14,9 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   timestamped marker to `STATUS.md` before auto-compaction.
 - Root `README.md` describing the boilerplate and how to adopt it.
 - Cross-stack permissions (Python, Rust, Go, Make, pnpm/yarn) in `settings.json`.
+- `LICENSE` (MIT).
+- Dev Container section in `README.md` explaining what dev containers are and
+  documenting the firewall allowlist and container settings.
 
 ### Changed
 - Trimmed `CLAUDE.md` ~47% (965 → 514 words); moved verbose procedures to `/init`

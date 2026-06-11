@@ -7,19 +7,22 @@
 #   - LICENSE     -> removed (add your project's own)
 #   - CHANGELOG.md, STATUS.md, _planning/ -> reset to empty templates
 #
-# Usage: scripts/new-project.sh [-y] [--fresh-git]
-#   -y           skip the confirmation prompt
-#   --fresh-git  also delete .git and re-init (drops boilerplate history)
+# By default it also deletes .git and re-inits, so your project starts with
+# a clean history instead of the boilerplate's.
+#
+# Usage: scripts/new-project.sh [-y] [--keep-git]
+#   -y          skip the confirmation prompt
+#   --keep-git  keep the boilerplate's git history instead of re-initializing
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 YES=0
-FRESH_GIT=0
+KEEP_GIT=0
 for arg in "$@"; do
   case "$arg" in
     -y) YES=1 ;;
-    --fresh-git) FRESH_GIT=1 ;;
+    --keep-git) KEEP_GIT=1 ;;
     *) echo "Unknown option: $arg" >&2; exit 1 ;;
   esac
 done
@@ -28,7 +31,7 @@ echo "This will detach the boilerplate in: $(pwd)"
 echo "  - rename README.md -> BOILERPLATE.md"
 echo "  - delete LICENSE (add your own afterwards)"
 echo "  - reset CHANGELOG.md, STATUS.md, _planning/ to empty templates"
-[ "$FRESH_GIT" -eq 1 ] && echo "  - DELETE .git and re-init (history is lost)"
+[ "$KEEP_GIT" -eq 0 ] && echo "  - DELETE .git and re-init (boilerplate history is dropped; --keep-git retains it)"
 if [ "$YES" -ne 1 ]; then
   printf "Continue? [y/N] "
   read -r reply
@@ -79,7 +82,7 @@ cat > _planning/backlog.md <<'EOF'
 ## Low Priority / Ideas
 EOF
 
-if [ "$FRESH_GIT" -eq 1 ]; then
+if [ "$KEEP_GIT" -eq 0 ]; then
   rm -rf .git
   git init -q
 fi

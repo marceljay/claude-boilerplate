@@ -4,6 +4,15 @@ Scaffold the standard file structure for a new project.
 
 ## Steps
 
+0. If this copy hasn't been detached from the boilerplate yet
+   (`scripts/new-project.sh` still exists), offer to run it first — it removes
+   the boilerplate's README/LICENSE, resets the state files, drops the
+   boilerplate's git history (default; `--keep-git` retains it), and deletes
+   itself. Example:
+   ```sh
+   bash scripts/new-project.sh -y
+   ```
+
 1. Detect project context:
    - Determine the tech stack and project name from whatever manifest exists:
      `package.json` (Node), `pyproject.toml`/`requirements.txt` (Python),

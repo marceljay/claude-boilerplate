@@ -52,8 +52,9 @@ LICENSE                # MIT
 1. **Copy this repo** as the seed for your new project (or use it as a template).
 2. Run **`scripts/new-project.sh`** to detach the boilerplate: it renames this
    README to `BOILERPLATE.md`, deletes the boilerplate's `LICENSE`, resets
-   `STATUS.md`/`CHANGELOG.md`/`_planning/` to empty templates, and removes
-   itself. Add `--fresh-git` to also drop the boilerplate's git history.
+   `STATUS.md`/`CHANGELOG.md`/`_planning/` to empty templates, drops the
+   boilerplate's git history (pass `--keep-git` to retain it), and removes
+   itself.
 3. Open it in the dev container (VS Code: "Reopen in Container") or your own env.
 4. Run **`/init`** in Claude Code. It detects your stack and scaffolds
    `README.md`, `STATUS.md`, `CHANGELOG.md`, `.gitignore`, `.gitattributes`, and

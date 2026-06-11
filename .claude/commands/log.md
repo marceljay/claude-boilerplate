@@ -31,7 +31,10 @@ All notable changes to this project are documented here.
 
 3. Add the entry under `[Unreleased]` in the appropriate category. Use concise, user-facing language (not implementation details).
 
-4. **Version tagging:** Always ask the user if this should be tagged as a release. If yes (or if they specify a version), move all `[Unreleased]` items under a new version heading:
+4. **Version tagging:** Only ask about tagging a release when the user hints
+   at one (mentions a version, "release", "ship", "tag") — otherwise leave the
+   entry under `[Unreleased]` without asking. When they do want a release,
+   move all `[Unreleased]` items under a new version heading:
    ```markdown
    ## [1.3.0] - 2026-02-11
 

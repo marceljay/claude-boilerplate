@@ -92,8 +92,9 @@ first place to look.
 
 ## Conventions
 
-- **`CLAUDE.md`** holds only stable instructions. Current work lives in
-  `STATUS.md`, history in `CHANGELOG.md`, plans in `_planning/`.
+- **`CLAUDE.md`** holds only stable instructions. State files own one tense
+  each — `STATUS.md` = now, `_planning/backlog.md` = future (the only queue),
+  `CHANGELOG.md` = past — and items move between them, never copied.
 - **Atomic, conventional commits** (`feat:`, `fix:`, `docs:`, …) so any change can
   be reverted cleanly.
 - **Secrets never get committed** — `.env*`, `*.pem`, `*.key` are gitignored by

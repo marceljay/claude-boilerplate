@@ -19,6 +19,15 @@ sandbox. See [Dev Container](#dev-container) below.
 > the whole harness (hooks, subagents, commands, memory, state files) in plain
 > language for medium-skilled devs.
 
+## Contents
+
+- [What's inside](#whats-inside)
+- [Getting started](#getting-started)
+- [Dev Container](#dev-container)
+  - [The firewall (`init-firewall.sh`)](#the-firewall-init-firewallsh)
+- [Conventions](#conventions)
+- [License](#license)
+
 ## What's inside
 
 ```

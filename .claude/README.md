@@ -13,6 +13,19 @@ This README explains each piece in plain terms so you can edit it confidently.
 > | Subagents | `agents/*.md` | When delegated to | A separate Claude |
 > | Memory | `memory/*.md` | Recalled on relevance | Claude reads it |
 
+## Contents
+
+- [1. `CLAUDE.md` — always-on instructions](#1-claudemd--always-on-instructions)
+- [2. `settings.json` — permissions and hooks](#2-settingsjson--permissions-and-hooks)
+  - [`permissions`](#permissions)
+  - [`hooks` — the part you asked about](#hooks--the-part-you-asked-about)
+- [3. `commands/` — slash commands](#3-commands--slash-commands)
+- [4. `agents/` — subagents (the biggest usage-saver)](#4-agents--subagents-the-biggest-usage-saver)
+- [5. `memory/` — persistent facts across sessions](#5-memory--persistent-facts-across-sessions)
+- [6. How the project-state files relate (set by `CLAUDE.md`)](#6-how-the-project-state-files-relate-set-by-claudemd)
+- [7. `.devcontainer/` (sibling folder, not under `.claude/`)](#7-devcontainer-sibling-folder-not-under-claude)
+- [Editing cheatsheet](#editing-cheatsheet)
+
 ---
 
 ## 1. `CLAUDE.md` — always-on instructions

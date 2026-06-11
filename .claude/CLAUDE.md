@@ -25,7 +25,16 @@ All actions are auto-approved, so:
 ## Git Conventions
 - Conventional commits (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`),
   under 72 chars. Branches: `feat/…`, `fix/…`, `chore/…`.
-- Don't commit unless asked.
+- **Commit policy is a per-project choice.** If none is recorded, ask at the
+  first natural commit point (use the Preference Persistence options below):
+  1. **On request only** — commit only when the user says so (default until set)
+  2. **At milestones** — commit automatically after each completed, verified
+     unit of work
+  3. **Periodically** — commit at natural pauses / end of session
+  Record the choice in the project CLAUDE.md as a one-liner
+  (`Commit policy: on-request | milestones | periodic`). Until it's set,
+  don't commit unasked.
+- Commit policy: milestones (this repo).
 
 ## Code Quality
 - After editing code, run the project's linter and fix errors without asking.
@@ -58,12 +67,17 @@ On option 3: behavioral prefs → append to `~/.claude/CLAUDE.md`; tool permissi
 
 ## Project State
 CLAUDE.md is for stable instructions only — no TODOs, changelogs, or status here.
-Anything that changes more than monthly goes in a state file instead:
-`STATUS.md` (current work/blockers), `CHANGELOG.md` (history), `_planning/`
-(backlog + saved plans). `/init` scaffolds these; see `.claude/README.md` §6.
-Read STATUS.md alongside CLAUDE.md at session start. Manage via `/status`,
-`/update-status`, `/log`, `/backlog`, `/plans`. On exiting Plan Mode, save the
-plan to `_planning/plans/YYYY-MM-DD-name.md` with checkboxed steps.
+State files own one tense each, and an item moves between them (never copied):
+`STATUS.md` = now (≤3 in-progress items + blockers), `_planning/backlog.md` =
+future (the only queue, priority-ordered), `CHANGELOG.md` = past (the only
+completion record). `/init` scaffolds these; see `.claude/README.md` §6.
+Read STATUS.md and skim `_planning/backlog.md` alongside CLAUDE.md at session
+start. Manage via `/status`, `/update-status`, `/log`, `/backlog`, `/plans`.
+On exiting Plan Mode, save the plan to `_planning/plans/YYYY-MM-DD-name.md`
+with checkboxed steps.
+A cold memory snapshot lives at `_planning/memory-backup/` (`/backup-memory`
+refreshes it). Don't read it in normal work — only when memory seems missing or
+you need detail the live index lacks; `/backup-memory restore` after a volume wipe.
 
 ## Context Save on Compaction
 The `PreCompact` hook leaves a marker in STATUS.md automatically. When you also

@@ -131,7 +131,8 @@ any procedure that's needed *sometimes* — releases, PR creation, status update
 keeping it out of the always-loaded `CLAUDE.md`.
 
 This project ships: `init`, `cleanup`, `status`, `update-status`, `log`,
-`backlog`, `plans`, `pr`, `deploy`, `dev`, `docs`, `remember`. Open any of them —
+`backlog`, `plans`, `pr`, `deploy`, `dev`, `docs`, `remember`,
+`backup-memory`. Open any of them —
 they're just markdown with a numbered list of steps.
 
 To add one: create `commands/foo.md`, write the instructions, and it's available
@@ -188,15 +189,22 @@ decisions, constraints, "why we did it this way." Not for TODOs (those go in
 
 ## 6. How the project-state files relate (set by `CLAUDE.md`)
 
-This boilerplate's `CLAUDE.md` defines a convention worth knowing:
+This boilerplate's `CLAUDE.md` defines a convention worth knowing: each state
+file owns **one tense**, and an item *moves* between them (backlog → STATUS
+"In Progress" → CHANGELOG), deleted from the previous file — never copied.
 
 - **`CLAUDE.md`** — stable only (commands, architecture). Changes rarely.
-- **`STATUS.md`** — live TODOs, current work, blockers. Changes constantly.
-- **`CHANGELOG.md`** — history of completed/released work.
-- **`_planning/`** — backlog and saved plans.
+- **`STATUS.md`** — *now*: ≤3 in-progress items + blockers, nothing else.
+- **`_planning/backlog.md`** — *future*: the only queue, priority-ordered;
+  top item = next up.
+- **`CHANGELOG.md`** — *past*: the only completion record.
+- **`_planning/`** — also holds saved plans (`plans/`) and a cold memory
+  snapshot (`memory-backup/`, written by `/backup-memory` as a failsafe
+  against Docker volume loss; read only on demand).
 
 The point: keep fast-changing stuff *out* of `CLAUDE.md` so you're not paying to
-load this week's TODO list on every message.
+load this week's TODO list on every message — and give every work item exactly
+one home so no session is blind to half the queue.
 
 ---
 

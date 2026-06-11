@@ -3,7 +3,9 @@
   "build": {
     "dockerfile": "Dockerfile",
     "args": {
-      "TZ": "${localEnv:TZ:America/Los_Angeles}",
+      // Container timezone. Defaults to UTC; override by setting a TZ env var on
+      // your host (e.g. TZ=Europe/Berlin) or by editing the fallback below.
+      "TZ": "${localEnv:TZ:Etc/UTC}",
       "CLAUDE_CODE_VERSION": "latest",
       "GIT_DELTA_VERSION": "0.18.2",
       "ZSH_IN_DOCKER_VERSION": "1.2.0"

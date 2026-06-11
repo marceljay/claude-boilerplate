@@ -16,7 +16,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   (on-request / milestones / periodic) and records the answer; `/init` asks
   during scaffolding. This repo: milestones.
 - `.claude/README.md` — plain-language guide to the harness (hooks, subagents,
-  commands, memory, state files) for medium-skilled devs.
+  commands, memory, state files); no prior Claude Code experience assumed.
 - `explore` and `review` subagents (`.claude/agents/`) to keep heavy reading and
   diff review out of the main context window.
 - Real `PreCompact` hook script (`.claude/hooks/save-context.sh`) that writes a

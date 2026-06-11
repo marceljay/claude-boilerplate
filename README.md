@@ -6,18 +6,23 @@ subagents, hooks) and a sandboxed dev container, tuned for two goals:
 
 - **Lower token usage** — a lean always-on `CLAUDE.md`, subagents that keep heavy
   reading out of the main context, and targeted-read conventions.
-- **Readable for medium-skilled devs** — plain-language docs over cleverness, with
-  every moving part explained in [`.claude/README.md`](.claude/README.md).
+- **Approachable** — written so a junior dev, or even a non-dev, can follow it:
+  plain-language docs over cleverness, with every moving part explained in
+  [`.claude/README.md`](.claude/README.md).
 
-It is **language-agnostic**: nothing assumes Node. Commands detect the stack
-(Node, Python, Rust, Go, Make) and permissions cover the common toolchains.
+It is **not tied to one language**: commands detect Node, Python, Rust, Go, and
+Make-based projects out of the box, and permissions cover those toolchains.
+Other stacks (Solidity/Foundry, Elixir, Zig, …) still work — Claude figures out
+the commands — but for the smoothest ride add your toolchain to the
+`settings.json` allowlist and the detection lists in `/dev`, `/cleanup`, and
+`/deploy` (each is a small markdown edit).
 
 It also runs inside a **Dev Container** — a reproducible, network-restricted
 sandbox. See [Dev Container](#dev-container) below.
 
 > **New here? Start with [`.claude/README.md`](.claude/README.md)** — it explains
 > the whole harness (hooks, subagents, commands, memory, state files) in plain
-> language for medium-skilled devs.
+> language, no prior Claude Code experience assumed.
 
 ## Contents
 

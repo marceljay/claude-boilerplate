@@ -6,18 +6,23 @@ subagents, hooks) and a sandboxed dev container, tuned for two goals:
 
 - **Lower token usage** — a lean always-on `CLAUDE.md`, subagents that keep heavy
   reading out of the main context, and targeted-read conventions.
-- **Readable for medium-skilled devs** — plain-language docs over cleverness, with
-  every moving part explained in [`.claude/README.md`](.claude/README.md).
+- **Approachable** — written so a junior dev, or even a non-dev, can follow it:
+  plain-language docs over cleverness, with every moving part explained in
+  [`.claude/README.md`](.claude/README.md).
 
-It is **language-agnostic**: nothing assumes Node. Commands detect the stack
-(Node, Python, Rust, Go, Make) and permissions cover the common toolchains.
+It is **not tied to one language**: commands detect Node, Python, Rust, Go, and
+Make-based projects out of the box, and permissions cover those toolchains.
+Other stacks (Solidity/Foundry, Elixir, Zig, …) still work — Claude figures out
+the commands — but for the smoothest ride add your toolchain to the
+`settings.json` allowlist and the detection lists in `/dev`, `/cleanup`, and
+`/deploy` (each is a small markdown edit).
 
 It also runs inside a **Dev Container** — a reproducible, network-restricted
 sandbox. See [Dev Container](#dev-container) below.
 
 > **New here? Start with [`.claude/README.md`](.claude/README.md)** — it explains
 > the whole harness (hooks, subagents, commands, memory, state files) in plain
-> language for medium-skilled devs.
+> language, no prior Claude Code experience assumed.
 
 ## Contents
 
@@ -46,9 +51,11 @@ LICENSE                # MIT
 
 1. **Copy this repo** as the seed for your new project (or use it as a template).
 2. Open it in the dev container (VS Code: "Reopen in Container") or your own env.
-3. Run **`/init`** in Claude Code. It detects your stack and scaffolds
+3. Run **`/init`** in Claude Code. It offers to detach the boilerplate first
+   (`scripts/new-project.sh` — removes this README/LICENSE, resets state files,
+   drops the boilerplate's git history), then detects your stack and scaffolds
    `README.md`, `STATUS.md`, `CHANGELOG.md`, `.gitignore`, `.gitattributes`, and
-   `_planning/`, and initializes git.
+   `_planning/`. Then add your project's own `LICENSE`.
 4. Start building. Use `/status` and `/update-status` to track work, `/cleanup`
    before commits, and `/pr` to open pull requests.
 
@@ -92,8 +99,9 @@ first place to look.
 
 ## Conventions
 
-- **`CLAUDE.md`** holds only stable instructions. Current work lives in
-  `STATUS.md`, history in `CHANGELOG.md`, plans in `_planning/`.
+- **`CLAUDE.md`** holds only stable instructions. State files own one tense
+  each — `STATUS.md` = now, `_planning/backlog.md` = future (the only queue),
+  `CHANGELOG.md` = past — and items move between them, never copied.
 - **Atomic, conventional commits** (`feat:`, `fix:`, `docs:`, …) so any change can
   be reverted cleanly.
 - **Secrets never get committed** — `.env*`, `*.pem`, `*.key` are gitignored by

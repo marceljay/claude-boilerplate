@@ -1,24 +1,33 @@
 # Review Backlog
 
-Review the project backlog and upcoming work.
+Review the project backlog and upcoming work. `_planning/backlog.md` is the
+**only** queue of future work — STATUS.md tracks only what's already in
+flight, so never treat it as a backlog source.
 
 ## Steps
 
-1. Check for backlog in this priority order:
-   - `_planning/backlog.md`
-   - `_planning/sprint.md`
-   - `STATUS.md` (the "Up Next" section)
-   - GitHub Issues (run `gh issue list --limit 20` if the above don't exist)
+1. Read `_planning/backlog.md`. If it doesn't exist, check `_planning/sprint.md`
+   and GitHub Issues (`gh issue list --limit 20`) for material, then offer to
+   create `backlog.md` from what you find or from the user's input:
+
+   ```markdown
+   # Backlog
+
+   ## High Priority
+
+   ## Medium Priority
+
+   ## Low Priority / Ideas
+   ```
 
 2. Present the backlog organized by priority:
-   - **Current Sprint** — what's committed for this cycle
-   - **High Priority** — should be done soon
+   - **High Priority** — should be done soon; the top item is "next up"
    - **Medium Priority** — planned but not urgent
    - **Low Priority / Ideas** — nice to have
 
-3. If the user asks to reprioritize, update the source file accordingly.
-
-4. If no backlog exists anywhere, offer to create `_planning/backlog.md` from the user's input or by scanning STATUS.md and GitHub Issues.
+3. If the user asks to reprioritize, update the file accordingly. When work
+   starts on an item, it moves to STATUS.md "In Progress" (delete it here —
+   move, never copy).
 
 ---
 

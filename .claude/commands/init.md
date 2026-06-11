@@ -4,6 +4,15 @@ Scaffold the standard file structure for a new project.
 
 ## Steps
 
+0. If this copy hasn't been detached from the boilerplate yet
+   (`scripts/new-project.sh` still exists), offer to run it first — it removes
+   the boilerplate's README/LICENSE, resets the state files, drops the
+   boilerplate's git history (default; `--keep-git` retains it), and deletes
+   itself. Example:
+   ```sh
+   bash scripts/new-project.sh -y
+   ```
+
 1. Detect project context:
    - Determine the tech stack and project name from whatever manifest exists:
      `package.json` (Node), `pyproject.toml`/`requirements.txt` (Python),
@@ -19,6 +28,9 @@ Scaffold the standard file structure for a new project.
    *.key
    .DS_Store
    Thumbs.db
+
+   # Raw session transcripts — host-disk backup only, may contain tool output/secrets
+   _planning/transcripts-backup/
    ```
    Then add entries for the **detected stack**, e.g.:
    - Node: `node_modules/`, `dist/`, `.next/`, `.vercel/`
@@ -31,7 +43,8 @@ Scaffold the standard file structure for a new project.
    * text=auto
    ```
 
-   **`STATUS.md`**:
+   **`STATUS.md`** — the present tense only (future → `_planning/backlog.md`,
+   past → `CHANGELOG.md`):
    ```markdown
    # Project Status
 
@@ -43,10 +56,7 @@ Scaffold the standard file structure for a new project.
    ## Blockers
    _None_
 
-   ## Up Next
-   - [ ] Initial project setup
-
-   ## Recently Completed
+   Next: top of `_planning/backlog.md`.
    ```
 
    **`CHANGELOG.md`**:
@@ -71,11 +81,12 @@ Scaffold the standard file structure for a new project.
    - Deployment info if detectable
 
    **`_planning/`** directory with:
-   - `backlog.md` — empty template:
+   - `backlog.md` — the only queue of future work:
      ```markdown
      # Backlog
 
      ## High Priority
+     - Initial project setup
 
      ## Medium Priority
 
@@ -102,6 +113,10 @@ Scaffold the standard file structure for a new project.
    See `STATUS.md` for current work and `CHANGELOG.md` for completed milestones.
    ```
    If CLAUDE.md already exists, just ensure it has the STATUS.md/CHANGELOG.md reference line.
+
+   Then ask the user which commit policy they want — on request only /
+   automatically at milestones / periodically — and record it in CLAUDE.md as
+   `Commit policy: on-request | milestones | periodic`.
 
 3. Initialize git if not already a repo (`git init`).
 

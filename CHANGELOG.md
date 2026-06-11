@@ -6,8 +6,18 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Added
+- `scripts/new-project.sh` — one-shot detach script for new projects: renames
+  README → BOILERPLATE.md, removes the boilerplate LICENSE, resets state files,
+  re-inits git (default; `--keep-git` retains history), then deletes itself.
+  `/init` offers to run it when the copy is still undetached.
+- `/backup-memory` command — mirrors auto-memory (committed) and raw session
+  transcripts (gitignored) into `_planning/` as a failsafe against Docker
+  volume loss.
+- Per-project commit policy: CLAUDE.md now asks once
+  (on-request / milestones / periodic) and records the answer; `/init` asks
+  during scaffolding. This repo: milestones.
 - `.claude/README.md` — plain-language guide to the harness (hooks, subagents,
-  commands, memory, state files) for medium-skilled devs.
+  commands, memory, state files); no prior Claude Code experience assumed.
 - `explore` and `review` subagents (`.claude/agents/`) to keep heavy reading and
   diff review out of the main context window.
 - Real `PreCompact` hook script (`.claude/hooks/save-context.sh`) that writes a
@@ -19,6 +29,11 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   documenting the firewall allowlist and container settings.
 
 ### Changed
+- State files now own one tense each (STATUS.md = now, `_planning/backlog.md` =
+  future, CHANGELOG.md = past); items move between files, never copied.
+  Dropped STATUS.md's "Up Next"/"Recently Completed" sections; `/log` only asks
+  about releases when the user hints at one. (Field-tested in
+  shark-attack-atlas, 2026-06-11.)
 - Trimmed `CLAUDE.md` ~47% (965 → 514 words); moved verbose procedures to `/init`
   and `.claude/README.md`, named the new subagents.
 - Made `/cleanup`, `/dev`, `/deploy`, and `/init` stack-detecting instead of

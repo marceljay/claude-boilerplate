@@ -1,6 +1,8 @@
 # Update Project Status
 
-Update `STATUS.md` to reflect current project state. The user may provide specific updates, or you may infer from recent work.
+Update `STATUS.md` to reflect what is in flight **right now**. STATUS.md owns
+the present only — queued work lives in `_planning/backlog.md`, finished work
+in `CHANGELOG.md`. An item moves between these files; it is never copied.
 
 ## Steps
 
@@ -12,25 +14,28 @@ Update `STATUS.md` to reflect current project state. The user may provide specif
 Last updated: YYYY-MM-DD HH:MM
 
 ## In Progress
-- [ ] Item description
+_None_
 
 ## Blockers
 _None_
 
-## Up Next
-- [ ] Item description
-
-## Recently Completed
-- [x] Item description (YYYY-MM-DD HH:MM)
+Next: top of `_planning/backlog.md`.
 ```
 
 2. Apply the user's updates:
-   - Move completed items from "In Progress" to "Recently Completed" with date and time (YYYY-MM-DD HH:MM)
-   - Add new items to the appropriate section
-   - Update the "Last updated" timestamp with date and time
-   - Keep "Recently Completed" trimmed to the last 10 items. Older ones belong in CHANGELOG.md
+   - "In Progress" holds at most ~3 truly active items. Starting something new
+     means pulling it from the top of `_planning/backlog.md` and deleting it
+     there — move, never copy.
+   - When an item completes: remove it from "In Progress" and add the
+     `CHANGELOG.md` entry (the `/log` flow) **in the same edit**. There is no
+     "Recently Completed" parking lot.
+   - "Blockers" is for items stuck on input or external events; name what
+     unblocks them.
+   - Update the "Last updated" timestamp (YYYY-MM-DD HH:MM).
 
-Do NOT put any of this information in CLAUDE.md.
+Do NOT put any of this in CLAUDE.md, and never add an "Up Next" or "Recently
+Completed" section to STATUS.md — the future belongs to backlog.md, the past
+to CHANGELOG.md.
 
 ---
 

@@ -138,6 +138,24 @@ they're just markdown with a numbered list of steps.
 To add one: create `commands/foo.md`, write the instructions, and it's available
 as `/foo`. No restart needed.
 
+### Slash commands vs. Skills
+
+Claude Code also has a **Skills** feature, and the two are easy to confuse:
+
+| | Slash command (`commands/*.md`) | Skill (`.claude/skills/<name>/SKILL.md`) |
+|---|---|---|
+| Invoked by | **you**, explicitly typing `/name` | **Claude**, automatically, when your request matches the skill's `description` |
+| Best for | procedures *you* decide to run (release, PR, status) | capabilities Claude should reach for on its own (e.g. "always lint Terraform this way") |
+| Extra files | just the one `.md` | can bundle scripts, templates, reference docs in the skill folder |
+
+They're complementary — a command is a manual button, a skill is an
+auto-trigger. This boilerplate ships **only slash commands** because its
+procedures are ones you choose to run; if you have a capability Claude should
+apply unprompted, add a skill folder with a `SKILL.md` (its `description`
+frontmatter is what Claude matches against). Subagents (§4) are a third, separate
+thing — a *whole separate Claude* you delegate a task to, not an instruction set
+spliced into the current turn.
+
 ---
 
 ## 4. `agents/` — subagents (the biggest usage-saver)

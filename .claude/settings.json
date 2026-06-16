@@ -60,6 +60,16 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/first-run-check.sh"
+          }
+        ]
+      }
     ]
   }
 }

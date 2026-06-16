@@ -59,6 +59,13 @@ LICENSE                # MIT
 4. Start building. Use `/status` and `/update-status` to track work, `/cleanup`
    before commits, and `/pr` to open pull requests.
 
+**Tip: for anything non-trivial, start in Plan Mode.** Press **Shift+Tab** to
+cycle the input mode (normal → auto-accept → **plan**), or launch with
+`claude --permission-mode plan`. In Plan Mode Claude researches and proposes a
+plan *without editing files* until you approve it; on approval it saves the plan
+to `_planning/plans/YYYY-MM-DD-name.md` and starts work. Good for features,
+refactors, or anything you'd want to review before code changes.
+
 New to how any of this works? Read [`.claude/README.md`](.claude/README.md) — it
 explains hooks, subagents, commands, and the state-file convention in plain terms.
 

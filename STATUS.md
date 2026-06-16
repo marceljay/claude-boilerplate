@@ -3,9 +3,10 @@
 Last updated: 2026-06-16
 
 ## In Progress
-- Backlog sweep: container-awareness (dev server/ports), memory-location
-  contradiction, first-run onboarding, doc clarity (concise rule, Plan Mode,
-  Skills). Working on `feat/state-file-tenses-and-tooling`.
+- Backlog sweep nearly done on `feat/state-file-tenses-and-tooling`: all
+  high-priority items shipped. Remaining: 2 medium `PostToolUse` items
+  (auto-format / lint-on-edit) — pending a decision on whether to ship by
+  default.
 
 ## Blockers
 _None_

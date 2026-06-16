@@ -6,6 +6,12 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Added
+- First-run onboarding: a `SessionStart` hook (`first-run-check.sh`) detects an
+  un-detached boilerplate copy and reminds the user to run `/init` (which offers
+  to remove the template README/LICENSE and reset git history).
+- Docs: how to enter Plan Mode (Shift+Tab / `--permission-mode plan`) in the
+  root README; a "slash commands vs. Skills vs. subagents" comparison in
+  `.claude/README.md` §3.
 - `scripts/new-project.sh` — one-shot detach script for new projects: renames
   README → BOILERPLATE.md, removes the boilerplate LICENSE, resets state files,
   re-inits git (default; `--keep-git` retains history), then deletes itself.
@@ -42,6 +48,8 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   stale "ships no agents yet" note (`explore`/`review` do ship).
 
 ### Changed
+- Clarified the "Be concise" communication rule so it isn't read as "never
+  explain" — keep preamble short, but still explain longer shell commands.
 - State files now own one tense each (STATUS.md = now, `_planning/backlog.md` =
   future, CHANGELOG.md = past); items move between files, never copied.
   Dropped STATUS.md's "Up Next"/"Recently Completed" sections; `/log` only asks

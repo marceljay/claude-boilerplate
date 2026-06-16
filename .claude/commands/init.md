@@ -118,9 +118,16 @@ Scaffold the standard file structure for a new project.
    automatically at milestones / periodically — and record it in CLAUDE.md as
    `Commit policy: on-request | milestones | periodic`.
 
-3. Initialize git if not already a repo (`git init`).
+3. Rename the dev container to this project. If `.devcontainer/devcontainer.json`
+   still has `"name": "Claude Boilerplate Repo"` (the boilerplate default),
+   replace it with the project name. This is also the signal the first-run
+   SessionStart hook uses to detect an un-detached copy, so renaming it stops
+   that nudge. (`scripts/new-project.sh` already does this on detach; do it here
+   for copies that skipped the script.)
 
-4. Report what was created, listing each file.
+4. Initialize git if not already a repo (`git init`).
+
+5. Report what was created, listing each file.
 
 ---
 

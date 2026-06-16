@@ -88,6 +88,13 @@ container is a safer place for it to work than your host machine.
 | `devcontainer.json` | Editor setup (ESLint, Prettier, GitLens, format-on-save), zsh as default shell, persistent bash history + `~/.claude` config via named volumes, and the `NET_ADMIN`/`NET_RAW` capabilities the firewall needs. |
 | `init-firewall.sh` | A **default-deny network firewall**, run on container start. |
 
+> **Rename the container for your project.** The `"name"` in `devcontainer.json`
+> ships as `"Claude Boilerplate Repo"`. Change it to your project's name — it
+> labels the container in Docker/VS Code (handy when several of these run in
+> parallel), and the default name is what the first-run hook keys off to detect a
+> copy that hasn't been set up yet. `/init` and `scripts/new-project.sh` rename it
+> for you; if you set things up by hand, change it yourself.
+
 ### The firewall (`init-firewall.sh`)
 
 On startup the container locks down outbound network traffic to a small

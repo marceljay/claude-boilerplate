@@ -7,8 +7,11 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 - First-run onboarding: a `SessionStart` hook (`first-run-check.sh`) detects an
-  un-detached boilerplate copy and reminds the user to run `/init` (which offers
-  to remove the template README/LICENSE and reset git history).
+  un-detached boilerplate copy — by the dev container still carrying the default
+  `"name": "Claude Boilerplate Repo"` — and reminds the user to run `/init`
+  (which offers to remove the template README/LICENSE and reset git history).
+  `/init` and `scripts/new-project.sh` rename the container to the project, which
+  also turns the nudge off; the README advises renaming it.
 - Docs: how to enter Plan Mode (Shift+Tab / `--permission-mode plan`) in the
   root README; a "slash commands vs. Skills vs. subagents" comparison in
   `.claude/README.md` §3.

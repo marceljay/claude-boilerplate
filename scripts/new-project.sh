@@ -43,6 +43,16 @@ TODAY="$(date +%F)"
 [ -f README.md ] && mv README.md BOILERPLATE.md
 [ -f LICENSE ] && rm LICENSE
 
+# Rename the dev container from the boilerplate default to this project's folder
+# name. The default name ("Claude Boilerplate Repo") is what the first-run hook
+# keys off to detect an un-detached copy, so renaming it also turns that nudge off.
+PROJECT_NAME="$(basename "$(pwd)")"
+dc=".devcontainer/devcontainer.json"
+if [ -f "$dc" ]; then
+  sed -i.bak "s/\"name\": \"Claude Boilerplate Repo\"/\"name\": \"${PROJECT_NAME}\"/" "$dc"
+  rm -f "$dc.bak"
+fi
+
 cat > STATUS.md <<EOF
 # Project Status
 
@@ -91,7 +101,9 @@ echo
 echo "Done. Next steps:"
 echo "  1. Run /init in Claude Code to scaffold README.md etc. for your stack."
 echo "  2. Add a LICENSE for your project."
-echo "  3. Harness docs remain in .claude/README.md; dev-container docs in BOILERPLATE.md."
+echo "  3. Dev container renamed to \"${PROJECT_NAME}\" — reopen/rebuild the"
+echo "     container so VS Code picks up the new name."
+echo "  4. Harness docs remain in .claude/README.md; dev-container docs in BOILERPLATE.md."
 
 # Self-remove: this script is one-shot boilerplate, not part of your project.
 rm -- "$0"

@@ -51,6 +51,9 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   stale "ships no agents yet" note (`explore`/`review` do ship).
 
 ### Changed
+- `/init` now asks whether to commit or gitignore the `.claude/` and
+  `.devcontainer/` dirs before the first commit — committing shares the setup,
+  but on a public repo it exposes your instructions/workflow/permissions.
 - Clarified the "Be concise" communication rule so it isn't read as "never
   explain" — keep preamble short, but still explain longer shell commands.
 - State files now own one tense each (STATUS.md = now, `_planning/backlog.md` =

@@ -38,6 +38,27 @@ Scaffold the standard file structure for a new project.
    - Rust: `target/`
    - Go: built binaries / `bin/`
 
+   **Ask about the Claude/dev-tooling dirs.** The `.claude/` harness (your
+   CLAUDE.md, commands, agents, hooks, permissions) and `.devcontainer/` config
+   are tracked by default — committing them shares the setup with collaborators,
+   but on a **public** repo it also exposes your instructions, workflow, and
+   permission rules to anyone. Ask the user which they want **before the first
+   commit** (this is the moment to decide, since `/init` runs on a fresh git
+   history):
+   - **Commit them (default, recommended for teams/private repos)** — leave them
+     tracked; the harness travels with the repo.
+   - **Keep them local (recommended if the repo is/*will be* public and the setup
+     is personal)** — add to `.gitignore`:
+     ```
+     # Claude Code harness + dev container — local only, not shared/published
+     .claude/
+     .devcontainer/
+     ```
+     Note this also keeps them out of collaborators' clones. (`settings.local.json`
+     is already ignored regardless.) If the dirs were already committed in a prior
+     history, also run `git rm -r --cached .claude .devcontainer` so the ignore
+     takes effect.
+
    **`.gitattributes`**:
    ```
    * text=auto

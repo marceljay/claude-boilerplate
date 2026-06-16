@@ -28,6 +28,14 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - Dev Container section in `README.md` explaining what dev containers are and
   documenting the firewall allowlist and container settings.
 
+### Fixed
+- Memory-location docs were contradictory: README/`/remember` implied a repo
+  `memory/` folder, but live memory lives in
+  `$CLAUDE_CONFIG_DIR/projects/<repo>/memory/` (a Docker volume in dev
+  containers), with only the `_planning/memory-backup/` snapshot in the repo.
+  Clarified across `.claude/README.md` and `/remember`. Also corrected §4's
+  stale "ships no agents yet" note (`explore`/`review` do ship).
+
 ### Changed
 - State files now own one tense each (STATUS.md = now, `_planning/backlog.md` =
   future, CHANGELOG.md = past); items move between files, never copied.

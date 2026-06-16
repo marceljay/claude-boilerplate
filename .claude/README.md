@@ -11,7 +11,7 @@ This README explains each piece in plain terms so you can edit it confidently.
 > | Permissions & hooks | `settings.json` | Session start | The harness |
 > | Slash commands | `commands/*.md` | When you type `/name` | Claude reads it |
 > | Subagents | `agents/*.md` | When delegated to | A separate Claude |
-> | Memory | `memory/*.md` | Recalled on relevance | Claude reads it |
+> | Memory | `$CLAUDE_CONFIG_DIR/projects/<repo>/memory/*.md` | Recalled on relevance | Claude reads it |
 
 ## Contents
 
@@ -21,7 +21,7 @@ This README explains each piece in plain terms so you can edit it confidently.
   - [`hooks` — the part you asked about](#hooks--the-part-you-asked-about)
 - [3. `commands/` — slash commands](#3-commands--slash-commands)
 - [4. `agents/` — subagents (the biggest usage-saver)](#4-agents--subagents-the-biggest-usage-saver)
-- [5. `memory/` — persistent facts across sessions](#5-memory--persistent-facts-across-sessions)
+- [5. Memory — persistent facts across sessions](#5-memory--persistent-facts-across-sessions)
 - [6. How the project-state files relate (set by `CLAUDE.md`)](#6-how-the-project-state-files-relate-set-by-claudemd)
 - [7. `.devcontainer/` (sibling folder, not under `.claude/`)](#7-devcontainer-sibling-folder-not-under-claude)
 - [Editing cheatsheet](#editing-cheatsheet)
@@ -166,24 +166,38 @@ You are a code exploration agent. Search thoroughly, read only what's needed,
 and return a concise answer with file:line references. Do not modify files.
 ```
 
-Save that as `agents/explore.md` and the main Claude can delegate to it. Good
-default agents for almost any project:
+Save that as `agents/explore.md` and the main Claude can delegate to it.
 
-- **explore / search** — read-only fan-out searches (keeps main context lean).
-- **reviewer** — reviews a diff for bugs; returns a findings list.
+This boilerplate ships two by default — the highest-impact change for the
+"reduce usage" goal:
 
-> This boilerplate doesn't ship any agents yet — adding an `explore` agent is the
-> single highest-impact change for the "reduce usage" goal.
+- **`explore`** — read-only fan-out searches ("where is X", "how does Y work");
+  keeps heavy reading out of the main context.
+- **`review`** — reviews a diff for bugs; returns a prioritized findings list.
 
 ---
 
-## 5. `memory/` — persistent facts across sessions
+## 5. Memory — persistent facts across sessions
 
 A place for Claude to write durable notes (one fact per file) that survive
 `/clear` and compaction. An index file (`MEMORY.md`) lists them so Claude knows
 what's available. Use it for project facts that aren't obvious from the code —
 decisions, constraints, "why we did it this way." Not for TODOs (those go in
 `STATUS.md`) and never for secrets.
+
+**Where it lives — *not* in this repo.** Memory is stored in Claude's config
+directory, namespaced per project:
+`$CLAUDE_CONFIG_DIR/projects/<repo-path-with-slashes-as-dashes>/memory/`
+(e.g. `/home/node/.claude/projects/-workspace/memory/`). The repo's working
+tree never contains a live `memory/` folder — only the cold snapshot at
+`_planning/memory-backup/` (§6) does.
+
+**Why that matters in a dev container.** `$CLAUDE_CONFIG_DIR` is a *named Docker
+volume* (`claude-code-config-…`, see `.devcontainer/devcontainer.json`), not the
+host disk. It survives container rebuilds but is wiped by `docker volume prune`,
+a Docker Desktop reset, or a `devcontainerId` change. That's exactly why
+**`/backup-memory`** mirrors it into the bind-mounted repo at
+`_planning/memory-backup/` — the only copy that lives on your host disk.
 
 ---
 
@@ -226,4 +240,4 @@ environment, not day-to-day.
 | Make something happen automatically on an event | `settings.json` → `hooks` |
 | Add a reusable `/procedure` | new file in `commands/` |
 | Offload heavy reading to save context | new file in `agents/` |
-| Record a durable project fact | `memory/` + index in `MEMORY.md` |
+| Record a durable project fact | use `/remember` (writes to Claude's config-dir memory, not the repo) |

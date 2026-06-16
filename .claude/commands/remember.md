@@ -22,7 +22,9 @@ Save a global preference or behavior based on the user's natural language descri
    - "use tabs not spaces"
    - Any preference about how Claude should work, communicate, or make decisions
 
-   **Project memory** (goes in the current project's `memory/MEMORY.md`):
+   **Project memory** (goes in Claude's config-dir memory for this project —
+   `$CLAUDE_CONFIG_DIR/projects/<repo-slug>/memory/`, *not* a folder in the
+   repo; one fact per file plus a `MEMORY.md` index entry):
    - "this project uses port 4000"
    - "the API is at /v2 not /v1"
    - Any fact specific to the current project, not global
@@ -35,7 +37,9 @@ Save a global preference or behavior based on the user's natural language descri
 3. Save it to the appropriate file:
    - **settings.json**: Add to the `permissions.allow` array
    - **CLAUDE.md**: Append under the most relevant existing section, or create a new `## User Preferences` section if none fits
-   - **memory/MEMORY.md**: Append under a relevant heading or create one
+   - **Project memory**: write the fact as one file in the config-dir `memory/`
+     directory and add a one-line pointer to its `MEMORY.md` index (run
+     `/backup-memory` afterwards if you want it mirrored into the repo)
 
 4. Confirm: "Saved to [file]. This will persist across all future sessions."
 

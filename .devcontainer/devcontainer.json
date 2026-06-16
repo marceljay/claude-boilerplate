@@ -1,5 +1,5 @@
 {
-  "name": "Claude Code Sandbox",
+  "name": "Claude Boilerplate Repo",
   "build": {
     "dockerfile": "Dockerfile",
     "args": {
@@ -54,6 +54,12 @@
   },
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
+  // No `forwardPorts`: dev-server ports are auto-forwarded dynamically, so the
+  // editor picks a free *host* port for each container. This is what lets you
+  // run several of these containers in parallel without them fighting over the
+  // same host port — don't hardcode a host port here or in your dev server
+  // (bind it to 0.0.0.0 so the forward works). See .claude/README.md §7.
+  "otherPortsAttributes": { "onAutoForward": "notify" },
   "postStartCommand": "sudo /usr/local/bin/init-firewall.sh",
   "waitFor": "postStartCommand"
 }

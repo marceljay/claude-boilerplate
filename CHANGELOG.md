@@ -29,6 +29,11 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   documenting the firewall allowlist and container settings.
 
 ### Fixed
+- Container-awareness for dev servers/ports: Claude now knows it runs in the
+  dev container (new `CLAUDE.md` Runtime note), `/dev` binds `0.0.0.0`, runs the
+  server in the background, and surfaces the forwarded URL instead of opening a
+  browser; `devcontainer.json` documents the dynamic port-forward that lets
+  parallel containers coexist; README §7 explains bind-mount vs volume and ports.
 - Memory-location docs were contradictory: README/`/remember` implied a repo
   `memory/` folder, but live memory lives in
   `$CLAUDE_CONFIG_DIR/projects/<repo>/memory/` (a Docker volume in dev

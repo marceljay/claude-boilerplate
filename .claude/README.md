@@ -229,6 +229,24 @@ Defines the sandboxed Docker environment Claude runs in: the image
 (`devcontainer.json`). You generally only touch this when changing the runtime
 environment, not day-to-day.
 
+**What "running in a container" actually means** (Claude is told this in
+`CLAUDE.md` too, since it trips people up):
+
+- **Two kinds of storage.** `/workspace` is a **bind mount** — the same files on
+  your host disk, so edits and commits land directly in your repo.
+  `/home/node/.claude` (`$CLAUDE_CONFIG_DIR`) is a **named Docker volume** — it
+  persists across rebuilds but is *not* on the host disk, so `docker volume
+  prune` / a Docker Desktop reset / a `devcontainerId` change wipes it. Memory
+  (§5) and session history live there; `/backup-memory` is the failsafe.
+- **No host browser, and ports are forwarded, not shared.** A dev server must
+  bind `0.0.0.0` (not `127.0.0.1`) to be reachable from the host. There's no
+  `forwardPorts` pinned, so the editor **auto-forwards each container port to a
+  free host port** — the host port may differ from the container port, and that
+  dynamic assignment is exactly what lets several of these containers run in
+  parallel without colliding. Don't hardcode a host port, and don't try to open
+  a browser from inside the container — surface the URL and let the user open it
+  from the editor's **Ports** panel. (`/dev` follows this.)
+
 ---
 
 ## Editing cheatsheet

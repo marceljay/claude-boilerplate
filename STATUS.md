@@ -1,9 +1,11 @@
 # Project Status
 
-Last updated: 2026-06-11
+Last updated: 2026-06-16
 
 ## In Progress
-_None — boilerplate is in a clean, committed state._
+- Backlog sweep: container-awareness (dev server/ports), memory-location
+  contradiction, first-run onboarding, doc clarity (concise rule, Plan Mode,
+  Skills). Working on `feat/state-file-tenses-and-tooling`.
 
 ## Blockers
 _None_

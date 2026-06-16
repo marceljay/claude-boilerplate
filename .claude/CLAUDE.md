@@ -3,9 +3,18 @@
 These load on every message — keep them lean. How the harness works (hooks,
 agents, commands, state files) is documented in `.claude/README.md`.
 
+## Runtime
+You usually run inside the project's dev container (detect with `/.dockerenv` or
+`$REMOTE_CONTAINERS`/`$DEVCONTAINER`): `/workspace` is bind-mounted from the host,
+`~/.claude` is a Docker volume, and there is **no host browser**. Dev/web servers
+must bind `0.0.0.0` (not `127.0.0.1`) to be reachable, and the editor auto-forwards
+to a host port that may differ from the container port — never assume a fixed one,
+and don't try to `open`/`xdg-open` a browser. Print the URL and let the user open
+it. Details: `.claude/README.md` §7.
+
 ## Communication Style
-- Be concise. Skip preamble; don't narrate what you're about to do. Show results
-  and summarize what changed.
+- Be concise. Skip long preamble; don't narrate much what you're about to do. Show results
+  and summarize what changed. If you're building longer shell prompts, explain briefly what they do.
 
 ## Token Optimization
 - Read files with targeted line ranges (`offset`/`limit`), not whole files.

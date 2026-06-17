@@ -148,7 +148,13 @@ Scaffold the standard file structure for a new project.
 
 4. Initialize git if not already a repo (`git init`).
 
-5. Report what was created, listing each file.
+5. Report what was created, listing each file. Also point out the **bundled skills**
+   in `.claude/skills/` (`test-driven-development`, `systematic-debugging`,
+   `using-superpowers`): they need no install — Claude Code auto-discovers them and
+   invokes the matching one on its own. Mention they can delete any folder they
+   don't want (especially `using-superpowers`, which makes Claude reach for skills
+   aggressively), and that the full upstream set is available via the Superpowers
+   plugin instead. See `.claude/skills/ATTRIBUTION.md`.
 
 ---
 

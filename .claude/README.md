@@ -149,12 +149,23 @@ Claude Code also has a **Skills** feature, and the two are easy to confuse:
 | Extra files | just the one `.md` | can bundle scripts, templates, reference docs in the skill folder |
 
 They're complementary — a command is a manual button, a skill is an
-auto-trigger. This boilerplate ships **only slash commands** because its
-procedures are ones you choose to run; if you have a capability Claude should
-apply unprompted, add a skill folder with a `SKILL.md` (its `description`
-frontmatter is what Claude matches against). Subagents (§4) are a third, separate
-thing — a *whole separate Claude* you delegate a task to, not an instruction set
-spliced into the current turn.
+auto-trigger. The slash commands here are procedures you choose to run; the
+**bundled skills** in `.claude/skills/` are capabilities Claude reaches for on its
+own. Three ship vendored from Jesse Vincent's [Superpowers](https://github.com/obra/superpowers)
+collection (MIT — see `.claude/skills/ATTRIBUTION.md`):
+
+- **`using-superpowers`** — teaches Claude to check for and invoke a relevant skill
+  before responding.
+- **`test-driven-development`** — red-green-refactor discipline (write the failing
+  test first).
+- **`systematic-debugging`** — find the root cause before proposing any fix.
+
+Add your own by dropping a folder with a `SKILL.md` here (its `description`
+frontmatter is what Claude matches against). For the full, auto-updating Superpowers
+set instead of these vendored copies, install the plugin (`/plugin marketplace add
+obra/superpowers-marketplace`). Subagents (§4) are a third, separate thing — a
+*whole separate Claude* you delegate a task to, not an instruction set spliced into
+the current turn.
 
 ---
 

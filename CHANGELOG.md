@@ -6,6 +6,12 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Added
+- Bundled skills in `.claude/skills/`, vendored from Jesse Vincent's Superpowers
+  collection (MIT, attribution in `.claude/skills/ATTRIBUTION.md`):
+  `using-superpowers` (invoke a relevant skill before responding),
+  `test-driven-development` (red-green-refactor), and `systematic-debugging`
+  (root-cause-first). Only the Claude Code platform reference is vendored from
+  `using-superpowers`; `/plugin install superpowers@…` gets the full upstream set.
 - First-run onboarding: a `SessionStart` hook (`first-run-check.sh`) detects an
   un-detached boilerplate copy — by the dev container still carrying the default
   `"name": "Claude Boilerplate Repo"` — and reminds the user to run `/init`

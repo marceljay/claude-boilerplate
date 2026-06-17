@@ -66,13 +66,17 @@ All actions are auto-approved, so:
 - Never write secrets to any CLAUDE.md or memory file.
 
 ## Preference Persistence
-When offering a session-scoped Yes/No, add a third option to save globally, and
+When offering a session-scoped Yes/No, add a third option to persist it, and
 recommend it (session-only prefs are lost on `/clear` and compaction):
 ```
-1. Yes   2. Yes, always (session)   3. Yes, always (save globally)
+1. Yes   2. Yes, always (session)   3. Yes, always (persist)
 ```
-On option 3: behavioral prefs → append to `~/.claude/CLAUDE.md`; tool permissions
-→ add to `~/.claude/settings.json` under `permissions.allow`.
+On option 3, pick the target by environment. In a dev container `~/.claude/` is a
+per-container volume (lost on rebuild, not shared across projects), so persist to
+the bind-mounted `/workspace`: behavioral prefs → project `.claude/CLAUDE.md`;
+tool permissions → `.claude/settings.local.json` (per-dev, gitignored) or
+`.claude/settings.json` if shared. On the host: `~/.claude/CLAUDE.md` and
+`~/.claude/settings.json`. See `/remember` for the full routing table.
 
 ## Project State
 CLAUDE.md is for stable instructions only — no TODOs, changelogs, or status here.

@@ -51,6 +51,11 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   stale "ships no agents yet" note (`explore`/`review` do ship).
 
 ### Changed
+- `/remember` (and CLAUDE.md's Preference Persistence) are now dev-container-aware:
+  `~/.claude/` is a per-container volume there (lost on rebuild, not shared across
+  projects), so "global" prefs now persist to the bind-mounted `/workspace` —
+  permissions → `.claude/settings.local.json` (per-dev) or `.claude/settings.json`
+  (shared), behavioral prefs → project `.claude/CLAUDE.md`. Host behavior unchanged.
 - `/init` now asks whether to commit or gitignore the `.claude/` and
   `.devcontainer/` dirs before the first commit — committing shares the setup,
   but on a public repo it exposes your instructions/workflow/permissions.

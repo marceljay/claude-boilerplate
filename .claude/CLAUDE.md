@@ -87,7 +87,9 @@ completion record). `/init` scaffolds these; see `.claude/README.md` §6.
 Read STATUS.md and skim `_planning/backlog.md` alongside CLAUDE.md at session
 start. Manage via `/status`, `/update-status`, `/log`, `/backlog`, `/plans`.
 On exiting Plan Mode, save the plan to `_planning/plans/YYYY-MM-DD-name.md`
-with checkboxed steps.
+with checkboxed steps. If a Superpowers skill (e.g. writing-plans, brainstorming)
+saves a plan or design/spec doc, route it to `_planning/plans/` and
+`_planning/specs/` — never create a `docs/superpowers/` directory.
 A cold memory snapshot lives at `_planning/memory-backup/` (`/backup-memory`
 refreshes it). Don't read it in normal work — only when memory seems missing or
 you need detail the live index lacks; `/backup-memory restore` after a volume wipe.

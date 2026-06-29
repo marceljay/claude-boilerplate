@@ -58,6 +58,10 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   stale "ships no agents yet" note (`explore`/`review` do ship).
 
 ### Changed
+- CLAUDE.md now routes Superpowers plan/spec output to `_planning/plans/` and
+  `_planning/specs/` instead of the plugin's default `docs/superpowers/` — so a
+  downstream project that installs the full Superpowers plugin keeps planning docs
+  in the boilerplate's `_planning/` convention.
 - `/remember` (and CLAUDE.md's Preference Persistence) are now dev-container-aware:
   `~/.claude/` is a per-container volume there (lost on rebuild, not shared across
   projects), so "global" prefs now persist to the bind-mounted `/workspace` —

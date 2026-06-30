@@ -13,6 +13,12 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   (root-cause-first). Only the Claude Code platform reference is vendored from
   `using-superpowers`; `/plugin install superpowers@…` gets the full upstream set.
   Surfaced in the root README and `/init`'s report — they auto-discover, no install.
+- Two more vendored skills: `writing-plans` and `brainstorming`, **modified from
+  upstream** — they *ask the user before starting* (upstream auto-fires brainstorming
+  and hard-gates all implementation until a design is approved), save to
+  `_planning/plans/` and `_planning/specs/` instead of `docs/superpowers/`, and the
+  browser-based "visual companion" is dropped (no host browser in the dev container).
+  `/init` now scaffolds `_planning/specs/`; modifications documented in ATTRIBUTION.md.
 - First-run onboarding: a `SessionStart` hook (`first-run-check.sh`) detects an
   un-detached boilerplate copy — by the dev container still carrying the default
   `"name": "Claude Boilerplate Repo"` — and reminds the user to run `/init`

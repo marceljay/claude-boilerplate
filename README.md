@@ -42,7 +42,7 @@ sandbox. See [Dev Container](#dev-container) below.
 ├── settings.json      # Permissions (allow/deny) + the PreCompact hook
 ├── commands/          # Slash commands: /init /cleanup /status /pr /deploy …
 ├── agents/            # Subagents: explore (read-only search), review (diff review)
-├── skills/            # Auto-invoked skills: TDD, systematic-debugging, using-superpowers
+├── skills/            # Auto-invoked skills: TDD, systematic-debugging, writing-plans, brainstorming, using-superpowers
 └── hooks/             # save-context.sh — runs automatically before compaction
 .devcontainer/         # Sandboxed Docker env + network firewall (see below)
 LICENSE                # MIT
@@ -51,12 +51,14 @@ LICENSE                # MIT
 **Bundled skills** (in `.claude/skills/`) work out of the box — Claude Code
 auto-discovers any `.claude/skills/<name>/SKILL.md` at session start and Claude
 invokes the matching one itself; there's nothing to install or call manually.
-Three ship vendored from [Superpowers](https://github.com/obra/superpowers)
+Five ship vendored from [Superpowers](https://github.com/obra/superpowers)
 (MIT — see `.claude/skills/ATTRIBUTION.md`): `test-driven-development`,
-`systematic-debugging`, and `using-superpowers` (which nudges Claude to reach for a
-relevant skill before answering). Delete a folder to remove that skill; install the
-Superpowers *plugin* instead if you'd rather track the full, auto-updating upstream
-set.
+`systematic-debugging`, `using-superpowers` (which nudges Claude to reach for a
+relevant skill before answering), plus `writing-plans` and `brainstorming`. The last
+two are modified from upstream to **ask before starting** (rather than auto-firing
+and blocking all coding until a design is approved) and to save plans/specs under
+`_planning/`. Delete a folder to remove that skill; install the Superpowers *plugin*
+instead if you'd rather track the full, unmodified, auto-updating upstream set.
 
 ## Getting started
 

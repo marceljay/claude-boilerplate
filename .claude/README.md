@@ -151,7 +151,7 @@ Claude Code also has a **Skills** feature, and the two are easy to confuse:
 They're complementary — a command is a manual button, a skill is an
 auto-trigger. The slash commands here are procedures you choose to run; the
 **bundled skills** in `.claude/skills/` are capabilities Claude reaches for on its
-own. Three ship vendored from Jesse Vincent's [Superpowers](https://github.com/obra/superpowers)
+own. Five ship vendored from Jesse Vincent's [Superpowers](https://github.com/obra/superpowers)
 collection (MIT — see `.claude/skills/ATTRIBUTION.md`):
 
 - **`using-superpowers`** — teaches Claude to check for and invoke a relevant skill
@@ -159,6 +159,15 @@ collection (MIT — see `.claude/skills/ATTRIBUTION.md`):
 - **`test-driven-development`** — red-green-refactor discipline (write the failing
   test first).
 - **`systematic-debugging`** — find the root cause before proposing any fix.
+- **`writing-plans`** — turn a spec into a bite-sized implementation plan (saved to
+  `_planning/plans/`).
+- **`brainstorming`** — turn an idea into a design/spec via dialogue (saved to
+  `_planning/specs/`).
+
+The last two are **modified from upstream**: they *ask before starting* (upstream
+auto-fires and blocks all coding until a design is approved), write to `_planning/`
+instead of `docs/superpowers/`, and drop the browser-based "visual companion."
+Details in `ATTRIBUTION.md`.
 
 Add your own by dropping a folder with a `SKILL.md` here (its `description`
 frontmatter is what Claude matches against). For the full, auto-updating Superpowers

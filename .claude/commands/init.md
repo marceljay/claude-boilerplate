@@ -113,7 +113,10 @@ Scaffold the standard file structure for a new project.
 
      ## Low Priority / Ideas
      ```
-   - `plans/` — empty directory (create with a `.gitkeep`)
+   - `plans/` — empty directory (create with a `.gitkeep`); the `writing-plans`
+     skill saves here
+   - `specs/` — empty directory (create with a `.gitkeep`); the `brainstorming`
+     skill saves design/spec docs here
 
    **`CLAUDE.md`** — if it doesn't exist, create a starter:
    ```markdown
@@ -150,9 +153,11 @@ Scaffold the standard file structure for a new project.
 
 5. Report what was created, listing each file. Also point out the **bundled skills**
    in `.claude/skills/` (`test-driven-development`, `systematic-debugging`,
-   `using-superpowers`): they need no install — Claude Code auto-discovers them and
-   invokes the matching one on its own. Mention they can delete any folder they
-   don't want (especially `using-superpowers`, which makes Claude reach for skills
+   `using-superpowers`, `writing-plans`, `brainstorming`): they need no install —
+   Claude Code auto-discovers them and invokes the matching one on its own.
+   `writing-plans`/`brainstorming` save to `_planning/plans/` and `_planning/specs/`
+   and ask before starting. Mention they can delete any folder they don't want
+   (especially `using-superpowers`, which makes Claude reach for skills
    aggressively), and that the full upstream set is available via the Superpowers
    plugin instead. See `.claude/skills/ATTRIBUTION.md`.
 

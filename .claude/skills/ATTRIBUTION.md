@@ -6,11 +6,27 @@ Jesse Vincent, so they ship with this boilerplate out of the box:
 - `using-superpowers/` — how to find and invoke skills (the "Superpowers" meta-skill)
 - `test-driven-development/` — red-green-refactor discipline (TDD)
 - `systematic-debugging/` — root-cause-first debugging
+- `writing-plans/` — turn a spec into a bite-sized implementation plan
+- `brainstorming/` — turn an idea into a design/spec via dialogue
+
+## Local modifications
+
+These vendored copies differ from upstream (changes © the boilerplate, same MIT):
+
+- **`writing-plans` and `brainstorming` are "ask-first."** Upstream auto-fires
+  brainstorming before any creative work and hard-gates all implementation until a
+  design is approved. Here both skills instead **ask the user whether to start**
+  and only gate once the user opts in — so a boilerplate user isn't forced into a
+  design interview for every small change.
+- **Output paths point at `_planning/`** (`_planning/plans/`, `_planning/specs/`)
+  instead of upstream's `docs/superpowers/…`, matching this repo's state-file layout.
+- **The `brainstorming` "visual companion"** (a browser/localhost-server feature) is
+  not vendored — this boilerplate's dev container has no host browser.
 
 Source: https://github.com/obra/superpowers (skills under `skills/`).
 Only the Claude Code platform reference is vendored from `using-superpowers`;
 upstream also ships Codex/Copilot/Gemini/Pi/Antigravity references and many more
-skills. To get the full, auto-updating set instead, install the plugin:
+skills. To get the full, unmodified, auto-updating set instead, install the plugin:
 
 ```
 /plugin marketplace add obra/superpowers-marketplace

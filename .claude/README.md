@@ -246,22 +246,26 @@ between homes (backlog → "In Progress" → CHANGELOG), deleted from the previo
 never copied.
 
 - **`CLAUDE.md`** — stable only (commands, architecture). Changes rarely.
-- **`STATUS.md`** (root) — the single **living** state file, with three sections:
+- **`_planning/STATUS.md`** — the single **living** state file, with three sections:
   - **In Progress** — ≤3 truly active items (_now_).
   - **Blockers** — anything stuck or waiting on input (_now_).
   - **Backlog** — the only queue of future work, priority-ordered; the top
     High-Priority item is "next up" (_future_).
-- **`CHANGELOG.md`** — _past_: the only completion record.
-- **`_planning/`** — saved plans (`plans/`), design specs (`specs/`), and a cold
-  memory snapshot (`memory-backup/`, written by `/backup-memory` as a failsafe
-  against Docker volume loss; read only on demand).
+  It's **gitignored by default** — your working status and backlog are private,
+  not pushed to a (possibly public) remote. `/init` asks per-project whether to
+  make it public (commit it) instead.
+- **`CHANGELOG.md`** — _past_: the only completion record, and the public one.
+- **`_planning/`** — also holds saved plans (`plans/`), design specs (`specs/`),
+  and a cold memory snapshot (`memory-backup/`, written by `/backup-memory` as a
+  failsafe against Docker volume loss; read only on demand).
 
 **Why the backlog lives inside STATUS.md** (not a separate `_planning/backlog.md`):
 a status file goes stale when "In Progress" drifts from reality. Putting the queue
 in the same file means you can't open it to grab the next item without seeing — and
 fixing — what's stale. One living file beats two that fall out of sync. `CHANGELOG.md`
 stays separate because the past grows unbounded and would bloat the live file.
-`/status` flags STATUS.md when its "Last updated" date goes cold.
+Two things flag staleness: a `SessionStart` hook prints STATUS.md's age at the top
+of each session when it goes cold, and `/status` checks its "Last updated" date.
 
 The other point: keep fast-changing stuff _out_ of `CLAUDE.md` so you're not paying
 to load this week's TODO list on every message.

@@ -5,7 +5,7 @@
 # scaffold real ones for *your* project:
 #   - README.md   -> renamed to BOILERPLATE.md (keeps dev-container/firewall docs)
 #   - LICENSE     -> removed (add your project's own)
-#   - CHANGELOG.md, STATUS.md, _planning/ -> reset to empty templates
+#   - CHANGELOG.md, _planning/STATUS.md, _planning/ -> reset to empty templates
 #
 # By default it also deletes .git and re-inits, so your project starts with
 # a clean history instead of the boilerplate's.
@@ -30,7 +30,7 @@ done
 echo "This will detach the boilerplate in: $(pwd)"
 echo "  - rename README.md -> BOILERPLATE.md"
 echo "  - delete LICENSE (add your own afterwards)"
-echo "  - reset CHANGELOG.md, STATUS.md, _planning/ to empty templates"
+echo "  - reset CHANGELOG.md and _planning/STATUS.md to empty templates"
 [ "$KEEP_GIT" -eq 0 ] && echo "  - DELETE .git and re-init (boilerplate history is dropped; --keep-git retains it)"
 if [ "$YES" -ne 1 ]; then
   printf "Continue? [y/N] "
@@ -53,7 +53,8 @@ if [ -f "$dc" ]; then
   rm -f "$dc.bak"
 fi
 
-cat > STATUS.md <<EOF
+mkdir -p _planning
+cat > _planning/STATUS.md <<EOF
 # Project Status
 
 Last updated: ${TODAY}
@@ -64,7 +65,17 @@ _None yet_
 ## Blockers
 _None_
 
-Next: top of \`_planning/backlog.md\`.
+---
+
+# Backlog
+
+_The only queue of future work, priority-ordered. Top High-Priority item = next up._
+
+## High Priority
+
+## Medium Priority
+
+## Low Priority / Ideas
 EOF
 
 cat > CHANGELOG.md <<'EOF'

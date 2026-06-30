@@ -67,6 +67,10 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/first-run-check.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/status-staleness-check.sh"
           }
         ]
       }

@@ -8,7 +8,9 @@
 set -euo pipefail
 
 ts="$(date '+%Y-%m-%d %H:%M')"
-status_file="STATUS.md"
+# STATUS.md is private-by-default at _planning/STATUS.md; fall back to repo root.
+status_file="_planning/STATUS.md"
+[[ -f "$status_file" ]] || status_file="STATUS.md"
 
 # Append a compaction marker so there's always a timestamped breadcrumb.
 if [[ -f "$status_file" ]]; then

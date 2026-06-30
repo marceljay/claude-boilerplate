@@ -6,6 +6,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Added
+
 - Bundled skills in `.claude/skills/`, vendored from Jesse Vincent's Superpowers
   collection (MIT, attribution in `.claude/skills/ATTRIBUTION.md`):
   `using-superpowers` (invoke a relevant skill before responding),
@@ -14,7 +15,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   `using-superpowers`; `/plugin install superpowers@…` gets the full upstream set.
   Surfaced in the root README and `/init`'s report — they auto-discover, no install.
 - Two more vendored skills: `writing-plans` and `brainstorming`, **modified from
-  upstream** — they *ask the user before starting* (upstream auto-fires brainstorming
+  upstream** — they _ask the user before starting_ (upstream auto-fires brainstorming
   and hard-gates all implementation until a design is approved), save to
   `_planning/plans/` and `_planning/specs/` instead of `docs/superpowers/`, and the
   browser-based "visual companion" is dropped (no host browser in the dev container).
@@ -51,6 +52,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   documenting the firewall allowlist and container settings.
 
 ### Fixed
+
 - Container-awareness for dev servers/ports: Claude now knows it runs in the
   dev container (new `CLAUDE.md` Runtime note), `/dev` binds `0.0.0.0`, runs the
   server in the background, and surfaces the forwarded URL instead of opening a
@@ -64,6 +66,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   stale "ships no agents yet" note (`explore`/`review` do ship).
 
 ### Changed
+
 - CLAUDE.md now routes Superpowers plan/spec output to `_planning/plans/` and
   `_planning/specs/` instead of the plugin's default `docs/superpowers/` — so a
   downstream project that installs the full Superpowers plugin keeps planning docs
@@ -78,17 +81,24 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   but on a public repo it exposes your instructions/workflow/permissions.
 - Clarified the "Be concise" communication rule so it isn't read as "never
   explain" — keep preamble short, but still explain longer shell commands.
-- Reworked project-state files: **`STATUS.md` (root) is now the single living
-  state file** — In Progress + Blockers (now) and a `## Backlog` section (future,
-  the only queue); `CHANGELOG.md` stays the past. Items move between
-  sections/files, never copied. The backlog was merged in from the former separate
-  `_planning/backlog.md` to fight staleness: keeping the queue beside "In Progress"
-  means you can't grab the next item without seeing (and fixing) what's stale.
-  `/status` now flags STATUS.md when its "Last updated" date goes cold; `/backlog`,
-  `/status`, `/update-status`, and `/init` were rewritten accordingly. Dropped
-  STATUS.md's "Up Next"/"Recently Completed" sections; `/log` only asks about
-  releases when the user hints at one. (One-tense split field-tested in
-  shark-attack-atlas, 2026-06-11; consolidated after STATUS.md kept going stale.)
+- Reworked project-state files: **`_planning/STATUS.md` is now the single living
+  state file** — In Progress + Blockers (now) and a `# Backlog` section (future,
+  the only queue); `CHANGELOG.md` stays the past (and the public record). Items
+  move between sections/files, never copied. The backlog was merged in from the
+  former separate `_planning/backlog.md` to fight staleness: keeping the queue
+  beside "In Progress" means you can't grab the next item without seeing (and
+  fixing) what's stale.
+- STATUS.md is now **gitignored by default** (private working state — your
+  in-progress work and TODOs aren't pushed to a possibly-public remote); `/init`
+  asks per-project whether to make it public instead.
+- A `SessionStart` hook (`status-staleness-check.sh`) prints STATUS.md's age at the
+  top of a session once its "Last updated" date is >7 days old (override with
+  `STATUS_STALE_DAYS`); `/status` also flags it. `/backlog`, `/status`,
+  `/update-status`, `/init`, the `PreCompact` save hook, and `scripts/new-project.sh`
+  were all updated for the new location. Dropped STATUS.md's "Up Next"/"Recently
+  Completed" sections; `/log` only asks about releases when the user hints at one.
+  (One-tense split field-tested in shark-attack-atlas, 2026-06-11; consolidated and
+  made private after STATUS.md kept going stale.)
 - Trimmed `CLAUDE.md` ~47% (965 → 514 words); moved verbose procedures to `/init`
   and `.claude/README.md`, named the new subagents.
 - Made `/cleanup`, `/dev`, `/deploy`, and `/init` stack-detecting instead of
@@ -97,10 +107,12 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   already covered by `git:*` / `npm:*`).
 
 ### Fixed
+
 - Corrupted `editor.formatOnSave` key in `.devcontainer/devcontainer.json` that
   made the file invalid JSON.
 - `PreCompact` hook was a no-op `echo`; it now runs a real save script.
 
 ### Chore
+
 - Initialized git and gitignored `.DS_Store` and `.claude/settings.local.json`
   (per-developer overrides, not part of the template).

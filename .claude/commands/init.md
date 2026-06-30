@@ -9,6 +9,7 @@ Scaffold the standard file structure for a new project.
    the boilerplate's README/LICENSE, resets the state files, drops the
    boilerplate's git history (default; `--keep-git` retains it), and deletes
    itself. Example:
+
    ```sh
    bash scripts/new-project.sh -y
    ```
@@ -22,6 +23,7 @@ Scaffold the standard file structure for a new project.
 2. Create the following files if they don't exist:
 
    **`.gitignore`** — universal base (applies to any stack):
+
    ```
    .env*
    *.pem
@@ -31,7 +33,11 @@ Scaffold the standard file structure for a new project.
 
    # Raw session transcripts — host-disk backup only, may contain tool output/secrets
    _planning/transcripts-backup/
+
+   # Working status + backlog — private by default (see the STATUS.md visibility ask below)
+   _planning/STATUS.md
    ```
+
    Then add entries for the **detected stack**, e.g.:
    - Node: `node_modules/`, `dist/`, `.next/`, `.vercel/`
    - Python: `__pycache__/`, `*.pyc`, `.venv/`, `.pytest_cache/`, `*.egg-info/`
@@ -47,7 +53,7 @@ Scaffold the standard file structure for a new project.
    history):
    - **Commit them (default, recommended for teams/private repos)** — leave them
      tracked; the harness travels with the repo.
-   - **Keep them local (recommended if the repo is/*will be* public and the setup
+   - **Keep them local (recommended if the repo is/_will be_ public and the setup
      is personal)** — add to `.gitignore`:
      ```
      # Claude Code harness + dev container — local only, not shared/published
@@ -59,36 +65,57 @@ Scaffold the standard file structure for a new project.
      history, also run `git rm -r --cached .claude .devcontainer` so the ignore
      takes effect.
 
+   **Ask about STATUS.md visibility.** `_planning/STATUS.md` holds the living
+   status **and** the backlog — i.e. what you're working on and what's planned. The
+   base `.gitignore` above keeps it **private by default**, which is usually what you
+   want on a public repo (don't broadcast your in-progress work and TODOs). Ask the
+   user:
+   - **Private (default)** — leave the `_planning/STATUS.md` ignore line in place.
+   - **Public** — the team should see status/backlog in the repo (a shared private
+     repo, or you *want* a visible roadmap): **remove** the `_planning/STATUS.md`
+     line from `.gitignore` so it's committed. (`CHANGELOG.md` is committed either
+     way — the shipped history is always public.)
+
    **`.gitattributes`**:
+
    ```
    * text=auto
    ```
 
-   **`STATUS.md`** (project root) — the single living state file: present
-   (In Progress, Blockers) **and** future (the Backlog queue). Past → `CHANGELOG.md`:
+   **`_planning/STATUS.md`** — the single living state file: present (In Progress,
+   Blockers) **and** future (the Backlog queue). Past → `CHANGELOG.md`. Gitignored
+   by default (see the visibility ask above):
+
    ```markdown
    # Project Status
 
    Last updated: YYYY-MM-DD
 
    ## In Progress
+
    _None yet_
 
    ## Blockers
+
    _None_
 
-   ## Backlog
+   ---
+
+   # Backlog
+
    _The only queue of future work, priority-ordered. Top High-Priority item = next up._
 
-   ### High Priority
+   ## High Priority
+
    - Initial project setup
 
-   ### Medium Priority
+   ## Medium Priority
 
-   ### Low Priority / Ideas
+   ## Low Priority / Ideas
    ```
 
    **`CHANGELOG.md`**:
+
    ```markdown
    # Changelog
 
@@ -97,6 +124,7 @@ Scaffold the standard file structure for a new project.
    ## [Unreleased]
 
    ### Added
+
    - Initial project setup
    ```
 
@@ -110,33 +138,40 @@ Scaffold the standard file structure for a new project.
    - Deployment info if detectable
 
    **`_planning/`** directory with:
+   - `STATUS.md` — the living state file from above (gitignored by default)
    - `plans/` — empty directory (create with a `.gitkeep`); the `writing-plans`
      skill saves here
    - `specs/` — empty directory (create with a `.gitkeep`); the `brainstorming`
      skill saves design/spec docs here
 
-   (The backlog is **not** a separate file — it's the `## Backlog` section of
-   `STATUS.md` above. Keeping the queue beside "In Progress" is what stops
-   STATUS.md going stale.)
+   (The backlog is **not** a separate file — it's the `# Backlog` section of
+   `_planning/STATUS.md`. Keeping the queue beside "In Progress" is what stops it
+   going stale.)
 
    **`CLAUDE.md`** — if it doesn't exist, create a starter:
+
    ```markdown
    # Project Name
 
    Brief description.
 
    ## Commands
+
    <!-- Fill in the detected stack's commands -->
+
    - Dev: `npm run dev` / `make dev` / `cargo run`
    - Build: `npm run build` / `make build` / `cargo build`
    - Lint: `npm run lint` / `ruff check` / `cargo clippy`
 
    ## Architecture
+
    <!-- Add project structure and key patterns here -->
 
    ## Current Status
-   See `STATUS.md` for current work and `CHANGELOG.md` for completed milestones.
+
+   See `_planning/STATUS.md` for current work and `CHANGELOG.md` for completed milestones.
    ```
+
    If CLAUDE.md already exists, just ensure it has the STATUS.md/CHANGELOG.md reference line.
 
    Then ask the user which commit policy they want — on request only /
@@ -164,4 +199,4 @@ Scaffold the standard file structure for a new project.
 
 ---
 
-*By [@ds1](https://github.com/ds1) — [boilerplate.md](https://github.com/ds1/boilerplate.md)*
+_By [@ds1](https://github.com/ds1) — [boilerplate.md](https://github.com/ds1/boilerplate.md)_

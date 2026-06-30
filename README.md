@@ -67,8 +67,10 @@ instead if you'd rather track the full, unmodified, auto-updating upstream set.
 3. Run **`/init`** in Claude Code. It offers to detach the boilerplate first
    (`scripts/new-project.sh` — removes this README/LICENSE, resets state files,
    drops the boilerplate's git history), then detects your stack and scaffolds
-   `README.md`, `STATUS.md`, `CHANGELOG.md`, `.gitignore`, `.gitattributes`, and
-   `_planning/`. Then add your project's own `LICENSE`.
+   `README.md`, `CHANGELOG.md`, `.gitignore`, `.gitattributes`, and `_planning/`
+   (including `_planning/STATUS.md`, your living status + backlog — gitignored by
+   default; `/init` asks whether to make it public). Then add your project's own
+   `LICENSE`.
 4. Start building. Use `/status` and `/update-status` to track work, `/cleanup`
    before commits, and `/pr` to open pull requests.
 
@@ -126,11 +128,12 @@ first place to look.
 
 ## Conventions
 
-- **`CLAUDE.md`** holds only stable instructions. **`STATUS.md`** (root) is the
+- **`CLAUDE.md`** holds only stable instructions. **`_planning/STATUS.md`** is the
   single living state file — In Progress + Blockers (now) and a Backlog section
   (future, the only queue); **`CHANGELOG.md`** is the past. Items move between
   them, never copied. The backlog lives inside STATUS.md on purpose: it keeps the
-  queue next to "In Progress" so the file doesn't go stale.
+  queue next to "In Progress" so the file doesn't go stale. STATUS.md is gitignored
+  by default (private working state); `/init` asks whether to make it public.
 - **Atomic, conventional commits** (`feat:`, `fix:`, `docs:`, …) so any change can
   be reverted cleanly.
 - **Secrets never get committed** — `.env*`, `*.pem`, `*.key` are gitignored by

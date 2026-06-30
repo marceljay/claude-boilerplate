@@ -80,14 +80,15 @@ tool permissions → `.claude/settings.local.json` (per-dev, gitignored) or
 
 ## Project State
 CLAUDE.md is for stable instructions only — no TODOs, changelogs, or status here.
-`STATUS.md` (project root) is the single living state file: **In Progress** +
-**Blockers** (now) and a **Backlog** section (future, the only queue,
-priority-ordered). `CHANGELOG.md` = past (the only completion record). Items move
-between sections/files, never copied: backlog → In Progress → CHANGELOG. Keeping the
-queue in STATUS.md is deliberate — it stops STATUS going stale, since you can't grab
-the next item without seeing what's in flight. Always bump STATUS.md's "Last
-updated" date when editing it. `/init` scaffolds these; see `.claude/README.md` §6.
-Read STATUS.md alongside CLAUDE.md at session start. Manage via `/status`,
+`_planning/STATUS.md` (gitignored by default — private working state) is the single
+living state file: **In Progress** + **Blockers** (now) and a **Backlog** section
+(future, the only queue, priority-ordered). `CHANGELOG.md` = past, and is the public
+record. Items move between sections/files, never copied: backlog → In Progress →
+CHANGELOG. Keeping the queue in STATUS.md is deliberate — it stops it going stale,
+since you can't grab the next item without seeing what's in flight. Always bump its
+"Last updated" date when editing (a SessionStart hook flags it when cold). `/init`
+scaffolds these and asks whether to make STATUS.md public; see `.claude/README.md` §6.
+Read `_planning/STATUS.md` alongside CLAUDE.md at session start. Manage via `/status`,
 `/update-status`, `/log`, `/backlog`, `/plans`.
 On exiting Plan Mode, save the plan to `_planning/plans/YYYY-MM-DD-name.md`
 with checkboxed steps. If a Superpowers skill (e.g. writing-plans, brainstorming)
@@ -98,7 +99,7 @@ refreshes it). Don't read it in normal work — only when memory seems missing o
 you need detail the live index lacks; `/backup-memory restore` after a volume wipe.
 
 ## Context Save on Compaction
-The `PreCompact` hook leaves a marker in STATUS.md automatically. When you also
-see `CONTEXT_SAVE_TRIGGERED` (or the chat is very long), proactively update
-STATUS.md (in-progress, blockers), any active plan, memory, and CHANGELOG.md,
+The `PreCompact` hook leaves a marker in `_planning/STATUS.md` automatically. When
+you also see `CONTEXT_SAVE_TRIGGERED` (or the chat is very long), proactively update
+`_planning/STATUS.md` (in-progress, blockers), any active plan, memory, and CHANGELOG.md,
 then tell the user it's safe to `/clear`.

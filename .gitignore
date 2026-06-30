@@ -6,3 +6,7 @@
 
 # Raw session transcripts — host-disk backup only, may contain tool output/secrets
 _planning/transcripts-backup/
+
+# Working status + backlog — private by default. /init asks per-project whether to
+# make it public; to commit it, remove this line (or `git add -f _planning/STATUS.md`).
+_planning/STATUS.md

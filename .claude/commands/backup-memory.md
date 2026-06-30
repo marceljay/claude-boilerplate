@@ -13,27 +13,33 @@ under `$CLAUDE_CONFIG_DIR` lives in a named volume that can vanish.
 ## Steps
 
 1. **Backup (default):**
+
    ```sh
    rm -rf <repo>/_planning/memory-backup
    cp -r "$CLAUDE_CONFIG_DIR/projects/<project-slug>/memory" <repo>/_planning/memory-backup
    ```
+
    `<project-slug>` is the project path with `/` → `-`, e.g. `/workspace` →
    `-workspace`; list `$CLAUDE_CONFIG_DIR/projects/` to find it.
 
    Also mirror raw session transcripts (gitignored — may contain secrets from
    tool output; host-disk durability only, never commit):
+
    ```sh
    mkdir -p <repo>/_planning/transcripts-backup
    cp "$CLAUDE_CONFIG_DIR/projects/<project-slug>/"*.jsonl <repo>/_planning/transcripts-backup/
    ```
+
    Verify `_planning/transcripts-backup/` is gitignored
    (`git check-ignore _planning/transcripts-backup/`); add the entry if not.
    Then commit the memory snapshot (`chore: backup memory snapshot`).
 
 2. **Restore (if arg is "restore"):**
+
    ```sh
    cp -rn <repo>/_planning/memory-backup/. "$CLAUDE_CONFIG_DIR/projects/<project-slug>/memory/"
    ```
+
    `-n` keeps any newer live memories; report which files were restored.
    Restoring transcripts (re-enables `--resume` for old sessions) is the
    same copy in reverse.
@@ -47,5 +53,3 @@ under `$CLAUDE_CONFIG_DIR` lives in a named volume that can vanish.
   or after detecting an empty/fresh memory directory.
 
 ---
-
-*By [@ds1](https://github.com/ds1) — [boilerplate.md](https://github.com/ds1/boilerplate.md)*

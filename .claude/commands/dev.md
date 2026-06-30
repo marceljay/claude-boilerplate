@@ -31,7 +31,7 @@ Start the development server without blocking this chat, and surface its URL.
      (which may differ), so parallel containers don't collide.
    - **On the host:** open a new terminal window/tab running the dev command so
      it stays up independently (PowerShell: `Start-Process powershell
-     -ArgumentList '-NoExit','-Command','cd \"PROJECT_PATH\"; DEV_COMMAND'`).
+-ArgumentList '-NoExit','-Command','cd \"PROJECT_PATH\"; DEV_COMMAND'`).
 
 3. Wait ~3 seconds, then surface the URL — **do not open a browser yourself**:
    - **In the container:** there is no host browser, and the host port may not
@@ -48,5 +48,3 @@ Start the development server without blocking this chat, and surface its URL.
 Keep the chat unblocked. Never run the dev server in the foreground of this session.
 
 ---
-
-*By [@ds1](https://github.com/ds1) — [boilerplate.md](https://github.com/ds1/boilerplate.md)*

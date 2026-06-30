@@ -1,6 +1,6 @@
 # Code Cleanup
 
-Run lint, format, and remove unused imports across changed files.
+Run lint, format across changed files. Remove unused imports and dead dependencies.
 
 ## Steps
 
@@ -27,8 +27,6 @@ Run lint, format, and remove unused imports across changed files.
    - Number of unused imports removed
    - Any remaining errors that need manual attention
 
-4. Do NOT commit automatically. Let the user decide when to commit.
+4. Ask user decide whether to commit.
 
 ---
-
-*By [@ds1](https://github.com/ds1) — [boilerplate.md](https://github.com/ds1/boilerplate.md)*

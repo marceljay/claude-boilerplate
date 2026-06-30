@@ -14,12 +14,15 @@ All notable changes to this project are documented here.
 ## [Unreleased]
 
 ### Added
+
 - New feature description
 
 ### Changed
+
 - Change description
 
 ### Fixed
+
 - Bug fix description
 ```
 
@@ -35,15 +38,19 @@ All notable changes to this project are documented here.
    at one (mentions a version, "release", "ship", "tag") — otherwise leave the
    entry under `[Unreleased]` without asking. When they do want a release,
    move all `[Unreleased]` items under a new version heading:
+
    ```markdown
    ## [1.3.0] - 2026-02-11
 
    ### Added
+
    - Feature description
 
    ### Fixed
+
    - Bug fix description
    ```
+
    Then create a fresh empty `[Unreleased]` section above it. Suggest semver bumps:
    - **Patch** (1.0.X) — bug fixes only
    - **Minor** (1.X.0) — new features, backwards compatible
@@ -52,5 +59,3 @@ All notable changes to this project are documented here.
 5. Show what was added.
 
 ---
-
-*By [@ds1](https://github.com/ds1) — [boilerplate.md](https://github.com/ds1/boilerplate.md)*

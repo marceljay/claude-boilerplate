@@ -3,6 +3,7 @@
 Save a preference or behavior based on the user's natural language description.
 
 ## Usage
+
 `/remember <description of desired behavior>`
 
 ## Step 0 — pick the right scope for this environment
@@ -15,11 +16,11 @@ rebuilt**, and it doesn't carry to the user's other projects. So "global" is
 effectively meaningless here. Persist to the bind-mounted `/workspace` instead,
 which lives on the host and (for `.claude/`) is version-controlled:
 
-| What                  | Dev-container target                         | Host target (no container)        |
-| --------------------- | -------------------------------------------- | --------------------------------- |
-| Tool permission       | `.claude/settings.local.json` (per-dev, gitignored) — or `.claude/settings.json` if the user wants it **shared/committed** | `~/.claude/settings.json` |
-| Behavioral preference | project `.claude/CLAUDE.md`                   | `~/.claude/CLAUDE.md`             |
-| Project fact (memory) | config-dir `memory/` + run `/backup-memory`  | config-dir `memory/`              |
+| What                  | Dev-container target                                                                                                       | Host target (no container) |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| Tool permission       | `.claude/settings.local.json` (per-dev, gitignored) — or `.claude/settings.json` if the user wants it **shared/committed** | `~/.claude/settings.json`  |
+| Behavioral preference | project `.claude/CLAUDE.md`                                                                                                | `~/.claude/CLAUDE.md`      |
+| Project fact (memory) | config-dir `memory/` + run `/backup-memory`                                                                                | config-dir `memory/`       |
 
 Detect once at the start and use the matching column for the rest of the steps.
 
@@ -48,7 +49,7 @@ Detect once at the start and use the matching column for the rest of the steps.
      `settings.local.json` (if expressible as a permission) or accept it's shared.
 
    **Project memory** (config-dir memory for this project —
-   `$CLAUDE_CONFIG_DIR/projects/<repo-slug>/memory/`, *not* a folder in the repo;
+   `$CLAUDE_CONFIG_DIR/projects/<repo-slug>/memory/`, _not_ a folder in the repo;
    one fact per file plus a `MEMORY.md` index entry):
    - "this project uses port 4000"
    - "the API is at /v2 not /v1"
@@ -74,9 +75,8 @@ Detect once at the start and use the matching column for the rest of the steps.
    implying it's global, since in a container it isn't.
 
 ## Classification Priority
+
 If unclear, default to a CLAUDE.md (project `.claude/CLAUDE.md` in a container).
 Behavioral instructions are the most common case.
 
 ---
-
-*By [@ds1](https://github.com/ds1) — [boilerplate.md](https://github.com/ds1/boilerplate.md)*

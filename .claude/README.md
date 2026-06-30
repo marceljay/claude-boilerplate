@@ -38,7 +38,7 @@ That means:
 - It's expensive: every word costs tokens on every turn. A 500-line CLAUDE.md is
   paid for thousands of times over a project's life.
 
-**Rule of thumb:** only put *stable, always-relevant* instructions here. Anything
+**Rule of thumb:** only put _stable, always-relevant_ instructions here. Anything
 needed occasionally (e.g. "how to do a release") belongs in a **slash command**
 (section 3), which only loads when invoked. This directly serves the
 "reduce usage" goal — a lean CLAUDE.md is cheaper on every interaction.
@@ -66,13 +66,13 @@ Claude wants to run.
 
 `Bash(npm:*)` means "any command starting with `npm`". The `:*` is a wildcard.
 
-### `hooks` — the part you asked about
+### `hooks`
 
 A **hook** is a shell command **the harness runs automatically** when a specific
-event happens during a session. Claude does *not* decide to run a hook — the
+event happens during a session. Claude does _not_ decide to run a hook — the
 harness fires it on your behalf, every time, deterministically. That's the key
-difference from instructions: instructions are suggestions Claude *may* follow;
-hooks are guarantees the harness *will* execute.
+difference from instructions: instructions are suggestions Claude _may_ follow;
+hooks are guarantees the harness _will_ execute.
 
 The shape of a hook entry:
 
@@ -92,18 +92,18 @@ The shape of a hook entry:
 
 Common events you can hook:
 
-| Event | Fires when… | Typical use |
-|-------|-------------|-------------|
-| `PreCompact` | Just before context is auto-summarized | Save state so nothing is lost |
-| `PreToolUse` | Before Claude runs any tool | Block/validate a command, log it |
-| `PostToolUse` | After a tool finishes | Auto-format edited files, run linter |
-| `UserPromptSubmit` | You send a message | Inject extra context |
-| `Stop` | Claude finishes responding | Notify you, run tests |
-| `SessionStart` | A session begins | Print project status |
+| Event              | Fires when…                            | Typical use                          |
+| ------------------ | -------------------------------------- | ------------------------------------ |
+| `PreCompact`       | Just before context is auto-summarized | Save state so nothing is lost        |
+| `PreToolUse`       | Before Claude runs any tool            | Block/validate a command, log it     |
+| `PostToolUse`      | After a tool finishes                  | Auto-format edited files, run linter |
+| `UserPromptSubmit` | You send a message                     | Inject extra context                 |
+| `Stop`             | Claude finishes responding             | Notify you, run tests                |
+| `SessionStart`     | A session begins                       | Print project status                 |
 
 **Why hooks matter for this project:** the current `PreCompact` hook only does
 `echo CONTEXT_SAVE_TRIGGERED`. That echo doesn't save anything — it just prints
-a string that Claude is told to watch for and then *manually* react to. A real
+a string that Claude is told to watch for and then _manually_ react to. A real
 hook would run a script that writes `STATUS.md` itself, so the save happens even
 if Claude misses the cue. Hooks are how you turn "Claude usually remembers to X"
 into "X always happens."
@@ -127,7 +127,7 @@ loads `commands/cleanup.md` and feeds it to Claude as instructions **for that on
 turn**. When you don't use it, it costs nothing.
 
 Think of commands as "scripts written in English." They're the right home for
-any procedure that's needed *sometimes* — releases, PR creation, status updates —
+any procedure that's needed _sometimes_ — releases, PR creation, status updates —
 keeping it out of the always-loaded `CLAUDE.md`.
 
 This project ships: `init`, `cleanup`, `status`, `update-status`, `log`,
@@ -142,11 +142,11 @@ as `/foo`. No restart needed.
 
 Claude Code also has a **Skills** feature, and the two are easy to confuse:
 
-| | Slash command (`commands/*.md`) | Skill (`.claude/skills/<name>/SKILL.md`) |
-|---|---|---|
-| Invoked by | **you**, explicitly typing `/name` | **Claude**, automatically, when your request matches the skill's `description` |
-| Best for | procedures *you* decide to run (release, PR, status) | capabilities Claude should reach for on its own (e.g. "always lint Terraform this way") |
-| Extra files | just the one `.md` | can bundle scripts, templates, reference docs in the skill folder |
+|             | Slash command (`commands/*.md`)                      | Skill (`.claude/skills/<name>/SKILL.md`)                                                |
+| ----------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Invoked by  | **you**, explicitly typing `/name`                   | **Claude**, automatically, when your request matches the skill's `description`          |
+| Best for    | procedures _you_ decide to run (release, PR, status) | capabilities Claude should reach for on its own (e.g. "always lint Terraform this way") |
+| Extra files | just the one `.md`                                   | can bundle scripts, templates, reference docs in the skill folder                       |
 
 They're complementary — a command is a manual button, a skill is an
 auto-trigger. The slash commands here are procedures you choose to run; the
@@ -164,7 +164,7 @@ collection (MIT — see `.claude/skills/ATTRIBUTION.md`):
 - **`brainstorming`** — turn an idea into a design/spec via dialogue (saved to
   `_planning/specs/`).
 
-The last two are **modified from upstream**: they *ask before starting* (upstream
+The last two are **modified from upstream**: they _ask before starting_ (upstream
 auto-fires and blocks all coding until a design is approved), write to `_planning/`
 instead of `docs/superpowers/`, and drop the browser-based "visual companion."
 Details in `ATTRIBUTION.md`.
@@ -173,19 +173,19 @@ Add your own by dropping a folder with a `SKILL.md` here (its `description`
 frontmatter is what Claude matches against). For the full, auto-updating Superpowers
 set instead of these vendored copies, install the plugin (`/plugin marketplace add
 obra/superpowers-marketplace`). Subagents (§4) are a third, separate thing — a
-*whole separate Claude* you delegate a task to, not an instruction set spliced into
+_whole separate Claude_ you delegate a task to, not an instruction set spliced into
 the current turn.
 
 ---
 
 ## 4. `agents/` — subagents (the biggest usage-saver)
 
-A **subagent** is a *separate* Claude instance that the main Claude can hand a
+A **subagent** is a _separate_ Claude instance that the main Claude can hand a
 task to. It runs with its own fresh context window, does the work, and returns
 only a short summary to the main conversation.
 
 Why this saves usage: imagine you ask "find everywhere we call the payments API."
-Without a subagent, the main Claude reads 30 files into *your* context window —
+Without a subagent, the main Claude reads 30 files into _your_ context window —
 all those tokens now ride along on every later message. With a subagent, that
 reading happens in a throwaway context, and only the 5-line answer comes back.
 Your main context stays small and cheap.
@@ -196,8 +196,8 @@ A subagent is defined by a markdown file with frontmatter:
 ---
 name: explore
 description: Read-only codebase search. Use for "where is X" / "how does Y work"
-              questions that require reading many files.
-tools: Read, Grep, Glob       # optional — restrict what it can do
+  questions that require reading many files.
+tools: Read, Grep, Glob # optional — restrict what it can do
 ---
 
 You are a code exploration agent. Search thoroughly, read only what's needed,
@@ -223,15 +223,15 @@ what's available. Use it for project facts that aren't obvious from the code —
 decisions, constraints, "why we did it this way." Not for TODOs (those go in
 `STATUS.md`) and never for secrets.
 
-**Where it lives — *not* in this repo.** Memory is stored in Claude's config
+**Where it lives — _not_ in this repo.** Memory is stored in Claude's config
 directory, namespaced per project:
 `$CLAUDE_CONFIG_DIR/projects/<repo-path-with-slashes-as-dashes>/memory/`
 (e.g. `/home/node/.claude/projects/-workspace/memory/`). The repo's working
 tree never contains a live `memory/` folder — only the cold snapshot at
 `_planning/memory-backup/` (§6) does.
 
-**Why that matters in a dev container.** `$CLAUDE_CONFIG_DIR` is a *named Docker
-volume* (`claude-code-config-…`, see `.devcontainer/devcontainer.json`), not the
+**Why that matters in a dev container.** `$CLAUDE_CONFIG_DIR` is a _named Docker
+volume_ (`claude-code-config-…`, see `.devcontainer/devcontainer.json`), not the
 host disk. It survives container rebuilds but is wiped by `docker volume prune`,
 a Docker Desktop reset, or a `devcontainerId` change. That's exactly why
 **`/backup-memory`** mirrors it into the bind-mounted repo at
@@ -241,22 +241,30 @@ a Docker Desktop reset, or a `devcontainerId` change. That's exactly why
 
 ## 6. How the project-state files relate (set by `CLAUDE.md`)
 
-This boilerplate's `CLAUDE.md` defines a convention worth knowing: each state
-file owns **one tense**, and an item *moves* between them (backlog → STATUS
-"In Progress" → CHANGELOG), deleted from the previous file — never copied.
+This boilerplate's `CLAUDE.md` defines a convention worth knowing. An item _moves_
+between homes (backlog → "In Progress" → CHANGELOG), deleted from the previous one —
+never copied.
 
 - **`CLAUDE.md`** — stable only (commands, architecture). Changes rarely.
-- **`STATUS.md`** — *now*: ≤3 in-progress items + blockers, nothing else.
-- **`_planning/backlog.md`** — *future*: the only queue, priority-ordered;
-  top item = next up.
-- **`CHANGELOG.md`** — *past*: the only completion record.
-- **`_planning/`** — also holds saved plans (`plans/`) and a cold memory
-  snapshot (`memory-backup/`, written by `/backup-memory` as a failsafe
+- **`STATUS.md`** (root) — the single **living** state file, with three sections:
+  - **In Progress** — ≤3 truly active items (_now_).
+  - **Blockers** — anything stuck or waiting on input (_now_).
+  - **Backlog** — the only queue of future work, priority-ordered; the top
+    High-Priority item is "next up" (_future_).
+- **`CHANGELOG.md`** — _past_: the only completion record.
+- **`_planning/`** — saved plans (`plans/`), design specs (`specs/`), and a cold
+  memory snapshot (`memory-backup/`, written by `/backup-memory` as a failsafe
   against Docker volume loss; read only on demand).
 
-The point: keep fast-changing stuff *out* of `CLAUDE.md` so you're not paying to
-load this week's TODO list on every message — and give every work item exactly
-one home so no session is blind to half the queue.
+**Why the backlog lives inside STATUS.md** (not a separate `_planning/backlog.md`):
+a status file goes stale when "In Progress" drifts from reality. Putting the queue
+in the same file means you can't open it to grab the next item without seeing — and
+fixing — what's stale. One living file beats two that fall out of sync. `CHANGELOG.md`
+stays separate because the past grows unbounded and would bloat the live file.
+`/status` flags STATUS.md when its "Last updated" date goes cold.
+
+The other point: keep fast-changing stuff _out_ of `CLAUDE.md` so you're not paying
+to load this week's TODO list on every message.
 
 ---
 
@@ -273,8 +281,8 @@ environment, not day-to-day.
 - **Two kinds of storage.** `/workspace` is a **bind mount** — the same files on
   your host disk, so edits and commits land directly in your repo.
   `/home/node/.claude` (`$CLAUDE_CONFIG_DIR`) is a **named Docker volume** — it
-  persists across rebuilds but is *not* on the host disk, so `docker volume
-  prune` / a Docker Desktop reset / a `devcontainerId` change wipes it. Memory
+  persists across rebuilds but is _not_ on the host disk, so `docker volume
+prune` / a Docker Desktop reset / a `devcontainerId` change wipes it. Memory
   (§5) and session history live there; `/backup-memory` is the failsafe.
 - **No host browser, and ports are forwarded, not shared.** A dev server must
   bind `0.0.0.0` (not `127.0.0.1`) to be reachable from the host. There's no
@@ -289,11 +297,11 @@ environment, not day-to-day.
 
 ## Editing cheatsheet
 
-| I want to… | Edit… |
-|------------|-------|
-| Add an always-on rule | `CLAUDE.md` (sparingly!) |
-| Auto-approve a safe command | `settings.json` → `permissions.allow` |
-| Make something happen automatically on an event | `settings.json` → `hooks` |
-| Add a reusable `/procedure` | new file in `commands/` |
-| Offload heavy reading to save context | new file in `agents/` |
-| Record a durable project fact | use `/remember` (writes to Claude's config-dir memory, not the repo) |
+| I want to…                                      | Edit…                                                                |
+| ----------------------------------------------- | -------------------------------------------------------------------- |
+| Add an always-on rule                           | `CLAUDE.md` (sparingly!)                                             |
+| Auto-approve a safe command                     | `settings.json` → `permissions.allow`                                |
+| Make something happen automatically on an event | `settings.json` → `hooks`                                            |
+| Add a reusable `/procedure`                     | new file in `commands/`                                              |
+| Offload heavy reading to save context           | new file in `agents/`                                                |
+| Record a durable project fact                   | use `/remember` (writes to Claude's config-dir memory, not the repo) |

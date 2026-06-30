@@ -80,12 +80,15 @@ tool permissions → `.claude/settings.local.json` (per-dev, gitignored) or
 
 ## Project State
 CLAUDE.md is for stable instructions only — no TODOs, changelogs, or status here.
-State files own one tense each, and an item moves between them (never copied):
-`STATUS.md` = now (≤3 in-progress items + blockers), `_planning/backlog.md` =
-future (the only queue, priority-ordered), `CHANGELOG.md` = past (the only
-completion record). `/init` scaffolds these; see `.claude/README.md` §6.
-Read STATUS.md and skim `_planning/backlog.md` alongside CLAUDE.md at session
-start. Manage via `/status`, `/update-status`, `/log`, `/backlog`, `/plans`.
+`STATUS.md` (project root) is the single living state file: **In Progress** +
+**Blockers** (now) and a **Backlog** section (future, the only queue,
+priority-ordered). `CHANGELOG.md` = past (the only completion record). Items move
+between sections/files, never copied: backlog → In Progress → CHANGELOG. Keeping the
+queue in STATUS.md is deliberate — it stops STATUS going stale, since you can't grab
+the next item without seeing what's in flight. Always bump STATUS.md's "Last
+updated" date when editing it. `/init` scaffolds these; see `.claude/README.md` §6.
+Read STATUS.md alongside CLAUDE.md at session start. Manage via `/status`,
+`/update-status`, `/log`, `/backlog`, `/plans`.
 On exiting Plan Mode, save the plan to `_planning/plans/YYYY-MM-DD-name.md`
 with checkboxed steps. If a Superpowers skill (e.g. writing-plans, brainstorming)
 saves a plan or design/spec doc, route it to `_planning/plans/` and

@@ -126,9 +126,11 @@ first place to look.
 
 ## Conventions
 
-- **`CLAUDE.md`** holds only stable instructions. State files own one tense
-  each — `STATUS.md` = now, `_planning/backlog.md` = future (the only queue),
-  `CHANGELOG.md` = past — and items move between them, never copied.
+- **`CLAUDE.md`** holds only stable instructions. **`STATUS.md`** (root) is the
+  single living state file — In Progress + Blockers (now) and a Backlog section
+  (future, the only queue); **`CHANGELOG.md`** is the past. Items move between
+  them, never copied. The backlog lives inside STATUS.md on purpose: it keeps the
+  queue next to "In Progress" so the file doesn't go stale.
 - **Atomic, conventional commits** (`feat:`, `fix:`, `docs:`, …) so any change can
   be reverted cleanly.
 - **Secrets never get committed** — `.env*`, `*.pem`, `*.key` are gitignored by

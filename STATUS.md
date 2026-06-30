@@ -1,12 +1,22 @@
 # Project Status
 
-Last updated: 2026-06-16
+Last updated: 2026-06-30
 
 ## In Progress
-_None — backlog sweep done; all high-priority items shipped on
-`feat/state-file-tenses-and-tooling`._
+_None_
 
 ## Blockers
 _None_
 
-Next: top of `_planning/backlog.md`.
+## Backlog
+_The only queue of future work, priority-ordered. The top High-Priority item is
+"next up." When work starts, move an item up to **In Progress** (delete it here —
+move, never copy); when it's done, move it to `CHANGELOG.md`._
+
+### High Priority
+
+### Medium Priority
+- Auto-format `PostToolUse` hook (optional)
+- Decide whether to add a `PostToolUse` lint-on-edit step
+
+### Low Priority / Ideas

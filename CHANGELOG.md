@@ -78,11 +78,17 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   but on a public repo it exposes your instructions/workflow/permissions.
 - Clarified the "Be concise" communication rule so it isn't read as "never
   explain" — keep preamble short, but still explain longer shell commands.
-- State files now own one tense each (STATUS.md = now, `_planning/backlog.md` =
-  future, CHANGELOG.md = past); items move between files, never copied.
-  Dropped STATUS.md's "Up Next"/"Recently Completed" sections; `/log` only asks
-  about releases when the user hints at one. (Field-tested in
-  shark-attack-atlas, 2026-06-11.)
+- Reworked project-state files: **`STATUS.md` (root) is now the single living
+  state file** — In Progress + Blockers (now) and a `## Backlog` section (future,
+  the only queue); `CHANGELOG.md` stays the past. Items move between
+  sections/files, never copied. The backlog was merged in from the former separate
+  `_planning/backlog.md` to fight staleness: keeping the queue beside "In Progress"
+  means you can't grab the next item without seeing (and fixing) what's stale.
+  `/status` now flags STATUS.md when its "Last updated" date goes cold; `/backlog`,
+  `/status`, `/update-status`, and `/init` were rewritten accordingly. Dropped
+  STATUS.md's "Up Next"/"Recently Completed" sections; `/log` only asks about
+  releases when the user hints at one. (One-tense split field-tested in
+  shark-attack-atlas, 2026-06-11; consolidated after STATUS.md kept going stale.)
 - Trimmed `CLAUDE.md` ~47% (965 → 514 words); moved verbose procedures to `/init`
   and `.claude/README.md`, named the new subagents.
 - Made `/cleanup`, `/dev`, `/deploy`, and `/init` stack-detecting instead of

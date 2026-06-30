@@ -64,12 +64,12 @@ Scaffold the standard file structure for a new project.
    * text=auto
    ```
 
-   **`STATUS.md`** — the present tense only (future → `_planning/backlog.md`,
-   past → `CHANGELOG.md`):
+   **`STATUS.md`** (project root) — the single living state file: present
+   (In Progress, Blockers) **and** future (the Backlog queue). Past → `CHANGELOG.md`:
    ```markdown
    # Project Status
 
-   Last updated: YYYY-MM-DD HH:MM
+   Last updated: YYYY-MM-DD
 
    ## In Progress
    _None yet_
@@ -77,7 +77,15 @@ Scaffold the standard file structure for a new project.
    ## Blockers
    _None_
 
-   Next: top of `_planning/backlog.md`.
+   ## Backlog
+   _The only queue of future work, priority-ordered. Top High-Priority item = next up._
+
+   ### High Priority
+   - Initial project setup
+
+   ### Medium Priority
+
+   ### Low Priority / Ideas
    ```
 
    **`CHANGELOG.md`**:
@@ -102,21 +110,14 @@ Scaffold the standard file structure for a new project.
    - Deployment info if detectable
 
    **`_planning/`** directory with:
-   - `backlog.md` — the only queue of future work:
-     ```markdown
-     # Backlog
-
-     ## High Priority
-     - Initial project setup
-
-     ## Medium Priority
-
-     ## Low Priority / Ideas
-     ```
    - `plans/` — empty directory (create with a `.gitkeep`); the `writing-plans`
      skill saves here
    - `specs/` — empty directory (create with a `.gitkeep`); the `brainstorming`
      skill saves design/spec docs here
+
+   (The backlog is **not** a separate file — it's the `## Backlog` section of
+   `STATUS.md` above. Keeping the queue beside "In Progress" is what stops
+   STATUS.md going stale.)
 
    **`CLAUDE.md`** — if it doesn't exist, create a starter:
    ```markdown

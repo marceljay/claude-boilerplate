@@ -1,4 +1,7 @@
 {
+  // "env": {
+  //   "CLAUDE_CODE_SUBAGENT_MODEL": "claude-sonnet-5"
+  // },
   "permissions": {
     "allow": [
       "WebSearch",
@@ -50,6 +53,16 @@
     ]
   },
   "hooks": {
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/log_subagent.py\""
+          }
+        ]
+      }
+    ],
     "PreCompact": [
       {
         "matcher": "auto",

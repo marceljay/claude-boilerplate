@@ -7,6 +7,13 @@
 # Raw session transcripts — host-disk backup only, may contain tool output/secrets
 _planning/transcripts-backup/
 
+# Subagent run log — records task prompts + result summaries, may contain tool output/secrets
+.claude/logs/
+
+# Python bytecode cache (from hook/script runs)
+__pycache__/
+*.pyc
+
 # Working status + backlog — private by default. /init asks per-project whether to
 # make it public; to commit it, remove this line (or `git add -f _planning/STATUS.md`).
 _planning/STATUS.md

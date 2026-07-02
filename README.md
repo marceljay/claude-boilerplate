@@ -39,11 +39,12 @@ sandbox. See [Dev Container](#dev-container) below.
 .claude/
 ├── CLAUDE.md          # Always-on project instructions (kept deliberately short)
 ├── README.md          # ★ Guide to the harness — read this first
-├── settings.json      # Permissions (allow/deny) + the PreCompact hook
+├── settings.json      # Permissions (allow/deny) + hooks (PreCompact, SubagentStop)
 ├── commands/          # Slash commands: /init /cleanup /status /pr /deploy …
-├── agents/            # Subagents: explore (read-only search), review (diff review)
+├── agents/            # Subagents: explore-via-sonnet (read-only search), review (diff review), docs-updater
 ├── skills/            # Auto-invoked skills: TDD, systematic-debugging, writing-plans, brainstorming, using-superpowers
-└── hooks/             # save-context.sh — runs automatically before compaction
+├── scripts/           # subagent_summary.py — tabulates the SubagentStop log
+└── hooks/             # save-context.sh (pre-compaction), log_subagent.py (logs subagent runs)
 .devcontainer/         # Sandboxed Docker env + network firewall (see below)
 LICENSE                # MIT
 ```

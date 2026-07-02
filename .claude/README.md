@@ -100,6 +100,13 @@ Common events you can hook:
 | `UserPromptSubmit` | You send a message                     | Inject extra context                 |
 | `Stop`             | Claude finishes responding             | Notify you, run tests                |
 | `SessionStart`     | A session begins                       | Print project status                 |
+| `SubagentStop`     | A subagent finishes                    | Log its task, model, token usage     |
+
+This project uses `SubagentStop` to log every subagent run — task, model,
+token usage, result summary — to `.claude/logs/subagents.jsonl`
+(`.claude/hooks/log_subagent.py`, gitignored since it can contain tool
+output). Run `.claude/scripts/subagent_summary.py` to tabulate it by model
+and agent type — useful for seeing where subagent usage is going.
 
 **Why hooks matter for this project:** the current `PreCompact` hook only does
 `echo CONTEXT_SAVE_TRIGGERED`. That echo doesn't save anything — it just prints
@@ -194,9 +201,10 @@ A subagent is defined by a markdown file with frontmatter:
 
 ```markdown
 ---
-name: explore
+name: explore-via-sonnet
 description: Read-only codebase search. Use for "where is X" / "how does Y work"
   questions that require reading many files.
+model: sonnet # optional — run the subagent on a cheaper/faster model
 tools: Read, Grep, Glob # optional — restrict what it can do
 ---
 
@@ -204,14 +212,16 @@ You are a code exploration agent. Search thoroughly, read only what's needed,
 and return a concise answer with file:line references. Do not modify files.
 ```
 
-Save that as `agents/explore.md` and the main Claude can delegate to it.
+Save that as `agents/explore-via-sonnet.md` and the main Claude can delegate to it.
 
-This boilerplate ships two by default — the highest-impact change for the
+This boilerplate ships three by default — the highest-impact change for the
 "reduce usage" goal:
 
-- **`explore`** — read-only fan-out searches ("where is X", "how does Y work");
-  keeps heavy reading out of the main context.
+- **`explore-via-sonnet`** — read-only fan-out searches ("where is X", "how does
+  Y work") on a cheaper model; keeps heavy reading out of the main context.
 - **`review`** — reviews a diff for bugs; returns a prioritized findings list.
+- **`docs-updater`** — checks whether docs need updating after a change and
+  edits them only if it's user-facing; used by `/docs`.
 
 ---
 

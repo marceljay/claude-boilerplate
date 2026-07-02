@@ -7,6 +7,16 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- `docs-updater` subagent (`.claude/agents/docs-updater.md`) — checks whether
+  docs need updating by diffing against the last commit that touched them
+  (not just the latest commit), and edits only if the change is user-facing;
+  skips silently otherwise. `/docs` now tries it first before falling back to
+  its manual checklist.
+- `SubagentStop` hook (`.claude/hooks/log_subagent.py`) logs every subagent
+  run — task, model, token usage, result summary — to
+  `.claude/logs/subagents.jsonl` (gitignored: may contain tool output/secrets).
+  `.claude/scripts/subagent_summary.py` tabulates the log by model and agent
+  type to see where subagent usage is going.
 - Bundled skills in `.claude/skills/`, vendored from Jesse Vincent's Superpowers
   collection (MIT, attribution in `.claude/skills/ATTRIBUTION.md`):
   `using-superpowers` (invoke a relevant skill before responding),
@@ -67,6 +77,10 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- Renamed the `explore` subagent to `explore-via-sonnet` and pinned it to the
+  `sonnet` model (previously ran on the default model) — it's a read-only
+  fan-out search agent, so the cheaper/faster model suits it. Updated
+  references in `README.md`, `.claude/README.md`, and `CLAUDE.md`.
 - CLAUDE.md now routes Superpowers plan/spec output to `_planning/plans/` and
   `_planning/specs/` instead of the plugin's default `docs/superpowers/` — so a
   downstream project that installs the full Superpowers plugin keeps planning docs

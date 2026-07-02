@@ -4,6 +4,7 @@ Manually trigger documentation updates to match current code state.
 
 ## Steps
 
+0. Try to execute `docs-updater` subagent.
 1. Scan recent git changes to understand what has changed:
    - `git log --oneline -10` for recent commits
    - `git diff HEAD~5 --stat` for files changed
@@ -23,7 +24,3 @@ Manually trigger documentation updates to match current code state.
    - `docs: update user docs for [feature/change]`
 
 5. Report back to the user what was updated.
-
----
-
-*By [@ds1](https://github.com/ds1) — [boilerplate.md](https://github.com/ds1/boilerplate.md)*

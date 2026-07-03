@@ -10,7 +10,7 @@ subagents, hooks) and a sandboxed dev container, tuned for two goals:
   plain-language docs over cleverness, with every moving part explained in
   [`.claude/README.md`](.claude/README.md).
 
-It is **not tied to one language**: commands detect Node, Python, Rust, Go, and
+This boilerplate is **not tied to one stack or programming language**: commands detect Node, Python, Rust, Go, and
 Make-based projects out of the box, and permissions cover those toolchains.
 Other stacks (Solidity/Foundry, Elixir, Zig, …) still work — Claude figures out
 the commands — but for the smoothest ride add your toolchain to the
@@ -58,7 +58,7 @@ Five ship vendored from [Superpowers](https://github.com/obra/superpowers)
 relevant skill before answering), plus `writing-plans` and `brainstorming`. The last
 two are modified from upstream to **ask before starting** (rather than auto-firing
 and blocking all coding until a design is approved) and to save plans/specs under
-`_planning/`. Delete a folder to remove that skill; install the Superpowers *plugin*
+`_planning/`. Delete a folder to remove that skill; install the Superpowers _plugin_
 instead if you'd rather track the full, unmodified, auto-updating upstream set.
 
 ## Getting started
@@ -78,7 +78,7 @@ instead if you'd rather track the full, unmodified, auto-updating upstream set.
 **Tip: for anything non-trivial, start in Plan Mode.** Press **Shift+Tab** to
 cycle the input mode (normal → auto-accept → **plan**), or launch with
 `claude --permission-mode plan`. In Plan Mode Claude researches and proposes a
-plan *without editing files* until you approve it; on approval it saves the plan
+plan _without editing files_ until you approve it; on approval it saves the plan
 to `_planning/plans/YYYY-MM-DD-name.md` and starts work. Good for features,
 refactors, or anything you'd want to review before code changes.
 
@@ -89,7 +89,7 @@ explains hooks, subagents, commands, and the state-file convention in plain term
 
 This repo ships a [**Dev Container**](https://containers.dev/) (`.devcontainer/`).
 A dev container is a Docker-based development environment defined in code: anyone
-who opens the repo gets the *exact* same OS, tools, and settings, with no
+who opens the repo gets the _exact_ same OS, tools, and settings, with no
 "works on my machine" drift. VS Code ("Reopen in Container"), GitHub Codespaces,
 and the `devcontainer` CLI all understand it.
 
@@ -98,11 +98,11 @@ container is a safer place for it to work than your host machine.
 
 **What this container sets up** (`.devcontainer/`):
 
-| File | Purpose |
-|------|---------|
-| `Dockerfile` | Base image `node:20` + dev tools (`git`, `gh`, `zsh`, `fzf`, `jq`, `delta`, `iptables`/`ipset`). Installs Claude Code globally and runs as the non-root `node` user. |
+| File                | Purpose                                                                                                                                                                                                        |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Dockerfile`        | Base image `node:20` + dev tools (`git`, `gh`, `zsh`, `fzf`, `jq`, `delta`, `iptables`/`ipset`). Installs Claude Code globally and runs as the non-root `node` user.                                           |
 | `devcontainer.json` | Editor setup (ESLint, Prettier, GitLens, format-on-save), zsh as default shell, persistent bash history + `~/.claude` config via named volumes, and the `NET_ADMIN`/`NET_RAW` capabilities the firewall needs. |
-| `init-firewall.sh` | A **default-deny network firewall**, run on container start. |
+| `init-firewall.sh`  | A **default-deny network firewall**, run on container start.                                                                                                                                                   |
 
 > **Rename the container for your project.** The `"name"` in `devcontainer.json`
 > ships as `"Claude Boilerplate Repo"`. Change it to your project's name — it

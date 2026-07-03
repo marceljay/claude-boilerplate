@@ -214,12 +214,14 @@ and return a concise answer with file:line references. Do not modify files.
 
 Save that as `agents/explore-via-sonnet.md` and the main Claude can delegate to it.
 
-This boilerplate ships three by default — the highest-impact change for the
+This boilerplate ships four by default — the highest-impact change for the
 "reduce usage" goal:
 
 - **`explore-via-sonnet`** — read-only fan-out searches ("where is X", "how does
   Y work") on a cheaper model; keeps heavy reading out of the main context.
-- **`review`** — reviews a diff for bugs; returns a prioritized findings list.
+- **`review-via-haiku`** / **`review-via-sonnet`** — review a diff for bugs and
+  return a prioritized findings list; the Haiku variant is the cheap default,
+  Sonnet for a deeper pass.
 - **`docs-updater`** — checks whether docs need updating after a change and
   edits them only if it's user-facing; used by `/docs`.
 

@@ -22,7 +22,8 @@ it. Details: `.claude/README.md` §7.
 
 - Read files with targeted line ranges (`offset`/`limit`), not whole files.
 - Delegate broad codebase reading to the `explore-via-sonnet` subagent and diff reviews to
-  the `review` subagent — keeps the main context small.
+  the `review-via-haiku` subagent (or `review-via-sonnet` for a deeper pass) —
+  keeps the main context small.
 - Don't re-read files right after editing them. Summarize output; don't dump it.
 
 ## Safety Net (bypassPermissions mode is ON)

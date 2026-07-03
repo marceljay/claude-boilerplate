@@ -41,7 +41,7 @@ sandbox. See [Dev Container](#dev-container) below.
 ├── README.md          # ★ Guide to the harness — read this first
 ├── settings.json      # Permissions (allow/deny) + hooks (PreCompact, SubagentStop)
 ├── commands/          # Slash commands: /init /cleanup /status /pr /deploy …
-├── agents/            # Subagents: explore-via-sonnet (read-only search), review (diff review), docs-updater
+├── agents/            # Subagents: explore-via-sonnet (search), review-via-haiku/-sonnet (diff review), docs-updater
 ├── skills/            # Auto-invoked skills: TDD, systematic-debugging, writing-plans, brainstorming, using-superpowers
 ├── scripts/           # subagent_summary.py — tabulates the SubagentStop log
 └── hooks/             # save-context.sh (pre-compaction), log_subagent.py (logs subagent runs)

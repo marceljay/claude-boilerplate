@@ -1,4 +1,4 @@
-.DS_Store
+# MacOS Finder metadata files
 *.DS_Store
 
 # Claude Code per-developer local overrides — not part of the template

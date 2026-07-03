@@ -33,8 +33,13 @@ def log_run(data):
     base = os.environ.get("CLAUDE_PROJECT_DIR") or data.get("cwd", ".")
     agent_type = data.get("agent_type", "unknown")
     agent_id = data.get("agent_id", "unknown")
-    # SubagentStop shares the common hook fields — the transcript is `transcript_path`.
-    transcript_path = data.get("transcript_path")
+    # SubagentStop-specific fields (Claude Code >= 2.0.42): the subagent's own
+    # transcript is `agent_transcript_path`, NOT the bare `transcript_path` (that
+    # is the parent session's transcript on Stop/PreToolUse/etc.).
+    transcript_path = data.get("agent_transcript_path")
+    # Final assistant text, provided directly so we don't have to parse the
+    # transcript for the summary (Stop/SubagentStop input field).
+    last_message = data.get("last_assistant_message", "")
 
     model = None
     input_tokens = 0
@@ -42,7 +47,7 @@ def log_run(data):
     cache_read_tokens = 0
     cache_creation_tokens = 0
     task_prompt = None
-    last_message = ""
+    transcript_last_message = ""
 
     if transcript_path and os.path.exists(transcript_path):
         with open(transcript_path, "r") as f:
@@ -62,19 +67,23 @@ def log_run(data):
                 if role == "user" and task_prompt is None:
                     task_prompt = extract_text(msg.get("content", ""))
 
-                # sum usage across every assistant turn the subagent made, and
-                # keep the last non-empty assistant text as the result summary
-                # (there is no `last_assistant_message` field in the payload)
+                # sum usage across every assistant turn the subagent made; also
+                # keep the last non-empty assistant text as a fallback summary in
+                # case the payload's `last_assistant_message` was empty.
                 if role == "assistant":
                     model = msg.get("model", model)
                     text = extract_text(msg.get("content", ""))
                     if text.strip():
-                        last_message = text
+                        transcript_last_message = text
                     usage = msg.get("usage", {})
                     input_tokens += usage.get("input_tokens", 0) or 0
                     output_tokens += usage.get("output_tokens", 0) or 0
                     cache_read_tokens += usage.get("cache_read_input_tokens", 0) or 0
                     cache_creation_tokens += usage.get("cache_creation_input_tokens", 0) or 0
+
+    # prefer the payload's final-message field; fall back to the transcript
+    if not last_message:
+        last_message = transcript_last_message
 
     log_dir = os.path.join(base, ".claude", "logs")
     os.makedirs(log_dir, exist_ok=True)

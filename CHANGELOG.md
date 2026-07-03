@@ -77,6 +77,14 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- `subagent_summary.py` now reports all-time totals instead of a `--last`/`--all`
+  windowed view (dropped both flags): the by-model, by-agent-type, and grand
+  totals always cover every logged session. Added a "Last N individual
+  invocations" table (default 10, `--invocations N` to change it) showing each
+  run's timestamp, agent type, model, token breakdown, and cost, most recent
+  first. Entries with no recorded token usage (e.g. interim SubagentStop
+  events with `model: null`) are now skipped in totals and the invocation
+  list, with a count of how many were skipped.
 - Renamed the `explore` subagent to `explore-via-sonnet` and pinned it to the
   `sonnet` model (previously ran on the default model) — it's a read-only
   fan-out search agent, so the cheaper/faster model suits it. Updated

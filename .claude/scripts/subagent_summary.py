@@ -6,14 +6,17 @@ Adds, on top of the original version:
   - cache_read / cache_creation tokens broken out per model and per agent type
   - a rudimentary cost estimate per model/agent, based on published per-token
     rates and standard cache-read/cache-write multipliers
-  - a --last N / --all window: by default only the most recent 20 runs are
-    included, so the report reflects "recent activity" rather than an
-    ever-growing lifetime total
+  - all-time totals: "By model" / "By agent type" / the grand totals always
+    cover every logged session, not just recent ones
+  - a "Last N individual invocations" table showing per-invocation cost and
+    token usage, so a single run's numbers are visible on its own line
+  - entries with zero recorded tokens (e.g. interim "wait for the results"
+    SubagentStop events with no usage data) are skipped everywhere — they
+    aren't counted in totals and aren't shown in the invocations table
 
 Usage:
-  python3 .claude/scripts/subagent_summary.py                  # last 20 runs
-  python3 .claude/scripts/subagent_summary.py --last 50        # last 50 runs
-  python3 .claude/scripts/subagent_summary.py --all            # every run in the log
+  python3 .claude/scripts/subagent_summary.py                  # all-time totals + last 10 invocations
+  python3 .claude/scripts/subagent_summary.py --invocations 25 # show last 25 invocations instead of 10
   python3 .claude/scripts/subagent_summary.py --log path/to/subagents.jsonl
 
 Cost notes (read before trusting the numbers):
@@ -90,6 +93,22 @@ def load_entries(log_path):
     return entries
 
 
+def entry_tokens(e):
+    """Pull out the token fields for one log entry as a tuple of ints."""
+    input_t = e.get("input_tokens", 0) or 0
+    output_t = e.get("output_tokens", 0) or 0
+    cache_read_t = e.get("cache_read_tokens", 0) or 0
+    cache_creation_t = e.get("cache_creation_tokens", 0) or 0
+    total_t = e.get("total_tokens") or (input_t + output_t)
+    return input_t, output_t, cache_read_t, cache_creation_t, total_t
+
+
+def has_recorded_tokens(input_t, output_t, cache_read_t, cache_creation_t):
+    """False for interim/placeholder events (e.g. 'wait for the results') that
+    carry no usage data at all — these should be skipped everywhere."""
+    return bool(input_t or output_t or cache_read_t or cache_creation_t)
+
+
 def fmt(n):
     return f"{n:,}"
 
@@ -135,13 +154,12 @@ def accumulate(bucket, input_t, output_t, cache_read_t, cache_creation_t, total_
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--log", default=".claude/logs/subagents.jsonl")
-    parser.add_argument("--last", type=int, default=20,
-                         help="Only include the N most recent runs (default 20)")
-    parser.add_argument("--all", action="store_true",
-                         help="Include every run in the log, ignoring --last")
+    parser.add_argument("--invocations", type=int, default=10,
+                         help="Show this many of the most recent individual "
+                              "invocations (default 10)")
     args = parser.parse_args()
-    if args.last <= 0:
-        parser.error("--last must be a positive integer")
+    if args.invocations <= 0:
+        parser.error("--invocations must be a positive integer")
 
     entries = load_entries(args.log)
     if not entries:
@@ -151,11 +169,21 @@ def main():
     # sort chronologically (timestamps are ISO strings, so lexical sort works)
     entries.sort(key=lambda e: e.get("timestamp", ""))
 
-    total_available = len(entries)
-    if not args.all:
-        entries = entries[-args.last:]
+    total_logged = len(entries)
 
-    window_note = "all runs" if args.all else f"last {min(args.last, total_available)} of {total_available} runs"
+    # Skip entries with no recorded tokens at all (e.g. interim SubagentStop
+    # events like "wait for the results") — they're noise, not zero-cost runs.
+    usable = []
+    for e in entries:
+        input_t, output_t, cache_read_t, cache_creation_t, total_t = entry_tokens(e)
+        if not has_recorded_tokens(input_t, output_t, cache_read_t, cache_creation_t):
+            continue
+        usable.append((e, input_t, output_t, cache_read_t, cache_creation_t, total_t))
+
+    skipped = total_logged - len(usable)
+    if not usable:
+        print(f"{total_logged} run(s) logged, but none have recorded token usage.")
+        return
 
     by_model = defaultdict(new_bucket)
     by_agent = defaultdict(new_bucket)
@@ -164,14 +192,9 @@ def main():
     grand_cost = 0.0
     grand_cost_known = True
 
-    for e in entries:
+    for e, input_t, output_t, cache_read_t, cache_creation_t, total_t in usable:
         model = e.get("model") or "unknown"
         agent = e.get("agent_type") or "unknown"
-        input_t = e.get("input_tokens", 0) or 0
-        output_t = e.get("output_tokens", 0) or 0
-        cache_read_t = e.get("cache_read_tokens", 0) or 0
-        cache_creation_t = e.get("cache_creation_tokens", 0) or 0
-        total_t = e.get("total_tokens") or (input_t + output_t)
 
         accumulate(by_model[model], input_t, output_t, cache_read_t, cache_creation_t, total_t, model)
         accumulate(by_agent[agent], input_t, output_t, cache_read_t, cache_creation_t, total_t, model)
@@ -186,7 +209,8 @@ def main():
         else:
             grand_cost += cost
 
-    print(f"Window: {window_note}")
+    skip_note = f" ({skipped} zero-token entr{'y' if skipped == 1 else 'ies'} skipped)" if skipped else ""
+    print(f"All-time totals across {len(usable)} subagent run(s){skip_note}")
 
     model_rows = sorted(
         ([m, s["runs"], fmt(s["input"]), fmt(s["output"]), fmt(s["cache_read"]),
@@ -214,7 +238,7 @@ def main():
         ["Agent type", "Runs", "Input tok", "Output tok", "Cache read", "Cache create", "Total tok", "Est. cost"],
     )
 
-    print(f"\nTotals across {len(entries)} subagent run(s) ({window_note})")
+    print(f"\nGrand totals ({len(usable)} run(s), all-time)")
     print("-" * 50)
     print(f"Input tokens:          {fmt(grand_input)}")
     print(f"Output tokens:         {fmt(grand_output)}")
@@ -226,6 +250,21 @@ def main():
     else:
         print("Estimated cost:        n/a (one or more runs had an unrecognized model)")
         print("  Note: rows with model 'unknown' are excluded from cost totals above.")
+
+    # Individual invocations — most recent first, zero-token entries already
+    # filtered out above.
+    recent = list(reversed(usable[-args.invocations:]))
+    invocation_rows = [
+        [e.get("timestamp", ""), e.get("agent_type") or "unknown", e.get("model") or "unknown",
+         fmt(input_t), fmt(output_t), fmt(cache_read_t), fmt(cache_creation_t), fmt(total_t),
+         fmt_cost(estimate_cost(input_t, output_t, cache_read_t, cache_creation_t, e.get("model")))]
+        for e, input_t, output_t, cache_read_t, cache_creation_t, total_t in recent
+    ]
+    print_table(
+        f"Last {len(invocation_rows)} individual invocation(s)",
+        invocation_rows,
+        ["Timestamp", "Agent type", "Model", "Input", "Output", "Cache read", "Cache create", "Total", "Cost"],
+    )
 
 
 if __name__ == "__main__":

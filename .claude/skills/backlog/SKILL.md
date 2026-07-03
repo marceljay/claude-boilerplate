@@ -1,3 +1,8 @@
+---
+name: backlog
+description: Use when the user mentions work for later ("we should…", "someday", "add that to the backlog", an idea worth keeping), or wants to review, reprioritize, or groom the queue of future work — manages the Backlog section of _planning/STATUS.md.
+---
+
 # Review Backlog
 
 Review and manage upcoming work. The backlog lives in the **`# Backlog` section of
@@ -6,11 +11,15 @@ future work. There is no separate `backlog.md`; keeping the queue in the same fi
 as "In Progress" is deliberate, so you can't look at what's next without also seeing
 (and fixing) what's stale.
 
+When this skill fires because the user mentioned an idea for later, just capture
+it: add one well-placed backlog item, bump the date, and confirm in a line — don't
+launch into the full review below unless they asked for one.
+
 ## Steps
 
 1. Read `_planning/STATUS.md`, focusing on its `# Backlog` section. If it doesn't
-   exist, offer to create it (see `/update-status` for the template). If it exists
-   but has no `# Backlog` section, add one with
+   exist, offer to create it (see the `update-status` skill for the template). If it
+   exists but has no `# Backlog` section, add one with
    `## High Priority` / `## Medium Priority` / `## Low Priority / Ideas`
    subsections. For seed material, check GitHub Issues (`gh issue list --limit 20`)
    and offer to populate from what you find or from the user's input.

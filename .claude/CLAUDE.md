@@ -51,6 +51,8 @@ All actions are auto-approved, so:
      (`Commit policy: on-request | milestones | periodic`). Until it's set,
      don't commit unasked.
 - Commit policy: milestones (this repo).
+- A milestone commit isn't complete until STATUS.md and CHANGELOG.md reflect it —
+  invoke the `update-status`/`log` skills as part of the commit step.
 
 ## Code Quality
 
@@ -102,8 +104,9 @@ CHANGELOG. Keeping the queue in STATUS.md is deliberate — it stops it going st
 since you can't grab the next item without seeing what's in flight. Always bump its
 "Last updated" date when editing (a SessionStart hook flags it when cold). `/init`
 scaffolds these and asks whether to make STATUS.md public; see `.claude/README.md` §6.
-Read `_planning/STATUS.md` alongside CLAUDE.md at session start. Manage via `/status`,
-`/update-status`, `/log`, `/backlog`, `/plans`.
+Read `_planning/STATUS.md` alongside CLAUDE.md at session start. Manage via the
+`update-status`, `log`, `status`, and `backlog` skills — they auto-fire when work
+starts/completes/blocks (also invocable by name) — and `/plans`.
 On exiting Plan Mode, save the plan to `_planning/plans/YYYY-MM-DD-name.md`
 with checkboxed steps. If a Superpowers skill (e.g. writing-plans, brainstorming)
 saves a plan or design/spec doc, route it to `_planning/plans/` and

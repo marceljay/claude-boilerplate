@@ -137,10 +137,15 @@ Think of commands as "scripts written in English." They're the right home for
 any procedure that's needed _sometimes_ — releases, PR creation, status updates —
 keeping it out of the always-loaded `CLAUDE.md`.
 
-This project ships: `init`, `cleanup`, `status`, `update-status`, `log`,
-`backlog`, `plans`, `pr`, `deploy`, `dev`, `docs`, `remember`,
-`backup-memory`. Open any of them —
+This project ships: `init`, `cleanup`, `plans`, `pr`, `deploy`, `dev`, `docs`,
+`remember`, `backup-memory`. Open any of them —
 they're just markdown with a numbered list of steps.
+
+The four project-state procedures (`update-status`, `log`, `status`, `backlog`)
+used to live here but are now **skills** (see below): moving a finished item out
+of STATUS.md is exactly the step that gets forgotten when it needs a human to
+type the command, so those fire automatically at the right moments instead. You
+can still invoke them by name (`/update-status` etc.).
 
 To add one: create `commands/foo.md`, write the instructions, and it's available
 as `/foo`. No restart needed.
@@ -158,7 +163,10 @@ Claude Code also has a **Skills** feature, and the two are easy to confuse:
 They're complementary — a command is a manual button, a skill is an
 auto-trigger. The slash commands here are procedures you choose to run; the
 **bundled skills** in `.claude/skills/` are capabilities Claude reaches for on its
-own. Five ship vendored from Jesse Vincent's [Superpowers](https://github.com/obra/superpowers)
+own. Four are the project-state procedures (`update-status`, `log`, `status`,
+`backlog`) that manage STATUS.md/CHANGELOG.md — made skills so state upkeep
+happens at work-item transitions without being asked. Five more ship vendored
+from Jesse Vincent's [Superpowers](https://github.com/obra/superpowers)
 collection (MIT — see `.claude/skills/ATTRIBUTION.md`):
 
 - **`using-superpowers`** — teaches Claude to check for and invoke a relevant skill

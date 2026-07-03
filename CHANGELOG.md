@@ -5,6 +5,16 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Changed
+
+- Project-state commands `/update-status`, `/log`, `/status`, `/backlog` are now
+  **skills** (`.claude/skills/<name>/SKILL.md`) so Claude invokes them itself when
+  a work item starts, completes, or blocks — fixes finished items lingering in
+  STATUS.md because nobody typed the command. Still invocable by name. The
+  `update-status` skill also cleans up PreCompact `<!-- context compacted -->`
+  markers, and CLAUDE.md now ties state upkeep to milestone commits ("a milestone
+  commit isn't complete until STATUS.md/CHANGELOG reflect it").
+
 ### Added
 
 - `docs-updater` subagent (`.claude/agents/docs-updater.md`) — checks whether

@@ -1,6 +1,14 @@
+---
+name: log
+description: Use when completed work needs a CHANGELOG.md entry — on finishing a feature, fix, or other user-visible change, as part of a milestone commit, or when the user asks to log or release. Completion always pairs with the update-status skill (the item leaves STATUS.md in the same edit).
+---
+
 # Add Changelog Entry
 
-Add an entry to `CHANGELOG.md` documenting completed work.
+Add an entry to `CHANGELOG.md` documenting completed work. This skill fires
+automatically when work completes — don't wait to be asked; add the entry and
+show it. If the completed item is listed in `_planning/STATUS.md`, remove it
+there in the same edit (the `update-status` skill) — move, never copy.
 
 ## Steps
 
@@ -57,5 +65,3 @@ All notable changes to this project are documented here.
    - **Major** (X.0.0) — breaking changes
 
 5. Show what was added.
-
----

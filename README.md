@@ -40,9 +40,9 @@ sandbox. See [Dev Container](#dev-container) below.
 ├── CLAUDE.md          # Always-on project instructions (kept deliberately short)
 ├── README.md          # ★ Guide to the harness — read this first
 ├── settings.json      # Permissions (allow/deny) + hooks (PreCompact, SubagentStop)
-├── commands/          # Slash commands: /init /cleanup /status /pr /deploy …
+├── commands/          # Slash commands: /init /cleanup /plans /pr /deploy …
 ├── agents/            # Subagents: explore-via-sonnet (search), review-via-haiku/-sonnet (diff review), docs-updater
-├── skills/            # Auto-invoked skills: TDD, systematic-debugging, writing-plans, brainstorming, using-superpowers
+├── skills/            # Auto-invoked skills: project-state upkeep (update-status, log, status, backlog), TDD, systematic-debugging, writing-plans, brainstorming, using-superpowers
 ├── scripts/           # subagent_summary.py — tabulates the SubagentStop log
 └── hooks/             # save-context.sh (pre-compaction), log_subagent.py (logs subagent runs)
 .devcontainer/         # Sandboxed Docker env + network firewall (see below)
@@ -52,7 +52,10 @@ LICENSE                # MIT
 **Bundled skills** (in `.claude/skills/`) work out of the box — Claude Code
 auto-discovers any `.claude/skills/<name>/SKILL.md` at session start and Claude
 invokes the matching one itself; there's nothing to install or call manually.
-Five ship vendored from [Superpowers](https://github.com/obra/superpowers)
+Four manage project state (`update-status`, `log`, `status`, `backlog`): they
+fire when work starts, completes, or blocks, so finished items actually leave
+STATUS.md instead of waiting for someone to run a command (you can still type
+`/update-status` etc.). Five more ship vendored from [Superpowers](https://github.com/obra/superpowers)
 (MIT — see `.claude/skills/ATTRIBUTION.md`): `test-driven-development`,
 `systematic-debugging`, `using-superpowers` (which nudges Claude to reach for a
 relevant skill before answering), plus `writing-plans` and `brainstorming`. The last
@@ -72,8 +75,9 @@ instead if you'd rather track the full, unmodified, auto-updating upstream set.
    (including `_planning/STATUS.md`, your living status + backlog — gitignored by
    default; `/init` asks whether to make it public). Then add your project's own
    `LICENSE`.
-4. Start building. Use `/status` and `/update-status` to track work, `/cleanup`
-   before commits, and `/pr` to open pull requests.
+4. Start building. Work is tracked for you — the `update-status`/`log` skills
+   fire as items start and finish (`/status` any time for a summary). Use
+   `/cleanup` before commits, and `/pr` to open pull requests.
 
 **Tip: for anything non-trivial, start in Plan Mode.** Press **Shift+Tab** to
 cycle the input mode (normal → auto-accept → **plan**), or launch with

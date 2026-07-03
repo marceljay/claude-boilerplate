@@ -89,19 +89,9 @@ All notable changes to this project are documented here.
 - Initial project setup
 EOF
 
-mkdir -p _planning/plans
+mkdir -p _planning/plans _planning/specs
 find _planning/plans -type f ! -name '.gitkeep' -delete
-touch _planning/plans/.gitkeep
-cat > _planning/backlog.md <<'EOF'
-# Backlog
-
-## High Priority
-- Initial project setup
-
-## Medium Priority
-
-## Low Priority / Ideas
-EOF
+touch _planning/plans/.gitkeep _planning/specs/.gitkeep
 
 if [ "$KEEP_GIT" -eq 0 ]; then
   rm -rf .git

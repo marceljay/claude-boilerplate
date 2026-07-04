@@ -40,7 +40,7 @@ sandbox. See [Dev Container](#dev-container) below.
 ├── CLAUDE.md          # Always-on project instructions (kept deliberately short)
 ├── README.md          # ★ Guide to the harness — read this first
 ├── settings.json      # Permissions (allow/deny) + hooks (PreToolUse guard, PreCompact, SubagentStop)
-├── commands/          # Slash commands: /init /cleanup /plans /pr /deploy …
+├── commands/          # Slash commands: /init /cleanup /plans /pr /socratic …
 ├── agents/            # Subagents: explore-via-sonnet (search), review-diff, implement-scoped, docs-updater
 ├── skills/            # Auto-invoked skills: project-state upkeep (update-status, log, status, backlog), TDD, systematic-debugging, writing-plans, brainstorming, using-superpowers
 ├── scripts/           # subagent_summary.py — tabulates the SubagentStop log

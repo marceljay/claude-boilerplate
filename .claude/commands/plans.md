@@ -29,7 +29,3 @@ List and open saved plans from Plan Mode.
    - Remaining unchecked items (`- [ ]`) as **TODO**
    - Any items that appear blocked or dependent on other work
    - Offer to resume implementation if there are incomplete steps
-
----
-
-*By [@ds1](https://github.com/ds1) — [boilerplate.md](https://github.com/ds1/boilerplate.md)*

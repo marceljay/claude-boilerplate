@@ -155,7 +155,10 @@ any procedure that's needed _sometimes_ — releases, PR creation, status update
 keeping it out of the always-loaded `CLAUDE.md`.
 
 This project ships: `init`, `cleanup`, `plans`, `pr`, `deploy`, `dev`, `docs`,
-`remember`, `backup-memory`. Open any of them —
+`remember`, `backup-memory`, `socratic` (`/socratic <decision>` stress-tests a
+design with questions instead of answers; `/socratic teach <topic>` tutors you
+toward your own answer — a command rather than a skill on purpose, since only
+you know when you want to be questioned instead of answered). Open any of them —
 they're just markdown with a numbered list of steps.
 
 The four project-state procedures (`update-status`, `log`, `status`, `backlog`)

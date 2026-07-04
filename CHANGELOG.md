@@ -16,6 +16,14 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   clients, `dd` to block devices, `mkfs`. Fails open on internal errors but
   logs them to `.claude/logs/hook_errors.log`.
 
+- `/socratic` command — question instead of answer, on request. Default mode
+  stress-tests a design/decision (assumptions, failure modes, discarded
+  alternatives, one question at a time, no solutions until asked);
+  `/socratic teach` tutors the user toward their own answer. Deliberately a
+  command, not a skill: only the user knows when they want to be questioned
+  instead of answered, so it must never auto-fire — and commands cost no
+  always-on tokens.
+
 ### Removed
 
 - Stale plan `_planning/plans/2026-06-11-boilerplate-handoff.md` — its work

@@ -16,16 +16,20 @@ Create a pull request with a standardized format.
 
 ```markdown
 ## Summary
+
 <1-3 bullet points describing what this PR does>
 
 ## Changes
+
 <bulleted list of specific changes, grouped by area>
 
 ## Test Plan
+
 <how to verify these changes work>
 ```
 
 3. Create the PR:
+
    ```
    gh pr create --title "..." --body "..."
    ```
@@ -33,5 +37,3 @@ Create a pull request with a standardized format.
 4. Return the PR URL to the user.
 
 ---
-
-*By [@ds1](https://github.com/ds1) — [boilerplate.md](https://github.com/ds1/boilerplate.md)*

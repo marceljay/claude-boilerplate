@@ -28,5 +28,3 @@ Deploy the current project to production.
 6. After deployment, update `_planning/STATUS.md` with the deployment timestamp.
 
 ---
-
-_By [@ds1](https://github.com/ds1) — [boilerplate.md](https://github.com/ds1/boilerplate.md)_

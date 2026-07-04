@@ -78,7 +78,7 @@ Scaffold the standard file structure for a new project.
    user:
    - **Private (default)** — leave the `_planning/STATUS.md` ignore line in place.
    - **Public** — the team should see status/backlog in the repo (a shared private
-     repo, or you *want* a visible roadmap): **remove** the `_planning/STATUS.md`
+     repo, or you _want_ a visible roadmap): **remove** the `_planning/STATUS.md`
      line from `.gitignore` so it's committed. (`CHANGELOG.md` is committed either
      way — the shipped history is always public.)
 
@@ -213,5 +213,3 @@ Scaffold the standard file structure for a new project.
    instead. See `.claude/skills/ATTRIBUTION.md`.
 
 ---
-
-_By [@ds1](https://github.com/ds1) — [boilerplate.md](https://github.com/ds1/boilerplate.md)_

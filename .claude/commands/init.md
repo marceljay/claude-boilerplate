@@ -4,7 +4,13 @@ Scaffold the standard file structure for a new project.
 
 ## Steps
 
-0. If this copy hasn't been detached from the boilerplate yet
+0. **Guard:** if a `.boilerplate-dev` file exists at the repo root, this is the
+   boilerplate's own development repo — do NOT offer to detach and skip the
+   container rename in step 3 (the default name is the first-run detection
+   signal and must keep shipping to copies). Run only the steps that fill
+   genuine gaps.
+
+   Otherwise, if this copy hasn't been detached from the boilerplate yet
    (`scripts/new-project.sh` still exists), offer to run it first — it removes
    the boilerplate's README/LICENSE, resets the state files, drops the
    boilerplate's git history (default; `--keep-git` retains it), and deletes
@@ -186,7 +192,8 @@ Scaffold the standard file structure for a new project.
    - **tdd** — failing test first; activates the `test-driven-development`
      skill (fits projects with critical core logic)
 
-3. Rename the dev container to this project. If `.devcontainer/devcontainer.json`
+3. Rename the dev container to this project (skip if `.boilerplate-dev` exists —
+   see step 0). If `.devcontainer/devcontainer.json`
    still has `"name": "Claude Boilerplate Repo"` (the boilerplate default),
    replace it with the project name. This is also the signal the first-run
    SessionStart hook uses to detect an un-detached copy, so renaming it stops

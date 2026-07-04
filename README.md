@@ -127,6 +127,10 @@ container is a safer place for it to work than your host machine.
 > parallel), and the default name is what the first-run hook keys off to detect a
 > copy that hasn't been set up yet. `/init` and `scripts/new-project.sh` rename it
 > for you; if you set things up by hand, change it yourself.
+> (Working on the boilerplate _itself_? Keep the default name — it has to ship
+> to copies — and `touch .boilerplate-dev` instead: that gitignored marker,
+> which clones never inherit, silences the first-run nag and makes
+> `new-project.sh` and `/init` refuse to detach/rename this repo.)
 
 ### The firewall (`init-firewall.sh`)
 

@@ -17,6 +17,12 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+if [ -f .boilerplate-dev ]; then
+  echo "REFUSED: .boilerplate-dev marks this as the boilerplate's own dev repo —" >&2
+  echo "detaching would reset its git history. Delete the marker if you really mean it." >&2
+  exit 1
+fi
+
 YES=0
 KEEP_GIT=0
 for arg in "$@"; do

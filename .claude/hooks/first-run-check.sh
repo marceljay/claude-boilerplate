@@ -11,6 +11,11 @@
 # script and survives manual deletion of it.
 set -euo pipefail
 
+# The boilerplate's own dev repo keeps the default container name forever (it's
+# the detection signal that must ship to copies). A gitignored marker — which
+# clones/copies never inherit — tells us apart from an un-detached copy.
+[[ -f ".boilerplate-dev" ]] && exit 0
+
 dc=".devcontainer/devcontainer.json"
 if [[ -f "$dc" ]] && grep -q '"name"[[:space:]]*:[[:space:]]*"Claude Boilerplate Repo"' "$dc"; then
   cat <<'EOF'

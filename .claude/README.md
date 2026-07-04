@@ -123,12 +123,14 @@ token usage, result summary — to `.claude/logs/subagents.jsonl`
 output). Run `.claude/scripts/subagent_summary.py` to tabulate it by model
 and agent type — useful for seeing where subagent usage is going.
 
-**Why hooks matter for this project:** the current `PreCompact` hook only does
-`echo CONTEXT_SAVE_TRIGGERED`. That echo doesn't save anything — it just prints
-a string that Claude is told to watch for and then _manually_ react to. A real
-hook would run a script that writes `STATUS.md` itself, so the save happens even
-if Claude misses the cue. Hooks are how you turn "Claude usually remembers to X"
-into "X always happens."
+**Why hooks matter for this project:** the `PreCompact` hook
+(`save-context.sh`) writes a timestamped marker into `STATUS.md` itself *and*
+echoes `CONTEXT_SAVE_TRIGGERED` for Claude to react to — so the deterministic
+part happens even if Claude misses the cue. Hooks are how you turn "Claude
+usually remembers to X" into "X always happens." (SessionStart hooks also
+check `.boilerplate-dev` — a gitignored root marker identifying the
+boilerplate's own dev repo — so first-run detach nudges never fire here while
+still shipping to copies.)
 
 A practical example you might add — auto-format every file Claude edits:
 

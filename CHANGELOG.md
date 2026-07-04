@@ -124,6 +124,14 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- `.boilerplate-dev` marker (gitignored, so clones/copies never inherit it)
+  identifies the boilerplate's own dev repo: `first-run-check.sh` stops nagging
+  every session, `scripts/new-project.sh` refuses to detach (it would reset the
+  dev repo's history), and `/init` skips the detach offer and the container
+  rename (the default container name is the first-run detection signal and
+  must keep shipping). Recreate after a fresh clone: `touch .boilerplate-dev`.
+- Stale claim in `.claude/README.md` that the `PreCompact` hook "only does
+  `echo`" — it has run a real save script for a while.
 - The boilerplate's own `.gitignore` was missing the secret-file entries its
   own security rule and `/init` template mandate (`.env*`, `*.pem`, `*.key`,
   `credentials.json`, `Thumbs.db`) — found by dry-running `/init` against the

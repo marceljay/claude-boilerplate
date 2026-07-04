@@ -18,6 +18,13 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- Subagents: `review-via-haiku`/`review-via-sonnet` (byte-identical except the
+  `model:` line) merged into one `review-diff` agent — Haiku by default, with
+  the Agent tool's per-invocation `model` override for a deeper Sonnet pass.
+  New `implement-scoped` agent (Sonnet, override to Haiku for mechanical edits)
+  implements precisely specced, self-contained changes: runs lint/tests on what
+  it touched, returns a diffstat plus what it verified, stops and asks instead
+  of guessing when the spec is ambiguous.
 - Deny list: added the common variants (`rm -fr`, `git push -f`) as free
   tripwires; dropped `Bash(drop table:*)`, which could never match (SQL goes
   through a client binary, not a bash prefix — the hook covers it now).

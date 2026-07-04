@@ -1,10 +1,12 @@
 ---
-name: review-via-haiku
+name: review-diff
 description: >
   Reviews a code change (a diff) for bugs, correctness issues, and obvious
   simplifications. Delegate here after making changes when you want a second
   pass. Returns a prioritized findings list, not a rewrite — the diff reading
-  happens in this agent's context, keeping the main thread lean.
+  happens in this agent's context, keeping the main thread lean. Defaults to
+  Haiku (cheap); for risky or subtle changes, invoke with a model override of
+  sonnet for a deeper pass.
 tools: Read, Grep, Glob, Bash
 model: haiku
 ---

@@ -237,14 +237,24 @@ and return a concise answer with file:line references. Do not modify files.
 
 Save that as `agents/explore-via-sonnet.md` and the main Claude can delegate to it.
 
+The `model:` frontmatter is only a *default* — the main Claude can override it
+per invocation (the Agent tool takes a `model` parameter), so one definition
+serves several price points. Ask in plain language ("review this with sonnet")
+and the override gets passed.
+
 This boilerplate ships four by default — the highest-impact change for the
 "reduce usage" goal:
 
 - **`explore-via-sonnet`** — read-only fan-out searches ("where is X", "how does
   Y work") on a cheaper model; keeps heavy reading out of the main context.
-- **`review-via-haiku`** / **`review-via-sonnet`** — review a diff for bugs and
-  return a prioritized findings list; the Haiku variant is the cheap default,
-  Sonnet for a deeper pass.
+- **`review-diff`** — review a diff for bugs and return a prioritized findings
+  list. Defaults to Haiku (review output is small; the reading dominates);
+  override to Sonnet for risky or subtle changes.
+- **`implement-scoped`** — implement a precisely specced, self-contained change
+  (files named, acceptance criteria given); runs lint/tests on what it touched
+  and returns a diffstat plus what it verified. Defaults to Sonnet; override to
+  Haiku for mechanical multi-file edits. Not for work needing conversation
+  context — a subagent starts cold, so you'd pay to re-explain it.
 - **`docs-updater`** — checks whether docs need updating after a change and
   edits them only if it's user-facing; used by `/docs`.
 

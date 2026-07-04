@@ -66,6 +66,19 @@ Claude wants to run.
 
 `Bash(npm:*)` means "any command starting with `npm`". The `:*` is a wildcard.
 
+**Honesty note on `deny`:** rules are *prefix* matches, so `Bash(rm -rf:*)`
+misses `rm -fr` / `rm -r -f`, and `Bash(git push --force:*)` misses
+`git push -f`. Treat the deny list as a free tripwire for the canonical
+spellings, not protection. The robust guard here is a `PreToolUse` hook
+(`.claude/hooks/block_destructive.py`) that tokenizes each Bash command
+(quote-aware — a commit message *mentioning* `rm -rf` doesn't trip it) and
+blocks destructive **intent** in any spelling: recursive+force `rm` at
+protected paths (`/`, `~`, `.git`, the workspace root, anything outside the
+workspace and `/tmp`), force-pushes to main/master, `git reset --hard`,
+`git clean -f`, destructive SQL via a DB client, `dd` to a block device,
+`mkfs`. It runs in every permission mode, including bypassPermissions; on an
+internal error it fails open but logs to `.claude/logs/hook_errors.log`.
+
 ### `hooks`
 
 A **hook** is a shell command **the harness runs automatically** when a specific
@@ -102,7 +115,9 @@ Common events you can hook:
 | `SessionStart`     | A session begins                       | Print project status                 |
 | `SubagentStop`     | A subagent finishes                    | Log its task, model, token usage     |
 
-This project uses `SubagentStop` to log every subagent run — task, model,
+This project uses `PreToolUse` (matcher `Bash`) to block destructive command
+variants the deny list's prefix matching can't catch — see the honesty note
+under `permissions` above. It also uses `SubagentStop` to log every subagent run — task, model,
 token usage, result summary — to `.claude/logs/subagents.jsonl`
 (`.claude/hooks/log_subagent.py`, gitignored since it can contain tool
 output). Run `.claude/scripts/subagent_summary.py` to tabulate it by model

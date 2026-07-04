@@ -5,7 +5,22 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- `PreToolUse` guard hook (`.claude/hooks/block_destructive.py`) — the deny
+  list is prefix-matched, so `rm -fr`, `rm -r -f`, and `git push -f` slipped
+  past it. The hook tokenizes each Bash command (quote-aware, works in every
+  permission mode incl. bypassPermissions) and blocks destructive intent in any
+  spelling: recursive+force `rm` at protected paths, force-pushes to
+  main/master, `git reset --hard`, `git clean -f`, destructive SQL via DB
+  clients, `dd` to block devices, `mkfs`. Fails open on internal errors but
+  logs them to `.claude/logs/hook_errors.log`.
+
 ### Changed
+
+- Deny list: added the common variants (`rm -fr`, `git push -f`) as free
+  tripwires; dropped `Bash(drop table:*)`, which could never match (SQL goes
+  through a client binary, not a bash prefix — the hook covers it now).
 
 - Project-state commands `/update-status`, `/log`, `/status`, `/backlog` are now
   **skills** (`.claude/skills/<name>/SKILL.md`) so Claude invokes them itself when

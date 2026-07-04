@@ -24,6 +24,10 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- README's Dev Container section now states the platform limit up front: dev
+  containers are Linux, so native iOS/macOS work (Xcode, simulators, signing)
+  can't happen inside one — use the `.claude/` harness on the Mac host instead
+  (it's portable; only the container's isolation/firewall is lost).
 - Resolved the TDD-vs-CLAUDE.md contradiction with a **per-project testing
   policy**, mirroring the commit policy: `Testing policy: on-request |
   tests-with-features | tdd`, asked once (also by `/init`) and recorded as a

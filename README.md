@@ -103,6 +103,16 @@ and the `devcontainer` CLI all understand it.
 Why it matters here: Claude Code runs shell commands, so a disposable, isolated
 container is a safer place for it to work than your host machine.
 
+> **Not for iOS/macOS-native development.** Dev containers are Linux — Xcode,
+> the iOS SDK, simulators, and code signing only exist on macOS, so no image
+> tweak makes a native iOS/macOS app buildable in here (React Native/Flutter
+> hit the same wall at `pod install`/simulator time). For those projects, drop
+> `.devcontainer/` and use the `.claude/` harness directly on your Mac — the
+> hooks, skills, and agents are plain bash/python and fully portable; you lose
+> the container's isolation and firewall, but the deny list and the
+> `block_destructive.py` guard still run. Release builds belong on macOS CI
+> runners (GitHub Actions `macos-*`, Xcode Cloud) either way.
+
 **What this container sets up** (`.devcontainer/`):
 
 | File                | Purpose                                                                                                                                                                                                        |

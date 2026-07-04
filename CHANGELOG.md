@@ -124,6 +124,10 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- The boilerplate's own `.gitignore` was missing the secret-file entries its
+  own security rule and `/init` template mandate (`.env*`, `*.pem`, `*.key`,
+  `credentials.json`, `Thumbs.db`) — found by dry-running `/init` against the
+  repo. Added them.
 - Container-awareness for dev servers/ports: Claude now knows it runs in the
   dev container (new `CLAUDE.md` Runtime note), `/dev` binds `0.0.0.0`, runs the
   server in the background, and surfaces the forwarded URL instead of opening a

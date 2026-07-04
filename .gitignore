@@ -1,5 +1,12 @@
-# MacOS Finder metadata files
+# Secrets — never commit (see CLAUDE.md Security)
+.env*
+*.pem
+*.key
+credentials.json
+
+# OS metadata files
 *.DS_Store
+Thumbs.db
 
 # Claude Code per-developer local overrides — not part of the template
 .claude/settings.local.json

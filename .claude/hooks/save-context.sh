@@ -12,11 +12,13 @@ ts="$(date '+%Y-%m-%d %H:%M')"
 status_file="_planning/STATUS.md"
 [[ -f "$status_file" ]] || status_file="STATUS.md"
 
-# Append a compaction marker so there's always a timestamped breadcrumb.
+# Leave a timestamped compaction marker. The marker is a breadcrumb, not a log:
+# any previous marker is replaced, so repeated compactions don't pile up cruft
+# in STATUS.md (the update-status skill also deletes stale ones when editing).
 if [[ -f "$status_file" ]]; then
-  {
-    printf '\n<!-- context compacted at %s — review In Progress/Blockers above -->\n' "$ts"
-  } >> "$status_file"
+  content="$(sed '/^<!-- context compacted at /d' "$status_file")"
+  printf '%s\n\n<!-- context compacted at %s — review In Progress/Blockers above -->\n' \
+    "$content" "$ts" > "$status_file"
 fi
 
 # Emit the cue Claude is told to watch for, so it also does the richer,

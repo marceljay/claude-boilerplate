@@ -39,8 +39,13 @@ import subprocess
 import sys
 
 WS = os.path.realpath(os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd())
-SEPARATORS = {";", "&&", "||", "|", "&", "(", ")", "\n"}
-PUNCT_SKIP = re.compile(r"^[<>&|;()]+$")
+# Newline must be a separator, not whitespace: otherwise a multi-line command
+# collapses into one segment and e.g. an `rm` on line 1 "sees" later lines'
+# arguments as its targets (found the hard way — false positive on a test
+# script). shlex returns runs of punctuation as one token ("&&\n"), so
+# separators are matched by character class, not set membership.
+SEPARATOR_CHARS = "();<>|&;\n"
+SEP_RE = re.compile(r"^[();<>|&\n]+$")
 WRAPPERS = {"sudo", "command", "nohup", "time", "timeout", "stdbuf", "env"}
 SHELLS = {"bash", "sh", "zsh", "dash", "ksh"}
 DB_CLIENTS = {"psql", "mysql", "mariadb", "sqlite3", "duckdb", "clickhouse-client"}
@@ -59,7 +64,8 @@ def deny(reason):
 
 
 def tokenize(cmd):
-    lex = shlex.shlex(cmd, posix=True, punctuation_chars=True)
+    lex = shlex.shlex(cmd, posix=True, punctuation_chars=SEPARATOR_CHARS)
+    lex.whitespace = " \t\r"  # NOT \n — it must surface as a separator token
     lex.whitespace_split = True
     return list(lex)
 
@@ -67,7 +73,7 @@ def tokenize(cmd):
 def split_segments(tokens):
     seg, segs = [], []
     for t in tokens:
-        if t in SEPARATORS:
+        if SEP_RE.fullmatch(t):
             if seg:
                 segs.append(seg)
             seg = []
@@ -128,7 +134,7 @@ def check_rm(args):
             continue
         if not opts_done and a.startswith("-") and a != "-":
             continue
-        if PUNCT_SKIP.fullmatch(a):
+        if SEP_RE.fullmatch(a):
             continue
         targets.append(a)
     for t in targets:

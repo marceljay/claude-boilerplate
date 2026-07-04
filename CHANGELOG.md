@@ -18,6 +18,13 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- `status-staleness-check.sh` (SessionStart) now has a second, sharper check:
+  `STATUS_DRIFT` fires when In Progress is non-empty **and** commits have landed
+  since STATUS.md was last modified — the signature of "finished but never
+  cleared" — so it flags the very next session instead of waiting out the 7-day
+  staleness window. `save-context.sh` (PreCompact) now *replaces* its previous
+  compaction marker instead of appending, so markers no longer accumulate in
+  STATUS.md.
 - Subagents: `review-via-haiku`/`review-via-sonnet` (byte-identical except the
   `model:` line) merged into one `review-diff` agent — Haiku by default, with
   the Agent tool's per-invocation `model` override for a deeper Sonnet pass.

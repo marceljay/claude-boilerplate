@@ -154,7 +154,7 @@ Think of commands as "scripts written in English." They're the right home for
 any procedure that's needed _sometimes_ — releases, PR creation, status updates —
 keeping it out of the always-loaded `CLAUDE.md`.
 
-This project ships: `init`, `cleanup`, `plans`, `pr`, `deploy`, `dev`, `docs`,
+This project ships: `init`, `cleanup`, `plans`, `pr`, `dev`, `docs`,
 `remember`, `backup-memory`, `socratic` (`/socratic <decision>` stress-tests a
 design with questions instead of answers; `/socratic teach <topic>` tutors you
 toward your own answer — a command rather than a skill on purpose, since only

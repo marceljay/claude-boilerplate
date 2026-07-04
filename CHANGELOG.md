@@ -26,6 +26,11 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Removed
 
+- `/deploy` command — it assumed deploys are local hosting-CLI runs (Vercel/
+  Netlify-centric, no CI-driven path, no library publishing), would be blocked
+  by the container's own firewall anyway, and its strongest signal (an explicit
+  deploy script/target) was checked last. Removed rather than patched; a
+  proper stack-agnostic rewrite is spec'd in the backlog.
 - Stale plan `_planning/plans/2026-06-11-boilerplate-handoff.md` — its work
   shipped long ago but its checkboxes read 0/4 done, inviting a future session
   to redo it. The past lives in CHANGELOG.md and git history, not in plans.

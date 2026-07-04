@@ -14,8 +14,8 @@ This boilerplate is **not tied to one stack or programming language**: commands 
 Make-based projects out of the box, and permissions cover those toolchains.
 Other stacks (Solidity/Foundry, Elixir, Zig, …) still work — Claude figures out
 the commands — but for the smoothest ride add your toolchain to the
-`settings.json` allowlist and the detection lists in `/dev`, `/cleanup`, and
-`/deploy` (each is a small markdown edit).
+`settings.json` allowlist and the detection lists in `/dev` and `/cleanup`
+(each is a small markdown edit).
 
 It also runs inside a **Dev Container** — a reproducible, network-restricted
 sandbox. See [Dev Container](#dev-container) below.

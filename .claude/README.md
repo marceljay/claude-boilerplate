@@ -184,20 +184,24 @@ happens at work-item transitions without being asked. Five more ship vendored
 from Jesse Vincent's [Superpowers](https://github.com/obra/superpowers)
 collection (MIT — see `.claude/skills/ATTRIBUTION.md`):
 
-- **`using-superpowers`** — teaches Claude to check for and invoke a relevant skill
-  before responding.
+- **`using-superpowers`** — teaches Claude to check for and invoke a clearly
+  relevant skill before starting, and that user instructions always win.
 - **`test-driven-development`** — red-green-refactor discipline (write the failing
-  test first).
+  test first). Fires only when the project opts in via `Testing policy: tdd`
+  in its CLAUDE.md, or when you ask for tests-first.
 - **`systematic-debugging`** — find the root cause before proposing any fix.
 - **`writing-plans`** — turn a spec into a bite-sized implementation plan (saved to
   `_planning/plans/`).
 - **`brainstorming`** — turn an idea into a design/spec via dialogue (saved to
   `_planning/specs/`).
 
-The last two are **modified from upstream**: they _ask before starting_ (upstream
-auto-fires and blocks all coding until a design is approved), write to `_planning/`
-instead of `docs/superpowers/`, and drop the browser-based "visual companion."
-Details in `ATTRIBUTION.md`.
+All but `systematic-debugging` are **modified from upstream**, in the same
+direction: opt-in over auto-fire. `writing-plans`/`brainstorming` _ask before
+starting_ (upstream auto-fires and blocks all coding until a design is approved)
+and write to `_planning/` instead of `docs/superpowers/`;
+`test-driven-development` is gated on the per-project testing policy instead of
+firing on every feature; `using-superpowers` drops upstream's "1% chance →
+MUST invoke" dispatch rule. Details in `ATTRIBUTION.md`.
 
 Add your own by dropping a folder with a `SKILL.md` here (its `description`
 frontmatter is what Claude matches against). For the full, auto-updating Superpowers

@@ -58,10 +58,13 @@ STATUS.md instead of waiting for someone to run a command (you can still type
 `/update-status` etc.). Five more ship vendored from [Superpowers](https://github.com/obra/superpowers)
 (MIT — see `.claude/skills/ATTRIBUTION.md`): `test-driven-development`,
 `systematic-debugging`, `using-superpowers` (which nudges Claude to reach for a
-relevant skill before answering), plus `writing-plans` and `brainstorming`. The last
-two are modified from upstream to **ask before starting** (rather than auto-firing
-and blocking all coding until a design is approved) and to save plans/specs under
-`_planning/`. Delete a folder to remove that skill; install the Superpowers _plugin_
+relevant skill before answering), plus `writing-plans` and `brainstorming`. All
+but `systematic-debugging` are modified from upstream to be **opt-in rather than
+auto-firing**: plans/brainstorms ask before starting and save under `_planning/`,
+TDD applies only when the project records `Testing policy: tdd` (a per-project
+choice, asked once — like the commit policy), and the skill dispatcher drops
+upstream's "1% chance → MUST invoke" rule. Delete a folder to remove that
+skill; install the Superpowers _plugin_
 instead if you'd rather track the full, unmodified, auto-updating upstream set.
 
 ## Getting started

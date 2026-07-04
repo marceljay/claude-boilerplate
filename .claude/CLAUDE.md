@@ -60,7 +60,16 @@ All actions are auto-approved, so:
 ## Code Quality
 
 - After editing code, run the project's linter and fix errors without asking.
-  Run existing tests; don't write new ones unless asked.
+  Run existing tests.
+- **Testing policy is a per-project choice.** If none is recorded, ask at the
+  first natural point (use the Preference Persistence options below):
+  1. **On request** — don't write new tests unless asked (default until set)
+  2. **Tests with features** — new behavior gets tests alongside it; trivial
+     changes and refactors don't
+  3. **TDD** — the `test-driven-development` skill governs: failing test first
+  Record the choice in the project CLAUDE.md as a one-liner
+  (`Testing policy: on-request | tests-with-features | tdd`).
+- Testing policy: on-request (this repo).
 - Treat build/lint/compiler warnings as errors — investigate and fix every one.
   Never say a warning is "safe to ignore"; if one truly can't be fixed, explain
   specifically and ask the user to confirm it's acceptable.

@@ -24,6 +24,18 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- Resolved the TDD-vs-CLAUDE.md contradiction with a **per-project testing
+  policy**, mirroring the commit policy: `Testing policy: on-request |
+  tests-with-features | tdd`, asked once (also by `/init`) and recorded as a
+  CLAUDE.md one-liner. The vendored `test-driven-development` skill now fires
+  only under the `tdd` policy or on explicit request instead of on every
+  feature/bugfix; CLAUDE.md's blanket "don't write new tests unless asked"
+  became the `on-request` option (and this repo's recorded policy).
+  `using-superpowers` was toned down: "invoke a clearly relevant skill before
+  starting, user instructions always win" replaces upstream's "1% chance →
+  ABSOLUTELY MUST invoke before ANY response" dispatch rule, red-flags table,
+  and brainstorm-before-plan-mode push, which kept dragging rigid skills into
+  tasks that hadn't opted in. Both modifications documented in ATTRIBUTION.md.
 - `status-staleness-check.sh` (SessionStart) now has a second, sharper check:
   `STATUS_DRIFT` fires when In Progress is non-empty **and** commits have landed
   since STATUS.md was last modified — the signature of "finished but never

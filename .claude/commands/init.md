@@ -178,6 +178,14 @@ Scaffold the standard file structure for a new project.
    automatically at milestones / periodically — and record it in CLAUDE.md as
    `Commit policy: on-request | milestones | periodic`.
 
+   Also ask for a testing policy and record it as
+   `Testing policy: on-request | tests-with-features | tdd`:
+   - **on-request** — no new tests unless asked (fits prototypes, scripts, config)
+   - **tests-with-features** — new behavior gets tests alongside it (fits
+     long-lived apps)
+   - **tdd** — failing test first; activates the `test-driven-development`
+     skill (fits projects with critical core logic)
+
 3. Rename the dev container to this project. If `.devcontainer/devcontainer.json`
    still has `"name": "Claude Boilerplate Repo"` (the boilerplate default),
    replace it with the project name. This is also the signal the first-run
@@ -192,10 +200,10 @@ Scaffold the standard file structure for a new project.
    `using-superpowers`, `writing-plans`, `brainstorming`): they need no install —
    Claude Code auto-discovers them and invokes the matching one on its own.
    `writing-plans`/`brainstorming` save to `_planning/plans/` and `_planning/specs/`
-   and ask before starting. Mention they can delete any folder they don't want
-   (especially `using-superpowers`, which makes Claude reach for skills
-   aggressively), and that the full upstream set is available via the Superpowers
-   plugin instead. See `.claude/skills/ATTRIBUTION.md`.
+   and ask before starting; `test-driven-development` activates only under
+   `Testing policy: tdd`. Mention they can delete any folder they don't want,
+   and that the full upstream set is available via the Superpowers plugin
+   instead. See `.claude/skills/ATTRIBUTION.md`.
 
 ---
 

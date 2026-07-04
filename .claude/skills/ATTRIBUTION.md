@@ -22,6 +22,16 @@ These vendored copies differ from upstream (changes © the boilerplate, same MIT
   instead of upstream's `docs/superpowers/…`, matching this repo's state-file layout.
 - **The `brainstorming` "visual companion"** (a browser/localhost-server feature) is
   not vendored — this boilerplate's dev container has no host browser.
+- **`test-driven-development` is policy-gated.** Upstream fires on any feature or
+  bugfix; here it fires only when the project CLAUDE.md records
+  `Testing policy: tdd` or the user explicitly asks for tests-first. Testing is a
+  per-project choice (`on-request | tests-with-features | tdd`), asked once and
+  recorded — like the commit policy.
+- **`using-superpowers` is toned down.** Upstream mandates invoking any skill with
+  "even a 1% chance" of relevance before any response, and pushes brainstorming
+  before plan mode. Here it says: invoke a *clearly relevant* skill before starting,
+  announce it, user instructions always win, and respect policy gates. The red-flags
+  table and mandatory-dispatch flowchart are dropped.
 
 Source: https://github.com/obra/superpowers (skills under `skills/`).
 Only the Claude Code platform reference is vendored from `using-superpowers`;

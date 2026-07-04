@@ -1,6 +1,6 @@
 ---
 name: test-driven-development
-description: Use when implementing any feature or bugfix, before writing implementation code
+description: Use when the project CLAUDE.md records "Testing policy: tdd", or the user explicitly asks for TDD or writing tests first — red-green-refactor discipline. Under any other testing policy, do not fire on ordinary features or bugfixes.
 ---
 
 # Test-Driven Development (TDD)
@@ -15,7 +15,10 @@ Write the test first. Watch it fail. Write minimal code to pass.
 
 ## When to Use
 
-**Always:**
+Only when active: the project records `Testing policy: tdd` in its CLAUDE.md,
+or the user asked for tests-first. (Modified from upstream, which applied this
+to every feature — see ATTRIBUTION.md.) Once active, it applies to:
+
 - New features
 - Bug fixes
 - Refactoring

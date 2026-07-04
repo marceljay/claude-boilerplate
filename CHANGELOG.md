@@ -16,6 +16,12 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   clients, `dd` to block devices, `mkfs`. Fails open on internal errors but
   logs them to `.claude/logs/hook_errors.log`.
 
+### Removed
+
+- Stale plan `_planning/plans/2026-06-11-boilerplate-handoff.md` — its work
+  shipped long ago but its checkboxes read 0/4 done, inviting a future session
+  to redo it. The past lives in CHANGELOG.md and git history, not in plans.
+
 ### Changed
 
 - `status-staleness-check.sh` (SessionStart) now has a second, sharper check:

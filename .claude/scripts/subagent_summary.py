@@ -99,8 +99,10 @@ def entry_tokens(e):
     output_t = e.get("output_tokens", 0) or 0
     cache_read_t = e.get("cache_read_tokens", 0) or 0
     cache_creation_t = e.get("cache_creation_tokens", 0) or 0
-    total_t = e.get("total_tokens") or (input_t + output_t)
-    return input_t, output_t, cache_read_t, cache_creation_t, total_t
+    # "fresh" = uncached input + output; older log lines called this
+    # total_tokens (misleading — it excludes the cache fields entirely)
+    fresh_t = e.get("fresh_tokens") or e.get("total_tokens") or (input_t + output_t)
+    return input_t, output_t, cache_read_t, cache_creation_t, fresh_t
 
 
 def has_recorded_tokens(input_t, output_t, cache_read_t, cache_creation_t):
@@ -133,17 +135,17 @@ def new_bucket():
     return {
         "runs": 0, "input": 0, "output": 0,
         "cache_read": 0, "cache_creation": 0,
-        "total": 0, "cost": 0.0, "cost_known": True,
+        "fresh": 0, "cost": 0.0, "cost_known": True,
     }
 
 
-def accumulate(bucket, input_t, output_t, cache_read_t, cache_creation_t, total_t, model):
+def accumulate(bucket, input_t, output_t, cache_read_t, cache_creation_t, fresh_t, model):
     bucket["runs"] += 1
     bucket["input"] += input_t
     bucket["output"] += output_t
     bucket["cache_read"] += cache_read_t
     bucket["cache_creation"] += cache_creation_t
-    bucket["total"] += total_t
+    bucket["fresh"] += fresh_t
     cost = estimate_cost(input_t, output_t, cache_read_t, cache_creation_t, model)
     if cost is None:
         bucket["cost_known"] = False
@@ -175,10 +177,10 @@ def main():
     # events like "wait for the results") — they're noise, not zero-cost runs.
     usable = []
     for e in entries:
-        input_t, output_t, cache_read_t, cache_creation_t, total_t = entry_tokens(e)
+        input_t, output_t, cache_read_t, cache_creation_t, fresh_t = entry_tokens(e)
         if not has_recorded_tokens(input_t, output_t, cache_read_t, cache_creation_t):
             continue
-        usable.append((e, input_t, output_t, cache_read_t, cache_creation_t, total_t))
+        usable.append((e, input_t, output_t, cache_read_t, cache_creation_t, fresh_t))
 
     skipped = total_logged - len(usable)
     if not usable:
@@ -192,12 +194,12 @@ def main():
     grand_cost = 0.0
     grand_cost_known = True
 
-    for e, input_t, output_t, cache_read_t, cache_creation_t, total_t in usable:
+    for e, input_t, output_t, cache_read_t, cache_creation_t, fresh_t in usable:
         model = e.get("model") or "unknown"
         agent = e.get("agent_type") or "unknown"
 
-        accumulate(by_model[model], input_t, output_t, cache_read_t, cache_creation_t, total_t, model)
-        accumulate(by_agent[agent], input_t, output_t, cache_read_t, cache_creation_t, total_t, model)
+        accumulate(by_model[model], input_t, output_t, cache_read_t, cache_creation_t, fresh_t, model)
+        accumulate(by_agent[agent], input_t, output_t, cache_read_t, cache_creation_t, fresh_t, model)
 
         grand_input += input_t
         grand_output += output_t
@@ -211,10 +213,16 @@ def main():
 
     skip_note = f" ({skipped} zero-token entr{'y' if skipped == 1 else 'ies'} skipped)" if skipped else ""
     print(f"All-time totals across {len(usable)} subagent run(s){skip_note}")
+    print(
+        "\nHow to read this: every agent turn re-sends the whole conversation, so the\n"
+        "already-seen prefix piles up as cache reads (~0.1x input rate) and new context as\n"
+        "cache writes (~1.25x). 'Fresh' = uncached input + output only — it is neither\n"
+        "total work nor cost; the cost column prices all four token kinds."
+    )
 
     model_rows = sorted(
         ([m, s["runs"], fmt(s["input"]), fmt(s["output"]), fmt(s["cache_read"]),
-          fmt(s["cache_creation"]), fmt(s["total"]),
+          fmt(s["cache_creation"]), fmt(s["fresh"]),
           fmt_cost(s["cost"]) if s["cost_known"] else "n/a"]
          for m, s in by_model.items()),
         key=lambda r: r[0],
@@ -222,12 +230,12 @@ def main():
     print_table(
         "By model",
         model_rows,
-        ["Model", "Runs", "Input tok", "Output tok", "Cache read", "Cache create", "Total tok", "Est. cost"],
+        ["Model", "Runs", "Input tok", "Output tok", "Cache read", "Cache create", "Fresh tok", "Est. cost"],
     )
 
     agent_rows = sorted(
         ([a, s["runs"], fmt(s["input"]), fmt(s["output"]), fmt(s["cache_read"]),
-          fmt(s["cache_creation"]), fmt(s["total"]),
+          fmt(s["cache_creation"]), fmt(s["fresh"]),
           fmt_cost(s["cost"]) if s["cost_known"] else "n/a"]
          for a, s in by_agent.items()),
         key=lambda r: -int(r[-2].replace(",", "")),
@@ -235,7 +243,7 @@ def main():
     print_table(
         "By agent type",
         agent_rows,
-        ["Agent type", "Runs", "Input tok", "Output tok", "Cache read", "Cache create", "Total tok", "Est. cost"],
+        ["Agent type", "Runs", "Input tok", "Output tok", "Cache read", "Cache create", "Fresh tok", "Est. cost"],
     )
 
     print(f"\nGrand totals ({len(usable)} run(s), all-time)")
@@ -244,7 +252,7 @@ def main():
     print(f"Output tokens:         {fmt(grand_output)}")
     print(f"Cache read tokens:     {fmt(grand_cache_read)}")
     print(f"Cache creation tokens: {fmt(grand_cache_creation)}")
-    print(f"Total (input+output):  {fmt(grand_input + grand_output)}")
+    print(f"Fresh (input+output):  {fmt(grand_input + grand_output)}")
     if grand_cost_known:
         print(f"Estimated cost:        {fmt_cost(grand_cost)}")
     else:
@@ -256,14 +264,14 @@ def main():
     recent = list(reversed(usable[-args.invocations:]))
     invocation_rows = [
         [e.get("timestamp", ""), e.get("agent_type") or "unknown", e.get("model") or "unknown",
-         fmt(input_t), fmt(output_t), fmt(cache_read_t), fmt(cache_creation_t), fmt(total_t),
+         fmt(input_t), fmt(output_t), fmt(cache_read_t), fmt(cache_creation_t), fmt(fresh_t),
          fmt_cost(estimate_cost(input_t, output_t, cache_read_t, cache_creation_t, e.get("model")))]
-        for e, input_t, output_t, cache_read_t, cache_creation_t, total_t in recent
+        for e, input_t, output_t, cache_read_t, cache_creation_t, fresh_t in recent
     ]
     print_table(
         f"Last {len(invocation_rows)} individual invocation(s)",
         invocation_rows,
-        ["Timestamp", "Agent type", "Model", "Input", "Output", "Cache read", "Cache create", "Total", "Cost"],
+        ["Timestamp", "Agent type", "Model", "Input", "Output", "Cache read", "Cache create", "Fresh", "Cost"],
     )
 
 

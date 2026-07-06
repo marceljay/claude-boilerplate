@@ -163,6 +163,12 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- Subagent log/summary: the misleading `total_tokens` field (really just
+  uncached input + output — it excluded cache reads/writes, the bulk of most
+  runs' volume and ~2/3 of their cost) is renamed to `fresh_tokens`;
+  `subagent_summary.py` reads both names, relabels the column "Fresh", and
+  prints a short explainer of the per-turn cache mechanics and pricing
+  multipliers so the numbers can't be misread as totals.
 - `subagent_summary.py` now reports all-time totals instead of a `--last`/`--all`
   windowed view (dropped both flags): the by-model, by-agent-type, and grand
   totals always cover every logged session. Added a "Last N individual

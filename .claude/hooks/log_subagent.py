@@ -99,7 +99,10 @@ def log_run(data):
         "output_tokens": output_tokens,
         "cache_read_tokens": cache_read_tokens,
         "cache_creation_tokens": cache_creation_tokens,
-        "total_tokens": input_tokens + output_tokens,
+        # Deliberately NOT named total_tokens: this is uncached input + output
+        # only. Cache reads/writes (the bulk of most runs' volume and cost) are
+        # the two fields above — summing all five is how you'd get "total work".
+        "fresh_tokens": input_tokens + output_tokens,
         "result_summary": (last_message or "")[:300],
     }
 

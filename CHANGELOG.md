@@ -24,6 +24,17 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   instead of answered, so it must never auto-fire — and commands cost no
   always-on tokens.
 
+### Fixed
+
+- `/init` no longer skips an existing `.gitignore` wholesale — the universal
+  security/planning entries (`.env*`, `*.pem`, `*.key`, transcripts backup,
+  the private-by-default `_planning/STATUS.md`) are now *ensured*: missing
+  ones are appended under an `# Added by /init` header, equivalent existing
+  patterns count as present, and nothing already there is touched. Stack
+  entries (`node_modules/` etc.) are still only written on fresh creation.
+  (Item (b) of the 2026-07-04 dry-run findings; (a), (c), (d) remain in the
+  backlog.)
+
 ### Removed
 
 - `/deploy` command — it assumed deploys are local hosting-CLI runs (Vercel/

@@ -24,7 +24,8 @@ Scaffold the standard file structure for a new project.
    - Determine the tech stack and project name from whatever manifest exists:
      `package.json` (Node), `pyproject.toml`/`requirements.txt` (Python),
      `Cargo.toml` (Rust), `go.mod` (Go), or the directory name as a fallback
-   - Check what already exists — don't overwrite existing files
+   - Check what already exists — don't overwrite existing files (exception:
+     an existing `.gitignore` is merged into, never skipped — see step 2)
 
 2. Create the following files if they don't exist:
 
@@ -44,11 +45,24 @@ Scaffold the standard file structure for a new project.
    _planning/STATUS.md
    ```
 
+   **If `.gitignore` already exists, do NOT skip it** — the universal base
+   entries above are required either way. Check each one and append only the
+   missing ones at the end of the file, under a short header
+   (`# Added by /init — security + planning`), leaving the existing content
+   untouched. An entry counts as present if an equivalent pattern already
+   covers it (e.g. an existing `.env*` covers `.env.local`; `*.key` covers
+   `private.key`). The `_planning/STATUS.md` line is governed by the
+   visibility ask below in both the create and merge cases.
+
    Then add entries for the **detected stack**, e.g.:
    - Node: `node_modules/`, `dist/`, `.next/`, `.vercel/`
    - Python: `__pycache__/`, `*.pyc`, `.venv/`, `.pytest_cache/`, `*.egg-info/`
    - Rust: `target/`
    - Go: built binaries / `bin/`
+
+   (Stack entries only when creating the file fresh — a project with an
+   existing `.gitignore` almost certainly has them already; don't append
+   guesses. If an obvious gap exists, mention it instead of editing.)
 
    **Ask about the Claude/dev-tooling dirs.** The `.claude/` harness (your
    CLAUDE.md, commands, agents, hooks, permissions) and `.devcontainer/` config

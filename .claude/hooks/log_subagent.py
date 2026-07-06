@@ -48,8 +48,10 @@ def log_run(data):
     cache_creation_tokens = 0
     task_prompt = None
     transcript_last_message = ""
+    transcript_read = False
 
     if transcript_path and os.path.exists(transcript_path):
+        transcript_read = True
         with open(transcript_path, "r") as f:
             for line in f:
                 line = line.strip()
@@ -84,6 +86,16 @@ def log_run(data):
     # prefer the payload's final-message field; fall back to the transcript
     if not last_message:
         last_message = transcript_last_message
+
+    # SubagentStop also fires for interim events (e.g. the parent checking on a
+    # still-running agent) whose transcript has no assistant usage yet — those
+    # are noise, skip them. But an UNREADABLE transcript still gets logged with
+    # zeros on purpose: a run of all-zero rows is exactly the pattern that
+    # exposed the payload-field regression fixed in 45b06df — don't hide the
+    # next one. (`subagent_summary.py --prune` deletes old zero-token rows.)
+    has_usage = input_tokens or output_tokens or cache_read_tokens or cache_creation_tokens
+    if transcript_read and not has_usage:
+        return
 
     log_dir = os.path.join(base, ".claude", "logs")
     os.makedirs(log_dir, exist_ok=True)

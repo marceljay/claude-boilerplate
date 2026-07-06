@@ -18,6 +18,19 @@ Usage:
   python3 .claude/scripts/subagent_summary.py                  # all-time totals + last 10 invocations
   python3 .claude/scripts/subagent_summary.py --invocations 25 # show last 25 invocations instead of 10
   python3 .claude/scripts/subagent_summary.py --log path/to/subagents.jsonl
+  python3 .claude/scripts/subagent_summary.py --prune          # delete zero-token relic rows from the log
+
+Zero-token relics (what --prune removes, and why they exist):
+  Rows whose four token fields are all zero aren't zero-cost runs — they're
+  artifacts with no usage data, from two sources: (1) before commit 45b06df the
+  hook read the wrong SubagentStop payload field names and logged zeros for
+  every run; (2) SubagentStop also fires for interim events (the parent
+  checking on a still-running agent) whose transcript has no assistant usage
+  yet. The summary always skips them; the hook now skips writing kind (2) at
+  the source (while still logging an *unreadable* transcript as zeros, since a
+  streak of those is how the 45b06df regression was spotted); `--prune`
+  rewrites the log file to drop the relics already accumulated. Lines that
+  aren't valid JSON are preserved untouched.
 
 Cost notes (read before trusting the numbers):
   - Rates below are standard published per-million-token rates as of writing.
@@ -111,6 +124,34 @@ def has_recorded_tokens(input_t, output_t, cache_read_t, cache_creation_t):
     return bool(input_t or output_t or cache_read_t or cache_creation_t)
 
 
+def prune_log(log_path):
+    """Rewrite the log in place, dropping parseable zero-token entries.
+    Invalid-JSON lines are kept as-is (don't destroy data we don't understand)."""
+    if not os.path.exists(log_path):
+        print(f"No log file found at {log_path}")
+        sys.exit(1)
+    kept, dropped = [], 0
+    with open(log_path, "r") as f:
+        for raw in f:
+            line = raw.strip()
+            if not line:
+                continue
+            try:
+                e = json.loads(line)
+            except json.JSONDecodeError:
+                kept.append(raw)
+                continue
+            if has_recorded_tokens(*entry_tokens(e)[:4]):
+                kept.append(raw)
+            else:
+                dropped += 1
+    tmp = log_path + ".tmp"
+    with open(tmp, "w") as f:
+        f.writelines(kept)
+    os.replace(tmp, log_path)
+    print(f"Pruned {dropped} zero-token relic row(s); {len(kept)} line(s) kept.")
+
+
 def fmt(n):
     return f"{n:,}"
 
@@ -159,9 +200,16 @@ def main():
     parser.add_argument("--invocations", type=int, default=10,
                          help="Show this many of the most recent individual "
                               "invocations (default 10)")
+    parser.add_argument("--prune", action="store_true",
+                        help="Rewrite the log file, deleting zero-token relic "
+                             "entries (see the docstring for what these are)")
     args = parser.parse_args()
     if args.invocations <= 0:
         parser.error("--invocations must be a positive integer")
+
+    if args.prune:
+        prune_log(args.log)
+        return
 
     entries = load_entries(args.log)
     if not entries:

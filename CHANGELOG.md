@@ -163,6 +163,13 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- Subagent log: zero-token relic rows are gone. The hook no longer logs
+  interim SubagentStop events (parent polling a still-running agent — no usage
+  data, pure noise), while an *unreadable* transcript still logs as zeros on
+  purpose, since a streak of those is what exposed the 45b06df payload-field
+  regression. `subagent_summary.py --prune` rewrites the log to drop relics
+  from older hook versions (30 removed here); its docstring documents both
+  causes.
 - Subagent log/summary: the misleading `total_tokens` field (really just
   uncached input + output — it excluded cache reads/writes, the bulk of most
   runs' volume and ~2/3 of their cost) is renamed to `fresh_tokens`;

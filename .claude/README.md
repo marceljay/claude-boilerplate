@@ -121,7 +121,10 @@ under `permissions` above. It also uses `SubagentStop` to log every subagent run
 token usage, result summary — to `.claude/logs/subagents.jsonl`
 (`.claude/hooks/log_subagent.py`, gitignored since it can contain tool
 output). Run `.claude/scripts/subagent_summary.py` to tabulate it by model
-and agent type — useful for seeing where subagent usage is going.
+and agent type — useful for seeing where subagent usage is going. Interim
+stop events with no token usage aren't logged (they're polling noise, not
+runs); `--prune` deletes any accumulated by older hook versions — the
+script's docstring explains both.
 
 **Why hooks matter for this project:** the `PreCompact` hook
 (`save-context.sh`) writes a timestamped marker into `STATUS.md` itself *and*

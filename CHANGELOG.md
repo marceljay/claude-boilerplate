@@ -31,7 +31,13 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   nothing else — `.git`, code, README untouched — stripping this repo's
   recorded commit/testing-policy lines from the copied CLAUDE.md so `/init`
   asks the adopting project fresh; ends with next steps (reopen in container,
-  run `/init` to gap-fill). **Refresh mode** mirrors the pure-harness dirs (`.claude/{commands,skills,agents,
+  run `/init` to gap-fill). **Replace mode** (`--replace`) swaps out an
+  unwanted existing harness (foreign/hand-rolled, or conventions worth
+  abandoning): backs up the target's `.claude/` + `.devcontainer/` to a
+  timestamped tar.gz at the project root, removes them, then proceeds as a
+  fresh install — overwriting sloppy recorded policies wholesale (for a
+  single file, refresh mode's diff prompt already suffices). **Refresh
+  mode** mirrors the pure-harness dirs (`.claude/{commands,skills,agents,
   hooks,scripts}`, `.claude/README.md`, `.devcontainer/STACKS.md`), listing
   and confirming any deletions of target-only files; files that usually carry
   per-project edits (`init-firewall.sh` custom domains, `devcontainer.json`

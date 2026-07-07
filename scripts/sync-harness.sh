@@ -4,7 +4,7 @@
 # .devcontainer/) into an existing codebase, or refresh a sibling project's
 # stale copy of it.
 #
-#   scripts/sync-harness.sh ../my-project
+#   scripts/sync-harness.sh [--replace] ../my-project
 #
 # Run from the HOST, not inside a dev container: a container mounts only its
 # own workspace, so sibling project directories aren't visible there.
@@ -31,6 +31,15 @@
 #   - Never touches: settings.local.json, .claude/logs/, _planning/,
 #     project code, git state.
 #
+# REPLACE (--replace; target has a harness you want gone — a foreign/
+# hand-rolled .claude/, or one whose conventions you're abandoning): backs
+# up the target's .claude/ and .devcontainer/ to a timestamped tar.gz at the
+# target root, removes both dirs, then proceeds as a fresh INSTALL (policy
+# lines stripped — /init re-asks, which is also how you replace sloppy
+# commit/testing rules). Still never touches code, .git, or _planning/.
+# To overwrite only ONE file's conventions (e.g. just CLAUDE.md), plain
+# refresh mode already covers it: answer y at that file's diff prompt.
+#
 # TODO(backlog): once the firewall's domain allowlist lives in its own data
 # file, init-firewall.sh can move to the mirror group and only the domain
 # file stays ask-first.
@@ -39,8 +48,13 @@ set -euo pipefail
 
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
 
+REPLACE=0
+if [ "${1:-}" = "--replace" ]; then
+  REPLACE=1
+  shift
+fi
 if [ $# -ne 1 ]; then
-  echo "usage: $0 <target-project-dir>" >&2
+  echo "usage: $0 [--replace] <target-project-dir>" >&2
   exit 1
 fi
 if [ ! -d "$1" ]; then
@@ -66,7 +80,19 @@ ask() {
 }
 
 ADOPT=0
-if [ ! -d "$TARGET/.claude" ]; then
+if [ "$REPLACE" = 1 ] && { [ -d "$TARGET/.claude" ] || [ -d "$TARGET/.devcontainer" ]; }; then
+  old_dirs=""
+  [ -d "$TARGET/.claude" ] && old_dirs=".claude"
+  [ -d "$TARGET/.devcontainer" ] && old_dirs="$old_dirs .devcontainer"
+  backup="harness-backup-$(date +%Y%m%d-%H%M%S).tar.gz"
+  echo "REPLACE: the target's existing ${old_dirs# } will be removed and replaced"
+  echo "with this boilerplate's harness. Code, .git and _planning/ stay untouched."
+  echo "Backup first: $TARGET/$backup"
+  ask "Replace the harness in $TARGET?" || exit 1
+  (cd "$TARGET" && tar -czf "$backup" $old_dirs && rm -rf $old_dirs)
+  ADOPT=1
+  echo
+elif [ ! -d "$TARGET/.claude" ]; then
   echo "$TARGET has no .claude/ yet — fresh install into an existing codebase."
   echo "Only .claude/ and .devcontainer/ will be created; .git, code, README"
   echo "and everything else stay untouched."

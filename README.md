@@ -112,6 +112,13 @@ Re-run the same command later to pull harness updates into the project
 and diff-asks before touching files that hold per-project edits, such as
 firewall domains or the container name).
 
+Already have a `.claude/` setup you want rid of — a hand-rolled harness, or
+conventions worth abandoning? `scripts/sync-harness.sh --replace ../your-project`
+backs the old `.claude/` + `.devcontainer/` up to a timestamped `tar.gz` at the
+project root, then installs fresh. To replace just one file's conventions
+(say, a sloppy `CLAUDE.md`), plain refresh mode is enough: answer `y` at that
+file's diff prompt.
+
 ### Then, either way
 
 Start building. Work is tracked for you — the `update-status`/`log` skills

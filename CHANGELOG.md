@@ -24,6 +24,17 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   instead of answered, so it must never auto-fire — and commands cost no
   always-on tokens.
 
+- `scripts/sync-harness.sh` — refreshes a sibling project's stale harness copy
+  from this repo (run from the **host**; a dev container can't see sibling
+  dirs). Mirrors the pure-harness dirs (`.claude/{commands,skills,agents,
+  hooks,scripts}`, `.claude/README.md`, `.devcontainer/STACKS.md`), listing
+  and confirming any deletions of target-only files; files that usually carry
+  per-project edits (`init-firewall.sh` custom domains, `devcontainer.json`
+  name/features, `Dockerfile` toolchains, `CLAUDE.md` policies,
+  `settings.json` permissions) get a diff and an overwrite prompt, defaulting
+  to keep. Never touches `settings.local.json`, logs, or `_planning/`. No
+  rsync dependency (tar/find/comm) so it runs on a stock macOS host.
+
 - `.devcontainer/STACKS.md` — per-stack recipes (Python, Go, Rust, Java, Ruby)
   for making the Node-first container serve other stacks: toolchain install
   (build time, firewall-exempt), the *exact* firewall domains (package managers

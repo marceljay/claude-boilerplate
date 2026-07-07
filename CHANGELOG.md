@@ -24,6 +24,18 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   instead of answered, so it must never auto-fire — and commands cost no
   always-on tokens.
 
+- `.devcontainer/STACKS.md` — per-stack recipes (Python, Go, Rust, Java, Ruby)
+  for making the Node-first container serve other stacks: toolchain install
+  (build time, firewall-exempt), the *exact* firewall domains (package managers
+  need an index host **and** a download host — missing the second hangs
+  installs silently, e.g. `pypi.org` without `files.pythonhosted.org`), a
+  rebuild, and an end-to-end verification install. Outcome of the 2026-07-07
+  stack-agnosticism review, which established empirically that the container
+  was Node-only in practice (no pip/ensurepip; pypi.org and even
+  deb.debian.org firewalled) while the docs claimed four-stack support.
+  Automation of the recipe via `/init` is spec'd in the backlog, deferred
+  until a real non-Node project exists to test against.
+
 ### Fixed
 
 - `/init` no longer skips an existing `.gitignore` wholesale — the universal
@@ -48,6 +60,12 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- Honest stack claim: README now distinguishes the stack-agnostic **harness**
+  from the Node-first **container** and links STACKS.md; `/init` warns when it
+  detects a non-Node stack inside the container instead of scaffolding into a
+  dead end; `init-firewall.sh`'s allowlist is now a commented, grouped
+  `allowed_domains` array (harness / Node / VS Code / additional stacks) noting
+  that edits require a rebuild because the image bakes the script in.
 - README's Dev Container section now states the platform limit up front: dev
   containers are Linux, so native iOS/macOS work (Xcode, simulators, signing)
   can't happen inside one — use the `.claude/` harness on the Mac host instead

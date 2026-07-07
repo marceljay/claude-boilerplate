@@ -10,12 +10,16 @@ subagents, hooks) and a sandboxed dev container, tuned for two goals:
   plain-language docs over cleverness, with every moving part explained in
   [`.claude/README.md`](.claude/README.md).
 
-This boilerplate is **not tied to one stack or programming language**: commands detect Node, Python, Rust, Go, and
-Make-based projects out of the box, and permissions cover those toolchains.
-Other stacks (Solidity/Foundry, Elixir, Zig, …) still work — Claude figures out
-the commands — but for the smoothest ride add your toolchain to the
-`settings.json` allowlist and the detection lists in `/dev` and `/cleanup`
-(each is a small markdown edit).
+The **harness** is not tied to one stack or programming language: commands detect
+Node, Python, Rust, Go, and Make-based projects out of the box, and permissions
+cover those toolchains. The **dev container**, though, is Node-first: only the
+Node toolchain is preinstalled, and its firewall passes only npm's registry.
+Any other stack is one documented rebuild away —
+[`.devcontainer/STACKS.md`](.devcontainer/STACKS.md) has the recipe (toolchain +
+exact firewall domains + verification) for Python, Go, Rust, Java, and Ruby, and
+the pattern for everything else (Solidity/Foundry, Elixir, Zig, …). For the
+smoothest ride also add your toolchain to the `settings.json` allowlist and the
+detection lists in `/dev` and `/cleanup` (each is a small markdown edit).
 
 It also runs inside a **Dev Container** — a reproducible, network-restricted
 sandbox. See [Dev Container](#dev-container) below.
@@ -120,6 +124,7 @@ container is a safer place for it to work than your host machine.
 | `Dockerfile`        | Base image `node:20` + dev tools (`git`, `gh`, `zsh`, `fzf`, `jq`, `delta`, `iptables`/`ipset`). Installs Claude Code globally and runs as the non-root `node` user.                                           |
 | `devcontainer.json` | Editor setup (ESLint, Prettier, GitLens, format-on-save), zsh as default shell, persistent bash history + `~/.claude` config via named volumes, and the `NET_ADMIN`/`NET_RAW` capabilities the firewall needs. |
 | `init-firewall.sh`  | A **default-deny network firewall**, run on container start.                                                                                                                                                   |
+| `STACKS.md`         | Recipes for adding non-Node stacks (Python, Go, Rust, Java, Ruby): toolchain install + exact firewall domains + a verification step. The container ships Node-only until one is applied.                       |
 
 > **Rename the container for your project.** The `"name"` in `devcontainer.json`
 > ships as `"Claude Boilerplate Repo"`. Change it to your project's name — it
@@ -144,9 +149,13 @@ allowlist, so commands Claude runs can't reach arbitrary hosts:
 - **Self-verifying:** it confirms `example.com` is unreachable and `api.github.com`
   is reachable, and fails the startup if either check is wrong.
 
-To allow another host, add its domain to the resolve loop in `init-firewall.sh`.
-If a tool mysteriously can't reach the network, the firewall allowlist is the
-first place to look.
+To allow another host, add its domain to the `allowed_domains` array in
+`init-firewall.sh` and **rebuild** (the script is baked into the image; editing
+the repo copy alone does nothing). Adding a language stack? Use the tested
+per-stack domain lists in [`.devcontainer/STACKS.md`](.devcontainer/STACKS.md) —
+package managers usually need an index host *and* a separate download host, and
+missing one makes installs hang silently. If a tool mysteriously can't reach
+the network, the firewall allowlist is the first place to look.
 
 ## Conventions
 

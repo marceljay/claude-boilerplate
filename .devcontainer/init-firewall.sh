@@ -63,15 +63,34 @@ while read -r cidr; do
     ipset add allowed-domains "$cidr"
 done < <(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]' | aggregate -q)
 
-# Resolve and add other allowed domains
-for domain in \
-    "registry.npmjs.org" \
-    "api.anthropic.com" \
-    "sentry.io" \
-    "statsig.com" \
-    "marketplace.visualstudio.com" \
-    "vscode.blob.core.windows.net" \
-    "update.code.visualstudio.com"; do
+# Resolve and add other allowed domains.
+# (GitHub is handled above via its published IP ranges, not listed here.)
+#
+# NOTE: this script is baked into the image (/usr/local/bin/init-firewall.sh)
+# and that copy is what runs on container start — edits here take effect only
+# after a container rebuild.
+allowed_domains=(
+    # --- Claude Code harness: API + its error/telemetry endpoints ---
+    "api.anthropic.com"
+    "sentry.io"
+    "statsig.com"
+
+    # --- Node/JS — the stack built into the image (npm install/publish) ---
+    "registry.npmjs.org"
+
+    # --- VS Code: extension marketplace + updates ---
+    "marketplace.visualstudio.com"
+    "vscode.blob.core.windows.net"
+    "update.code.visualstudio.com"
+
+    # --- Additional stacks — recipes incl. exact domains: .devcontainer/STACKS.md ---
+    # Package managers usually need TWO hosts (index + download CDN); missing
+    # the second makes installs hang mid-download with no error. E.g. Python:
+    # "pypi.org"
+    # "files.pythonhosted.org"
+)
+
+for domain in "${allowed_domains[@]}"; do
     echo "Resolving $domain..."
     ips=$(dig +noall +answer A "$domain" | awk '$4 == "A" {print $5}')
     if [ -z "$ips" ]; then

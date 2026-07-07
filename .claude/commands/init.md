@@ -26,6 +26,12 @@ Scaffold the standard file structure for a new project.
      `Cargo.toml` (Rust), `go.mod` (Go), or the directory name as a fallback
    - Check what already exists — don't overwrite existing files (exception:
      an existing `.gitignore` is merged into, never skipped — see step 2)
+   - **Non-Node stack in the dev container?** The container ships only the
+     Node toolchain, and its firewall passes only npm's registry — for any
+     other stack, installs fail or hang until the recipe in
+     `.devcontainer/STACKS.md` is applied (toolchain + firewall domains +
+     rebuild + verify). Tell the user this now, before scaffolding continues,
+     so day one doesn't end at a silent dead end.
 
 2. Create the following files if they don't exist:
 

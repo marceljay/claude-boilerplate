@@ -73,6 +73,10 @@ instead if you'd rather track the full, unmodified, auto-updating upstream set.
 
 ## Getting started
 
+Two ways in, depending on whether your project already exists.
+
+### Path A — start a new project from this repo
+
 1. **Copy this repo** as the seed for your new project (or use it as a template).
 2. Open it in the dev container (VS Code: "Reopen in Container") or your own env.
 3. Run **`/init`** in Claude Code. It offers to detach the boilerplate first
@@ -82,9 +86,37 @@ instead if you'd rather track the full, unmodified, auto-updating upstream set.
    (including `_planning/STATUS.md`, your living status + backlog — gitignored by
    default; `/init` asks whether to make it public). Then add your project's own
    `LICENSE`.
-4. Start building. Work is tracked for you — the `update-status`/`log` skills
-   fire as items start and finish (`/status` any time for a summary). Use
-   `/cleanup` before commits, and `/pr` to open pull requests.
+
+### Path B — add the harness to an existing codebase
+
+Don't copy the whole repo into an existing project — its README, LICENSE, and
+git history would collide with yours. Instead, from a checkout of this repo **on
+the host** (not inside a container; sibling directories aren't visible there):
+
+```sh
+scripts/sync-harness.sh ../your-project
+```
+
+When the target has no `.claude/` yet, the script runs in **install mode**:
+after one confirmation it copies `.claude/` and `.devcontainer/` — and nothing
+else. Your `.git`, code, and README are never touched. (It also strips this
+repo's recorded commit/testing policies from the copied `CLAUDE.md` so `/init`
+asks you fresh.) Then reopen the project in its dev container and run
+**`/init`**: it fills gaps without overwriting — merges the required
+`.gitignore` entries into your existing one, scaffolds `_planning/`, renames
+the container, records your policies, and flags non-Node stacks (the container
+ships Node-only; recipes in [`.devcontainer/STACKS.md`](.devcontainer/STACKS.md)).
+
+Re-run the same command later to pull harness updates into the project
+(**refresh mode**: mirrors commands/skills/agents/hooks, confirms deletions,
+and diff-asks before touching files that hold per-project edits, such as
+firewall domains or the container name).
+
+### Then, either way
+
+Start building. Work is tracked for you — the `update-status`/`log` skills
+fire as items start and finish (`/status` any time for a summary). Use
+`/cleanup` before commits, and `/pr` to open pull requests.
 
 **Tip: for anything non-trivial, start in Plan Mode.** Press **Shift+Tab** to
 cycle the input mode (normal → auto-accept → **plan**), or launch with

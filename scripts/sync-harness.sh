@@ -1,14 +1,23 @@
 #!/usr/bin/env bash
 #
-# sync-harness.sh — refresh a sibling project's stale copy of this
-# boilerplate's harness (.claude/ + .devcontainer/) from this repo.
+# sync-harness.sh — install this boilerplate's harness (.claude/ +
+# .devcontainer/) into an existing codebase, or refresh a sibling project's
+# stale copy of it.
 #
 #   scripts/sync-harness.sh ../my-project
 #
 # Run from the HOST, not inside a dev container: a container mounts only its
 # own workspace, so sibling project directories aren't visible there.
 #
-# What it does:
+# INSTALL (target has no .claude/ yet — e.g. an existing codebase adopting
+# the harness): after one confirmation it copies .claude/ and .devcontainer/
+# — and nothing else. Your .git, code, README, etc. are never touched. It
+# strips this repo's recorded commit/testing-policy lines from the copied
+# CLAUDE.md so /init asks fresh. Then reopen the project in its container
+# and run /init to gap-fill (.gitignore security entries, _planning/,
+# container rename, policies).
+#
+# REFRESH (target already has .claude/):
 #   - MIRRORS the pure-harness dirs (.claude/{commands,skills,agents,hooks,
 #     scripts}, plus .claude/README.md and .devcontainer/STACKS.md). Mirroring
 #     also deletes files this repo has since retired (e.g. removed commands) —
@@ -44,10 +53,6 @@ if [ "$TARGET" = "$SRC" ]; then
   echo "error: target is this repo itself" >&2
   exit 1
 fi
-if [ ! -d "$TARGET/.claude" ]; then
-  echo "error: $TARGET has no .claude/ dir — is it really a harness project?" >&2
-  exit 1
-fi
 
 # Prompt helper: default No; piped/EOF input also means No.
 ask() {
@@ -59,6 +64,16 @@ ask() {
     *) return 1 ;;
   esac
 }
+
+ADOPT=0
+if [ ! -d "$TARGET/.claude" ]; then
+  echo "$TARGET has no .claude/ yet — fresh install into an existing codebase."
+  echo "Only .claude/ and .devcontainer/ will be created; .git, code, README"
+  echo "and everything else stay untouched."
+  ask "Install the harness into $TARGET?" || exit 1
+  ADOPT=1
+  echo
+fi
 
 echo "Syncing harness: $SRC -> $TARGET"
 echo
@@ -121,6 +136,22 @@ for f in $ASK_FILES; do
   fi
 done
 
-echo
-echo "Done. Not touched: settings.local.json, .claude/logs/, _planning/."
-echo "If .devcontainer/ files changed, rebuild the target's container to apply."
+# --- 3. Install-mode fixups -------------------------------------------------
+if [ "$ADOPT" = 1 ]; then
+  # The copied CLAUDE.md records THIS repo's per-project choices — strip them
+  # so /init asks the adopting project fresh.
+  sed -i.bak -e '/^- Commit policy:/d' -e '/^- Testing policy:/d' \
+    "$TARGET/.claude/CLAUDE.md" && rm -f "$TARGET/.claude/CLAUDE.md.bak"
+  echo
+  echo "Harness installed. Next steps:"
+  echo "  1. Open $TARGET in its dev container (VS Code: 'Reopen in Container')"
+  echo "     — or use the .claude/ harness without a container."
+  echo "  2. Run /init in Claude Code. It fills gaps without overwriting: merges"
+  echo "     the required .gitignore entries, scaffolds _planning/, renames the"
+  echo "     container, asks commit/testing policy, and flags non-Node stacks"
+  echo "     (recipes: .devcontainer/STACKS.md — the container ships Node-only)."
+else
+  echo
+  echo "Done. Not touched: settings.local.json, .claude/logs/, _planning/."
+  echo "If .devcontainer/ files changed, rebuild the target's container to apply."
+fi

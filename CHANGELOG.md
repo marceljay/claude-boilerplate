@@ -24,9 +24,14 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   instead of answered, so it must never auto-fire — and commands cost no
   always-on tokens.
 
-- `scripts/sync-harness.sh` — refreshes a sibling project's stale harness copy
-  from this repo (run from the **host**; a dev container can't see sibling
-  dirs). Mirrors the pure-harness dirs (`.claude/{commands,skills,agents,
+- `scripts/sync-harness.sh` — installs this repo's harness into an existing
+  codebase, or refreshes a sibling project's stale copy (run from the **host**;
+  a dev container can't see sibling dirs). **Install mode** (target has no
+  `.claude/`): one confirmation, then copies `.claude/` + `.devcontainer/` and
+  nothing else — `.git`, code, README untouched — stripping this repo's
+  recorded commit/testing-policy lines from the copied CLAUDE.md so `/init`
+  asks the adopting project fresh; ends with next steps (reopen in container,
+  run `/init` to gap-fill). **Refresh mode** mirrors the pure-harness dirs (`.claude/{commands,skills,agents,
   hooks,scripts}`, `.claude/README.md`, `.devcontainer/STACKS.md`), listing
   and confirming any deletions of target-only files; files that usually carry
   per-project edits (`init-firewall.sh` custom domains, `devcontainer.json`
@@ -71,6 +76,13 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- README's Getting Started now has two explicit paths: **A** — new project
+  seeded from this repo (detach via `new-project.sh`, then `/init`); **B** —
+  existing codebase adopts the harness via `sync-harness.sh` install mode,
+  with a warning not to copy the whole repo (README/LICENSE/git history would
+  collide). `/init` step 0 recognizes the adopted case (no `.boilerplate-dev`,
+  no `new-project.sh`, real code + history present): nothing to detach, the
+  run is pure gap-filling.
 - Honest stack claim: README now distinguishes the stack-agnostic **harness**
   from the Node-first **container** and links STACKS.md; `/init` warns when it
   detects a non-Node stack inside the container instead of scaffolding into a

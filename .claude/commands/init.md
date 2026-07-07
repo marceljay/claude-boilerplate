@@ -20,6 +20,13 @@ Scaffold the standard file structure for a new project.
    bash scripts/new-project.sh -y
    ```
 
+   If neither marker nor script exists but the project has real code and git
+   history, the harness was likely installed into an existing codebase
+   (`scripts/sync-harness.sh` install mode) — there's nothing to detach;
+   this run is pure gap-filling. Expect existing files: merge the
+   `.gitignore` (step 2), leave README/CHANGELOG/code alone unless missing,
+   and mind the non-Node stack check in step 1.
+
 1. Detect project context:
    - Determine the tech stack and project name from whatever manifest exists:
      `package.json` (Node), `pyproject.toml`/`requirements.txt` (Python),

@@ -82,6 +82,12 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- `/dev` accepts a port (`/dev 5173`): explicit argument > recorded
+  `Dev port:` line in the project CLAUDE.md > stack detection. The first
+  successful run on an explicitly requested port records it as that one-liner
+  (the `Commit policy:` pattern), making it the default for future runs;
+  detected/default ports are never recorded. The port is passed via the dev
+  command's own flag, not by editing config files.
 - README's Getting Started now has two explicit paths: **A** — new project
   seeded from this repo (detach via `new-project.sh`, then `/init`); **B** —
   existing codebase adopts the harness via `sync-harness.sh` install mode,

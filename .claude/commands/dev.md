@@ -2,6 +2,9 @@
 
 Start the development server without blocking this chat, and surface its URL.
 
+Usage: `/dev [port]` — e.g. `/dev 5173`. With no argument, use the project's
+recorded default port (see step 1a), falling back to stack detection.
+
 ## Steps
 
 0. **Detect the environment first.** If `/.dockerenv` exists or
@@ -18,6 +21,20 @@ Start the development server without blocking this chat, and surface its URL.
    - **Go** (`go.mod`): `go run .`
    - **Any** (`Makefile`): prefer a `dev`/`run`/`serve` target
    - If you can't determine the command or port, ask the user.
+
+   a. **Port precedence:** an explicit argument (`/dev 5173`) wins; else a
+      `Dev port: <port>` line recorded in the project CLAUDE.md; else the
+      stack detection above. Pass the chosen port via the dev command's own
+      flag (`next dev -p`, `vite --port`, `uvicorn --port`,
+      `manage.py runserver 0.0.0.0:<port>`, `flask run -p`; many servers also
+      honor a `PORT` env var) — don't edit config files to change the port.
+
+   b. **First use of a port sets the default.** After the server is confirmed
+      up (step 3) on an explicitly requested port that isn't the recorded
+      default yet, persist it: add or update the one-liner `Dev port: <port>`
+      in the project CLAUDE.md (same pattern as `Commit policy:`), and tell
+      the user it's now the default for future `/dev` runs. Never record
+      ports that came from detection or from the recorded default itself.
 
 2. **Launch it without blocking this chat.**
    - **In the container:** run the server as a background task (e.g. the Bash

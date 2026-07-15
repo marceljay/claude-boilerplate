@@ -87,3 +87,45 @@ verify with a real download. When hunting the domains, check the package
 manager's docs for **all** hosts it contacts — index and download hosts almost
 always differ (see the Python trap above). Private registries and mirrors need
 their domains added the same way.
+
+## Supply-chain hardening
+
+Compromised package versions are usually detected and yanked within
+hours-to-days of publication, so the single best habit is **never be first to
+install a fresh release** (a ~7-day minimum age), and the second is **don't
+let installs execute code**. The container's default-deny firewall is the
+backstop, not the defense: a malicious script that runs can't reach
+non-allowlisted exfiltration hosts, but it can still read your workspace.
+
+Baseline for every stack: commit the lockfile and use frozen installs in CI
+(`npm ci`, `pnpm install --frozen-lockfile`, `yarn --immutable`,
+`cargo --locked`) — then new versions only enter via deliberate update PRs,
+which is exactly where an age rule can be enforced.
+
+- **npm** — the repo ships a root `.npmrc` with `ignore-scripts=true` (no
+  postinstall code execution; `npm rebuild <pkg> --ignore-scripts=false` for
+  the few that need builds) and `save-exact=true`. npm has no rolling age
+  gate, only a fixed cutoff (`npm install --before=<date>`); get the age rule
+  from pnpm or an update bot (below).
+- **pnpm** — the strongest native option. In `pnpm-workspace.yaml`:
+  `minimumReleaseAge: 10080` (minutes = 7 days; pnpm ≥ 10.16) hides younger
+  versions from resolution entirely; `minimumReleaseAgeExclude` lists escape
+  hatches. pnpm ≥ 10 already skips postinstall scripts unless allowlisted
+  (`onlyBuiltDependencies`).
+- **Yarn (Berry)** — `enableScripts: false` in `.yarnrc.yml`
+  (per-package opt-in via `dependenciesMeta`); no built-in age gate — use an
+  update bot.
+- **Go** — nothing to configure: no install scripts, `go.sum` verified against
+  a transparency log, and minimum-version selection means a fresh release
+  never flows in implicitly — only an explicit `go get pkg@latest` does, so
+  simply don't upgrade day-zero. Run `govulncheck` for the reverse risk.
+- **Rust** — no native age gate, and `build.rs`/proc-macros execute at build
+  time, so the exposure is real: `--locked` everywhere in CI, `cargo-deny`
+  for policy, `cargo-vet` if you want review-based gating.
+- **Python (uv)** — `exclude-newer = "<timestamp>"` under `[tool.uv]` (fixed
+  cutoff like npm's `--before`; compute it in CI for a rolling window).
+
+**The universal age gate** is the dependency-update bot, since with lockfiles
+that's the only door new versions come through: Renovate
+`"minimumReleaseAge": "7 days"` or Dependabot's `cooldown` (`default-days: 7`)
+— both apply across npm, cargo, gomod, pip, and more.

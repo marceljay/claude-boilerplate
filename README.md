@@ -50,6 +50,7 @@ sandbox. See [Dev Container](#dev-container) below.
 ├── scripts/           # subagent_summary.py — tabulates the SubagentStop log
 └── hooks/             # block_destructive.py (guards rm -rf/force-push variants), save-context.sh (pre-compaction), log_subagent.py (logs subagent runs)
 .devcontainer/         # Sandboxed Docker env + network firewall (see below)
+.npmrc                 # Supply-chain hardening: no install scripts, exact pins (see STACKS.md §Supply-chain hardening — incl. pnpm/cargo/go equivalents)
 LICENSE                # MIT
 ```
 

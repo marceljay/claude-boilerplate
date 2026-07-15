@@ -80,6 +80,20 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   shipped long ago but its checkboxes read 0/4 done, inviting a future session
   to redo it. The past lives in CHANGELOG.md and git history, not in plans.
 
+### Added
+
+- Supply-chain hardening (2026-07-15). Root `.npmrc` with
+  `ignore-scripts=true` (no install-time code execution — the main npm
+  attack vector; caveat comments cover native-build packages and own
+  pre/post hooks) and `save-exact=true`. New **Supply-chain hardening**
+  section in `.devcontainer/STACKS.md`: the never-install-day-zero
+  principle (~7-day minimum release age), lockfile + frozen-CI baseline,
+  per-ecosystem guidance (pnpm `minimumReleaseAge` as the strongest native
+  option, yarn `enableScripts: false`, Go's structural safety, cargo
+  `--locked`/`cargo-deny`/`cargo-vet`, uv `exclude-newer`), and
+  Renovate/Dependabot cooldown as the universal age gate. `sync-harness.sh`
+  now carries `.npmrc` in its ask-first group.
+
 ### Changed
 
 - `/dev` accepts a port (`/dev 5173`): explicit argument > recorded

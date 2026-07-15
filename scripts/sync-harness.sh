@@ -26,8 +26,8 @@
 #     init-firewall.sh (custom allowlist domains), devcontainer.json
 #     (container name, stack features), Dockerfile (stack toolchains),
 #     .claude/CLAUDE.md (commit/testing policy), .claude/settings.json
-#     (permissions) — it shows a diff and asks before overwriting.
-#     Default is always KEEP the target's version.
+#     (permissions), .npmrc (registry/auth config) — it shows a diff and asks
+#     before overwriting. Default is always KEEP the target's version.
 #   - Never touches: settings.local.json, .claude/logs/, _planning/,
 #     project code, git state.
 #
@@ -138,7 +138,7 @@ for f in .claude/README.md .devcontainer/STACKS.md; do
 done
 
 # --- 2. Ask-first files (commonly hold per-project edits) ------------------
-ASK_FILES=".devcontainer/init-firewall.sh .devcontainer/devcontainer.json .devcontainer/Dockerfile .claude/CLAUDE.md .claude/settings.json"
+ASK_FILES=".devcontainer/init-firewall.sh .devcontainer/devcontainer.json .devcontainer/Dockerfile .claude/CLAUDE.md .claude/settings.json .npmrc"
 
 echo
 for f in $ASK_FILES; do

@@ -24,7 +24,12 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   Cargo, NuGet, RubyGems, Composer), while its CLI *is* npm-distributed — so
   a Rust- or Go-only project still pulls Node in to run it. The published
   tarball has no install scripts, so it coexists with the repo's
-  `ignore-scripts=true`.
+  `ignore-scripts=true`. Carves out an explicit **exemption for `socket`
+  itself from the 7-day age gate** — a scanner's detection rules ship in its
+  releases, so a cooldown would hold back precisely the update that
+  recognizes the current attack; gives the exclude syntax for pnpm
+  (`minimumReleaseAgeExclude`), Dependabot (`cooldown.exclude`, which beats
+  `include`) and Renovate (`minimumReleaseAge: null` in a package rule).
 
 - Status line showing account rate-limit usage
   (`.claude/scripts/usage-statusline.sh` + a `statusLine` entry in

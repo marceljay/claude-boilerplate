@@ -129,3 +129,45 @@ which is exactly where an age rule can be enforced.
 that's the only door new versions come through: Renovate
 `"minimumReleaseAge": "7 days"` or Dependabot's `cooldown` (`default-days: 7`)
 — both apply across npm, cargo, gomod, pip, and more.
+
+### Active scanning (Socket) — opt-in
+
+Everything above is *preventive* and passive: don't run install code, don't be
+first to a release. [Socket](https://socket.dev) is the *detective* half — it
+analyzes what a package's code actually does (install scripts, network and
+filesystem access, obfuscation, credential reads) and flags the behavior, so a
+malicious release is caught before anyone files a CVE. The two are
+complementary; neither replaces the other, and the age gate is still the
+cheaper win if you only do one thing.
+
+Not npm-only, despite the npm-shaped reputation: it reads `package.json` and
+the JS lockfiles, plus `requirements.txt`/`pyproject.toml`/`uv.lock`,
+`go.mod`, `pom.xml`, `Cargo.toml`, `Gemfile`, `packages.lock.json` and
+Composer manifests. The **CLI** ships as an npm package though, so a Rust- or
+Go-only project still pulls Node in to run it — fine in this container, worth
+knowing elsewhere.
+
+```sh
+npm install -g socket          # MIT; no install scripts, so ignore-scripts is fine
+socket package npm/left-pad@1.3.0   # vet one package before adding it
+socket scan create             # scan the whole project's manifests
+socket npm install <pkg>       # wrapper: audit, then hand off to npm
+```
+
+`socket npm`/`npx`/`pnpm`/`yarn` wrap the real package manager and exit
+non-zero on a threat, which is what makes them usable as a CI gate.
+
+Two things to know before committing to it:
+
+- **It's a service, not a local scanner.** Analysis happens server-side, so it
+  needs an API token (`SOCKET_CLI_API_TOKEN`) and it uploads your dependency
+  manifest to a third party. Free tier is ~1K scans/month, and it's free for
+  qualifying open-source projects.
+- **The container firewall blocks it by default.** Uncomment the Socket
+  domains in `init-firewall.sh` and rebuild, or every command hangs and then
+  fails at the network layer.
+
+If sending manifests off-box is a non-starter, the fallback is the passive
+gates above plus whatever your stack ships natively — `npm audit`,
+`govulncheck`, `cargo-deny`, `pip-audit`. Those only know about published
+CVEs, which is exactly the gap Socket exists to cover.

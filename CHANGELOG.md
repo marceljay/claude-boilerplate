@@ -7,6 +7,25 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- `.devcontainer/STACKS.md` §"Active scanning (Socket)" — documents
+  [Socket](https://socket.dev) as the opt-in *detective* counterpart to the
+  passive gates already in §Supply-chain hardening (age rule, no install
+  scripts, lockfiles): it analyzes what a package's code actually does, so a
+  malicious release is caught before a CVE exists. Investigated rather than
+  installed, because three findings argue against baking it into the image:
+  it's a **service, not a local scanner** (server-side analysis, needs
+  `SOCKET_CLI_API_TOKEN`, uploads your manifest to a third party; ~1K
+  scans/month free, free for qualifying OSS), the **container firewall blocks
+  it** by default, and it's a 21 MB global npm install that most projects
+  built on this boilerplate won't want. `init-firewall.sh` now carries a
+  commented-out `api.socket.dev`/`socket.dev` block so enabling it is
+  uncomment-and-rebuild rather than research-from-scratch. Also records that
+  Socket is **not npm-only** despite the reputation (PyPI, Go, Maven/Gradle,
+  Cargo, NuGet, RubyGems, Composer), while its CLI *is* npm-distributed — so
+  a Rust- or Go-only project still pulls Node in to run it. The published
+  tarball has no install scripts, so it coexists with the repo's
+  `ignore-scripts=true`.
+
 - Status line showing account rate-limit usage
   (`.claude/scripts/usage-statusline.sh` + a `statusLine` entry in
   `.claude/settings.json`) — prints the 5-hour and 7-day usage windows with

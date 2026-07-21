@@ -83,6 +83,12 @@ allowed_domains=(
     "vscode.blob.core.windows.net"
     "update.code.visualstudio.com"
 
+    # --- Socket.dev supply-chain scanning (opt-in) ---
+    # The CLI analyzes packages server-side, so it needs egress. Uncomment
+    # both, rebuild, and see .devcontainer/STACKS.md §Active scanning (Socket).
+    # "api.socket.dev"
+    # "socket.dev"
+
     # --- Additional stacks — recipes incl. exact domains: .devcontainer/STACKS.md ---
     # Package managers usually need TWO hosts (index + download CDN); missing
     # the second makes installs hang mid-download with no error. E.g. Python:

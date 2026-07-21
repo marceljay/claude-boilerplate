@@ -167,17 +167,15 @@ Two things to know before committing to it:
   domains in `init-firewall.sh` and rebuild, or every command hangs and then
   fails at the network layer.
 
-If sending manifests off-box is a non-starter, the fallback is the passive
-gates above plus whatever your stack ships natively — `npm audit`,
-`govulncheck`, `cargo-deny`, `pip-audit`. Those only know about published
-CVEs, which is exactly the gap Socket exists to cover.
-
-**Exempt `socket` itself from the 7-day age gate.** The rule above exists
-because a fresh release might be malicious; a scanner inverts that logic,
-since its detection rules and threat intel ship *in* the releases (hence the
-fast cadence — three published on 2026-07-10 alone). A cooldown would hold
-back exactly the update that recognizes this week's attack, so the gate would
-be defending against the tool that defends you. Exclude it explicitly:
+**Exempt `socket` itself from the age gate — and know where that gate
+reaches.** The install above is global, and nothing in this section governs a
+global install: no lockfile, no `minimumReleaseAge`, no update bot. Add it as
+a devDependency instead if you want it under the same rules as everything
+else — and then exempt it, because a scanner inverts the rule's logic. Its
+detection rules and threat intel ship *in* the releases (hence the fast
+cadence — three published on 2026-07-10 alone), so a cooldown holds back
+exactly the update that recognizes this week's attack: the gate ends up
+defending against the tool that defends you.
 
 ```yaml
 # pnpm-workspace.yaml
@@ -197,7 +195,13 @@ cooldown:
 ] }
 ```
 
-The trade is real but small and it stays contained: keep `save-exact=true` so
-each bump is still a deliberate, reviewable change rather than a silent range
-resolution, and note that the tarball runs no install scripts — so an update
-only executes code once *you* run `socket`.
+Either route, the trade stays contained by pinning the exact version — the
+repo's `save-exact=true` handles the devDependency case, the global install
+needs it by hand (`npm install -g socket@1.1.143`) — so each bump is still a
+deliberate, reviewable change. And the tarball runs no install scripts, so an
+update only executes code once *you* run `socket`.
+
+If sending manifests off-box is a non-starter, the fallback is the passive
+gates above plus whatever your stack ships natively — `npm audit`,
+`govulncheck`, `cargo-deny`, `pip-audit`. Those only know about published
+CVEs, which is exactly the gap Socket exists to cover.

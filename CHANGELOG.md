@@ -7,6 +7,24 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Status line showing account rate-limit usage
+  (`.claude/scripts/usage-statusline.sh` + a `statusLine` entry in
+  `.claude/settings.json`) — prints the 5-hour and 7-day usage windows with
+  each window's reset time in local time, e.g.
+  `5h 23% · resets 17:00 │ 7d 41% · resets Thu 17:00`. Costs **no tokens**:
+  status lines run locally and never enter the model context (unlike
+  `SessionStart`/`UserPromptSubmit` hooks, whose stdout is injected). The data
+  comes from `rate_limits.{five_hour,seven_day}.{used_percentage,resets_at}`
+  on the status-line stdin JSON, which only the status line receives — a
+  regular hook can't see it. Present for Claude.ai Pro/Max after the first
+  API response; before that, and on API-key auth, it falls back to context
+  usage. Timestamps are formatted with `date` rather than jq's
+  `strflocaltime` (the container ships jq 1.6, which lacks it). Timezone is
+  read from `$TZ` so the shared script hardcodes nobody's zone — set it
+  per-machine in the gitignored `.claude/settings.local.json`
+  (`"env": { "TZ": "Area/City" }`) or via the host `TZ` the devcontainer
+  already forwards.
+
 - `.claude/README.md` §8 "Boilerplate detection & lifecycle" — documents how
   the harness tells the boilerplate's own dev repo apart from a copy made
   from it, which was previously implicit across three files. Covers the two

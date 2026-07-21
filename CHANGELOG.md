@@ -27,7 +27,9 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - `scripts/sync-harness.sh` — installs this repo's harness into an existing
   codebase, or refreshes a sibling project's stale copy (run from the **host**;
   a dev container can't see sibling dirs). **Install mode** (target has no
-  `.claude/`): one confirmation, then copies `.claude/` + `.devcontainer/` and
+  `.claude/`; a target directory that doesn't exist yet is created, so the
+  script also bootstraps a brand-new project dir): one confirmation, then
+  copies `.claude/` + `.devcontainer/` and
   nothing else — `.git`, code, README untouched — stripping this repo's
   recorded commit/testing-policy lines from the copied CLAUDE.md so `/init`
   asks the adopting project fresh; ends with next steps (reopen in container,

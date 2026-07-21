@@ -10,7 +10,8 @@
 # own workspace, so sibling project directories aren't visible there.
 #
 # INSTALL (target has no .claude/ yet — e.g. an existing codebase adopting
-# the harness): after one confirmation it copies .claude/ and .devcontainer/
+# the harness, or a brand-new directory that is created if it doesn't exist):
+# after one confirmation it copies .claude/ and .devcontainer/
 # — and nothing else. Your .git, code, README, etc. are never touched. It
 # strips this repo's recorded commit/testing-policy lines from the copied
 # CLAUDE.md so /init asks fresh. Then reopen the project in its container
@@ -57,9 +58,13 @@ if [ $# -ne 1 ]; then
   echo "usage: $0 [--replace] <target-project-dir>" >&2
   exit 1
 fi
-if [ ! -d "$1" ]; then
-  echo "error: '$1' is not a directory" >&2
+if [ -e "$1" ] && [ ! -d "$1" ]; then
+  echo "error: '$1' exists but is not a directory" >&2
   exit 1
+fi
+if [ ! -d "$1" ]; then
+  echo "'$1' does not exist — creating it."
+  mkdir -p "$1"
 fi
 TARGET="$(cd "$1" && pwd)"
 

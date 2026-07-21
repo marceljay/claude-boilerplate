@@ -7,6 +7,24 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- `.claude/README.md` §8 "Boilerplate detection & lifecycle" — documents how
+  the harness tells the boilerplate's own dev repo apart from a copy made
+  from it, which was previously implicit across three files. Covers the two
+  signals and why one ships and one doesn't (the **committed** container name
+  `"Claude Boilerplate Repo"`, inherited by every copy as the durable "not set
+  up yet" flag, vs. the **gitignored** `.boilerplate-dev` marker that clones
+  never receive, identifying the origin), a table of the three consumers
+  (`first-run-check.sh`, `new-project.sh`, `/init`) with their behaviour with
+  and without the marker, and the flows including the edge cases: a fresh
+  clone of the dev repo (marker is gitignored, so it must be re-created with
+  `touch .boilerplate-dev` — the design's one rough edge), copies made without
+  `new-project.sh` (degit / "Use this template" / manual), copies where nobody
+  renames the devcontainer (the nudge persists by design), and harness
+  installs into an existing codebase. `/init` step 0 now notes that its
+  `.boilerplate-dev` branch is normally unreachable but is the only guard
+  stopping a stray `/init` from renaming the container and silently breaking
+  first-run detection downstream.
+
 - `PreToolUse` guard hook (`.claude/hooks/block_destructive.py`) — the deny
   list is prefix-matched, so `rm -fr`, `rm -r -f`, and `git push -f` slipped
   past it. The hook tokenizes each Bash command (quote-aware, works in every

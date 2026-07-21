@@ -8,7 +8,10 @@ Scaffold the standard file structure for a new project.
    boilerplate's own development repo — do NOT offer to detach and skip the
    container rename in step 3 (the default name is the first-run detection
    signal and must keep shipping to copies). Run only the steps that fill
-   genuine gaps.
+   genuine gaps. (This branch normally never fires — you'd rarely run `/init`
+   in the boilerplate's own repo — but it's the only thing stopping a stray
+   run from renaming the container and breaking downstream detection. See
+   `.claude/README.md` §8 for the full origin-vs-copy flow.)
 
    Otherwise, if this copy hasn't been detached from the boilerplate yet
    (`scripts/new-project.sh` still exists), offer to run it first — it removes

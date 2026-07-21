@@ -24,6 +24,7 @@ This README explains each piece in plain terms so you can edit it confidently.
 - [5. Memory — persistent facts across sessions](#5-memory--persistent-facts-across-sessions)
 - [6. How the project-state files relate (set by `CLAUDE.md`)](#6-how-the-project-state-files-relate-set-by-claudemd)
 - [7. `.devcontainer/` (sibling folder, not under `.claude/`)](#7-devcontainer-sibling-folder-not-under-claude)
+- [8. Boilerplate detection & lifecycle (origin vs. copy)](#8-boilerplate-detection--lifecycle-origin-vs-copy)
 - [Editing cheatsheet](#editing-cheatsheet)
 
 ---
@@ -353,6 +354,70 @@ prune` / a Docker Desktop reset / a `devcontainerId` change wipes it. Memory
   parallel without colliding. Don't hardcode a host port, and don't try to open
   a browser from inside the container — surface the URL and let the user open it
   from the editor's **Ports** panel. (`/dev` follows this.)
+
+---
+
+## 8. Boilerplate detection & lifecycle (origin vs. copy)
+
+This repo ships as a template, so the harness has to tell two situations apart:
+**this repo** (the boilerplate's own dev repo, where template files and history
+are the product) and a **copy** made from it to start a real project (where those
+same files are cruft that should be detached). Getting it wrong is annoying in
+one direction (nagging you here forever) and harmful in the other (a copy that
+silently keeps the template's README/LICENSE/git history).
+
+**Two signals do the work — one that ships, one that doesn't:**
+
+- **Container name** `"Claude Boilerplate Repo"` in `.devcontainer/devcontainer.json`
+  is **committed**, so every copy inherits it. It's the durable "not set up yet"
+  flag: `/init` and `scripts/new-project.sh` rename it to the real project, so the
+  default name still being present means "nobody has detached this copy." More
+  durable than a file that could be deleted, and it survives cloning.
+- **`.boilerplate-dev`** is a root marker that is **gitignored**, so clones and
+  copies never receive it. Its presence means "this is the origin — suppress the
+  detach machinery." It's the *only* thing that distinguishes the origin from an
+  un-detached copy, since both carry the default container name.
+
+**Three consumers read them:**
+
+| Consumer | When | With marker (origin) | Without marker (copy) |
+| --- | --- | --- | --- |
+| `hooks/first-run-check.sh` | SessionStart, automatic | silent | prints the `FIRST_RUN_BOILERPLATE` nudge while the container name is still the default |
+| `scripts/new-project.sh` | you run it | refuses (won't reset origin history) | detaches: strips template README/LICENSE, resets history, renames container, self-deletes |
+| `/init` | you run it | skips detach offer + container rename | offers detach (copy) or gap-fills (installed harness) |
+
+**The flows, including the edge cases:**
+
+- **Working on this repo (origin).** Marker present → no nag, `new-project.sh`
+  refuses, `/init` skips detach/rename. Nothing to do.
+- **Fresh clone of *this* repo to hack on the boilerplate itself.** The marker is
+  gitignored, so a clone **doesn't have it** — you now look like an un-detached
+  copy: you'll get the first-run nudge and `new-project.sh` would happily detach.
+  Fix is one line, and `.boilerplate-dev` documents it itself: `touch .boilerplate-dev`.
+  This is the one rough edge of the design — the origin signal isn't intrinsic, so
+  it has to be re-created after a clone.
+- **Normal copy via `scripts/new-project.sh`.** The script renames the container
+  and deletes itself, so detection turns off cleanly and the new project starts
+  with its own identity. The intended happy path.
+- **Copy *without* the script** (`degit`, "Use this template", manual copy). No
+  marker (gitignored, never travels) and the container keeps the default name →
+  the first-run nudge fires every session until you detach. Running `/init` (offers
+  detach → runs `new-project.sh`) or `new-project.sh` directly resolves it.
+- **Copy where nobody renames the devcontainer.** By design the nudge keeps firing
+  each session — that's the persistent signal, not a bug. It's harmless (just a
+  reminder) but won't stop until the name changes, via `/init`, `new-project.sh`,
+  or editing `devcontainer.json` by hand. Renaming is what flips "un-detached copy"
+  to "set-up project."
+- **Harness installed into an existing codebase** (`sync-harness.sh` install mode).
+  The copied `devcontainer.json` carries the default name, so the same nudge fires
+  there — correctly, since `/init` still needs to gap-fill (`.gitignore`, `_planning/`,
+  policies) and rename. No marker is involved; it's just another un-set-up copy.
+
+**Why keep the whole mechanism rather than trim it:** the marker must exist anyway
+for the SessionStart hook, so the `/init`/`new-project.sh` guards that read it are
+nearly free. The container-rename skip is the load-bearing one — it's the only guard
+stopping a stray `/init` in this repo from renaming the container and, if committed,
+silently breaking first-run detection for every downstream copy.
 
 ---
 

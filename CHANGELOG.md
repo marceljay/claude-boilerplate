@@ -7,6 +7,29 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- `.claude/hooks/socket_scan.py` — a second `PreToolUse` (matcher `Bash`) hook
+  that routes package installs through [Socket](https://socket.dev)'s scanner.
+  Socket has no automatic trigger of its own: the `socket npm|npx|pnpm|yarn`
+  wrappers audit and then hand off, but a plain `npm install` sails past them.
+  The hook blocks the unwrapped form and tells Claude to re-run the wrapped
+  one. **Inert unless opted into** — it no-ops unless a `socket` binary is on
+  PATH *and* `SOCKET_CLI_API_TOKEN`/`SOCKET_SECURITY_API_KEY` is set, so the
+  boilerplate ships with installs behaving exactly as before; `SOCKET_HOOK=off`
+  disables it even when configured. Deliberate scope limits, documented in the
+  hook: only the four managers Socket wraps (`cargo add`/`pip install`/`go get`
+  have no wrapper), and only commands Claude runs through the Bash tool — a
+  `git pull` that changes a lockfile is a CI concern, not a wrapper one. Has
+  its own small tokenizer rather than importing `block_destructive.py`'s, so
+  neither hook can break the other. Fails open on internal error, logging to
+  `.claude/logs/hook_errors.log`. `Bash(socket:*)` added to the permissions
+  allowlist so the suggested re-run doesn't then prompt.
+- `/init` now asks whether to enable Socket scanning, for npm/pnpm/yarn
+  projects only. It asks rather than installs because Socket needs an API
+  token and uploads the dependency manifest to a third party. On yes it walks
+  all four steps: global install, token into the **gitignored**
+  `.claude/settings.local.json` (never a committed file), uncommenting the
+  firewall domains, and the container rebuild that makes them take effect.
+
 - `.devcontainer/STACKS.md` §"Active scanning (Socket)" — documents
   [Socket](https://socket.dev) as the opt-in *detective* counterpart to the
   passive gates already in §Supply-chain hardening (age rule, no install

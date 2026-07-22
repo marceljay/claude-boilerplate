@@ -48,7 +48,7 @@ sandbox. See [Dev Container](#dev-container) below.
 ├── agents/            # Subagents: explore-via-sonnet (search), review-diff, implement-scoped, docs-updater
 ├── skills/            # Auto-invoked skills: project-state upkeep (update-status, log, status, backlog), TDD, systematic-debugging, writing-plans, brainstorming, using-superpowers
 ├── scripts/           # subagent_summary.py — tabulates the SubagentStop log
-└── hooks/             # block_destructive.py (guards rm -rf/force-push variants), save-context.sh (pre-compaction), log_subagent.py (logs subagent runs)
+└── hooks/             # block_destructive.py (guards rm -rf/force-push variants), socket_scan.py (routes npm installs through Socket; opt-in), save-context.sh (pre-compaction), log_subagent.py (logs subagent runs)
 .devcontainer/         # Sandboxed Docker env + network firewall (see below)
 .npmrc                 # Supply-chain hardening: no install scripts, exact pins (see STACKS.md §Supply-chain hardening — incl. pnpm/cargo/go equivalents)
 LICENSE                # MIT

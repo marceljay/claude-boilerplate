@@ -222,6 +222,28 @@ Scaffold the standard file structure for a new project.
    - **tdd** — failing test first; activates the `test-driven-development`
      skill (fits projects with critical core logic)
 
+   Finally, **ask whether to enable Socket supply-chain scanning** — only if
+   the project uses npm/pnpm/yarn, since those are the managers Socket's
+   wrappers front. Ask rather than install: it needs an API token, and it
+   uploads the dependency manifest to a third party, which is not a call to
+   make on someone's behalf. Present it as:
+   - **Skip (default)** — the passive gates still apply (`.npmrc`
+     `ignore-scripts`, lockfiles, the age rule). `.claude/hooks/socket_scan.py`
+     stays inert; nothing to undo.
+   - **Enable** — then do all four, in order, and say so:
+     1. `npm install -g socket@<pinned version>`
+     2. have the user get a token at <https://socket.dev> (free tier; free for
+        qualifying open source) and set it in the gitignored
+        `.claude/settings.local.json` under `"env"` as `SOCKET_CLI_API_TOKEN`
+        — never in `settings.json`, `CLAUDE.md`, or any committed file
+     3. uncomment the two Socket domains in `.devcontainer/init-firewall.sh`
+        and tell them a **container rebuild** is required — until then every
+        `socket` call fails at the network layer
+     4. confirm the hook is live: with the token set and `socket` on PATH,
+        `npm install <pkg>` is blocked in favour of `socket npm install <pkg>`
+   Background and the age-gate exemption: `.devcontainer/STACKS.md`
+   §Active scanning (Socket).
+
 3. Rename the dev container to this project (skip if `.boilerplate-dev` exists —
    see step 0). If `.devcontainer/devcontainer.json`
    still has `"name": "Claude Boilerplate Repo"` (the boilerplate default),

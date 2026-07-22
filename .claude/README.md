@@ -116,9 +116,22 @@ Common events you can hook:
 | `SessionStart`     | A session begins                       | Print project status                 |
 | `SubagentStop`     | A subagent finishes                    | Log its task, model, token usage     |
 
-This project uses `PreToolUse` (matcher `Bash`) to block destructive command
-variants the deny list's prefix matching can't catch — see the honesty note
-under `permissions` above. It also uses `SubagentStop` to log every subagent run — task, model,
+This project uses `PreToolUse` (matcher `Bash`) for two hooks. The first
+blocks destructive command variants the deny list's prefix matching can't
+catch — see the honesty note under `permissions` above. The second
+(`socket_scan.py`) routes package installs through
+[Socket](https://socket.dev)'s scanner: it blocks a plain `npm|npx|pnpm|yarn`
+install and tells Claude to re-run it as `socket npm install …`, which audits
+the packages before handing off. It is **inert unless you opt in** — it needs
+both a `socket` binary on PATH and `SOCKET_CLI_API_TOKEN` set, neither of
+which the boilerplate ships, because Socket needs an account and uploads your
+dependency manifest to a third party. `/init` asks; `.devcontainer/STACKS.md`
+§Active scanning (Socket) has the full picture, including why `socket` itself
+is exempt from the age gate. Set `SOCKET_HOOK=off` to silence it. Note the
+scope: it covers what *Claude* runs, not what you type in a terminal and not
+a `git pull` that changes a lockfile — those need a CI step.
+
+It also uses `SubagentStop` to log every subagent run — task, model,
 token usage, result summary — to `.claude/logs/subagents.jsonl`
 (`.claude/hooks/log_subagent.py`, gitignored since it can contain tool
 output). Run `.claude/scripts/subagent_summary.py` to tabulate it by model

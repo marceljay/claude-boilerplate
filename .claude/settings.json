@@ -34,6 +34,7 @@
       "Bash(node:*)",
       "Bash(pnpm:*)",
       "Bash(yarn:*)",
+      "Bash(socket:*)",
 
       "Bash(python:*)",
       "Bash(python3:*)",
@@ -62,6 +63,10 @@
           {
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/block_destructive.py\""
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/socket_scan.py\""
           }
         ]
       }

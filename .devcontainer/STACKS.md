@@ -103,10 +103,13 @@ Baseline for every stack: commit the lockfile and use frozen installs in CI
 which is exactly where an age rule can be enforced.
 
 - **npm** — the repo ships a root `.npmrc` with `ignore-scripts=true` (no
-  postinstall code execution; `npm rebuild <pkg> --ignore-scripts=false` for
-  the few that need builds) and `save-exact=true`. npm has no rolling age
-  gate, only a fixed cutoff (`npm install --before=<date>`); get the age rule
-  from pnpm or an update bot (below).
+  postinstall code execution) and `save-exact=true`. For the few packages
+  that need a build step: `npm install-scripts approve <pkg>` once (records
+  it under `allowScripts` in `package.json` — npm ≥ 12 blocks unlisted
+  scripts regardless of `ignore-scripts`), then
+  `npm rebuild <pkg> --ignore-scripts=false`. npm has no rolling age gate,
+  only a fixed cutoff (`npm install --before=<date>`); get the age rule from
+  pnpm or an update bot (below).
 - **pnpm** — the strongest native option. In `pnpm-workspace.yaml`:
   `minimumReleaseAge: 10080` (minutes = 7 days; pnpm ≥ 10.16) hides younger
   versions from resolution entirely; `minimumReleaseAgeExclude` lists escape

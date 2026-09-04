@@ -130,18 +130,26 @@ ENV DISABLE_AUTOUPDATER=1
 #
 #   --include=optional      pulls the platform-native binary
 #                           (@anthropic-ai/claude-code-linux-arm64 and friends)
-#   --ignore-scripts=false  lets the postinstall link that binary into place
+#   --allow-scripts=<pkg>   lets its postinstall link that binary into place.
+#                           npm >= 12 (what `npm install -g npm@latest` above
+#                           gives us) blocks ALL lifecycle scripts unless the
+#                           package is named in allowScripts; without this the
+#                           wrapper installs, the binary does not, and the
+#                           build fails at `claude --version` below with
+#                           "native binary not installed". Older npm ignores
+#                           the flag with a warning and runs scripts anyway.
+#   --ignore-scripts=false  the pre-12 override, kept because ignore-scripts=true
+#                           inherited from NPM_CONFIG_* env or a runtime
+#                           /workspace/.npmrc still blocks scripts on npm < 12,
+#                           and because this line doubles as the documented
+#                           recipe for any RUNTIME reinstall (see CHANGELOG).
 #
-# At build time both flags match npm's defaults (/workspace is empty during
-# `docker build` — the bind mount and its .npmrc exist only at runtime), so
-# they look like dead weight. They are not: they immunize this layer against
-# inherited NPM_CONFIG_* env or base-image config, and they document the exact
-# flags any RUNTIME reinstall needs, where /workspace/.npmrc's
+# At build time /workspace is empty (the bind mount and its .npmrc exist only
+# at runtime), so the .npmrc story applies to runtime reinstalls, where
 # ignore-scripts=true (deliberate hardening; STACKS.md §Supply-chain
-# hardening) DOES apply to -g installs and produces exactly the "native binary
-# not installed" failure: the wrapper installs, the binary does not, and
-# `claude` only errors at runtime. `claude --version` at the end turns a
-# broken install into a BUILD failure instead of a mid-session surprise.
+# hardening) DOES apply to -g installs run from /workspace. `claude --version`
+# at the end turns a broken install into a BUILD failure instead of a
+# mid-session surprise.
 #
 # `latest` is a per-rebuild snapshot, not a pin — each rebuild takes the newest
 # release and DISABLE_AUTOUPDATER freezes it until the next rebuild. To pin
@@ -149,7 +157,9 @@ ENV DISABLE_AUTOUPDATER=1
 # default — changing only this line does nothing).
 ARG CLAUDE_CODE_VERSION=latest
 RUN npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" \
-      --include=optional --ignore-scripts=false \
+      --include=optional \
+      --allow-scripts=@anthropic-ai/claude-code \
+      --ignore-scripts=false \
  && claude --version
 
 # Copy and set up firewall script

@@ -163,8 +163,15 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
     installs run from `/workspace` — so the CC wrapper installed but the
     platform-native binary (delivered as an optional dep, linked by
     postinstall) didn't, and `claude` failed only at runtime. The install now
-    passes `--include=optional --ignore-scripts=false` and runs
-    `claude --version` in the same layer, turning that into a build failure.
+    passes `--include=optional --allow-scripts=@anthropic-ai/claude-code
+    --ignore-scripts=false` and runs `claude --version` in the same layer,
+    turning that into a build failure. The `--allow-scripts` flag is the
+    load-bearing one: the Dockerfile upgrades to `npm@latest`, and npm ≥ 12
+    blocks every lifecycle script not named in `allowScripts` — a first cut
+    with only `--ignore-scripts=false` built fine on npm 10 and broke the
+    next rebuild on npm 12 ("native binary not installed"). Verified
+    empirically against npm 12.0.2: `--ignore-scripts=false` alone fails,
+    `--allow-scripts` succeeds, also from `/workspace` under the `.npmrc`.
     `DISABLE_AUTOUPDATER=1` is set for the same reason: even a *successful*
     autoupdate runs from `/workspace` where the `.npmrc` applies, stripping
     the native binary again — updates now happen only on rebuild, where
@@ -197,11 +204,18 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
     layer, `curl`/`wget`/`ca-certificates` installed explicitly.
   - **Migration for existing copies** (they hold *snapshots* of
     `.devcontainer/`, so fixing upstream repairs nothing on disk): re-sync or
-    hand-apply the above, then rebuild. If a broken autoupdate already
+    hand-apply the above, then rebuild. `sync-harness.sh` treats the
+    Dockerfile as ask-first, so a copy with its own stack layers should
+    answer **n** and hand-apply just the install `RUN` line (the three
+    flags above); a copy with an unmodified Dockerfile can answer **y**. If a broken autoupdate already
     bricked `claude` (symptoms: `permission denied: claude`, then "native
     binary not installed", then `ENOTEMPTY` on reinstall):
     `rm -rf "$(npm prefix -g)/lib/node_modules/@anthropic-ai/claude-code" "$(npm prefix -g)/lib/node_modules/@anthropic-ai/.claude-code-"*`
-    then `npm install -g @anthropic-ai/claude-code --include=optional --ignore-scripts=false`.
+    then `npm install -g @anthropic-ai/claude-code --include=optional --allow-scripts=@anthropic-ai/claude-code --ignore-scripts=false`.
+  - **STACKS.md npm recipe updated for npm ≥ 12**: `npm rebuild <pkg>
+    --ignore-scripts=false` alone no longer runs a blocked postinstall;
+    approve the package first with `npm install-scripts approve <pkg>`
+    (writes `allowScripts` into `package.json`), then rebuild.
 - **`/dev` no longer spawns duplicate servers.** It had no idempotency check —
   every invocation launched fresh, so re-runs (or the model "verifying" after
   an edit) piled up servers dying on "port in use", the observed

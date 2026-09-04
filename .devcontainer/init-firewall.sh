@@ -75,6 +75,10 @@ allowed_domains=(
     "sentry.io"
     "statsig.com"
 
+    # --- xAI / Grok API (the bare x.ai happens to share IPs today; list the
+    # host actually called so a CDN change can't silently break it) ---
+    "api.x.ai"
+
     # --- Node/JS — the stack built into the image (npm install/publish) ---
     "registry.npmjs.org"
 

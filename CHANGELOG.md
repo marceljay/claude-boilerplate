@@ -7,6 +7,16 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Git-worktree guidance for parallel agents: new `.claude/README.md` §4
+  subsection "Parallel work: git worktrees", a `.worktrees/` entry in
+  `.gitignore`, and a lean pointer in `.claude/CLAUDE.md`. Subagents share one
+  working tree, so concurrent edits need isolation; the docs cover the
+  preferred automatic path (`isolation: "worktree"`) and the manual
+  `git worktree` commands, and make the dev-container constraint explicit —
+  worktrees must live under `.worktrees/` inside `/workspace` (the only bind
+  mount), never a `../sibling` dir, which `git worktree add`'s tutorial
+  default would create invisibly to the container. Also notes what worktrees
+  don't share (deps, build output) and the checked-out-branch lock.
 - `.claude/hooks/socket_scan.py` — a second `PreToolUse` (matcher `Bash`) hook
   that routes package installs through [Socket](https://socket.dev)'s scanner.
   Socket has no automatic trigger of its own: the `socket npm|npx|pnpm|yarn`

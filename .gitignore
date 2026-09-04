@@ -25,6 +25,11 @@ _planning/transcripts-backup/
 __pycache__/
 *.pyc
 
+# Parallel-agent git worktrees — checkouts, not source. Keep them in-repo (under
+# /workspace) so the dev container can see them; this ignore stops the parent
+# from tracking them. See .claude/README.md §4 "Parallel work: git worktrees".
+.worktrees/
+
 # Working status + backlog — private by default. /init asks per-project whether to
 # make it public; to commit it, remove this line (or `git add -f _planning/STATUS.md`).
 _planning/STATUS.md

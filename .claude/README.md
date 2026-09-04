@@ -21,6 +21,7 @@ This README explains each piece in plain terms so you can edit it confidently.
   - [`hooks` — the part you asked about](#hooks--the-part-you-asked-about)
 - [3. `commands/` — slash commands](#3-commands--slash-commands)
 - [4. `agents/` — subagents (the biggest usage-saver)](#4-agents--subagents-the-biggest-usage-saver)
+  - [Parallel work: git worktrees](#parallel-work-git-worktrees)
 - [5. Memory — persistent facts across sessions](#5-memory--persistent-facts-across-sessions)
 - [6. How the project-state files relate (set by `CLAUDE.md`)](#6-how-the-project-state-files-relate-set-by-claudemd)
 - [7. `.devcontainer/` (sibling folder, not under `.claude/`)](#7-devcontainer-sibling-folder-not-under-claude)
@@ -283,6 +284,46 @@ This boilerplate ships four by default — the highest-impact change for the
   context — a subagent starts cold, so you'd pay to re-explain it.
 - **`docs-updater`** — checks whether docs need updating after a change and
   edits them only if it's user-facing; used by `/docs`.
+
+### Parallel work: git worktrees
+
+Subagents share one working tree, so they must not edit files at the same time —
+fine for the read-only and hand-off-then-wait patterns above, wrong for running
+two coding tasks *concurrently*. A **git worktree** gives each agent its own
+checkout of the same repo (one `.git`, many working directories on different
+branches), so parallel edits can't collide.
+
+Two ways to get one:
+
+- **Automatic (preferred).** Launch an agent with `isolation: "worktree"` and
+  the harness creates a throwaway worktree for it and cleans it up if nothing
+  changed. You don't manage its path or lifecycle. Reach for this first — it's
+  the whole feature for most parallel work.
+- **Manual**, for a longer-lived parallel line you (or Claude) drive by hand:
+
+  ```sh
+  git worktree add .worktrees/<branch> -b feat/<branch>   # create
+  git worktree list                                       # see them
+  git worktree remove .worktrees/<branch>                 # delete when merged
+  git worktree prune                                      # clear dangling refs
+  ```
+
+**Put worktrees under `.worktrees/` inside the repo — not `../sibling` dirs.**
+The dev container bind-mounts only `/workspace` (§7), so a worktree created
+outside it — which `git worktree add ../foo`, the usual tutorial default, does —
+is invisible inside the container. `.worktrees/` is gitignored, so the parent
+repo won't try to track the checkouts; because the ignore is shared through the
+one `.git`, worktrees don't recursively see each other either. (On the *host*,
+outside any container, a sibling dir is fine — the constraint is the mount, not
+git.)
+
+Two things worktrees do **not** share: installed dependencies and build output.
+Each worktree needs its own `npm install` / equivalent (with this repo's
+`.npmrc`, still no install scripts). And they *do* share branches and stashes —
+two worktrees can't check out the same branch at once, which is a feature: it
+stops two agents landing on top of each other. Merge the finished branch back
+the normal way, then `git worktree remove` — a dangling worktree holds a branch
+checked out and blocks reusing it.
 
 ---
 

@@ -32,8 +32,12 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - **`sync-harness.sh` no longer clobbers the container name.** Overwriting
   `devcontainer.json` in refresh mode carries the target's `"name"` and
   `CLAUDE_SHORTCUT_FLAGS` into the new file (the two single-value,
-  always-per-project fields), and a target that differs from upstream only in
-  those two is reported in sync instead of re-asked every run. Install and
+  always-per-project fields); a target that differs from upstream only in
+  those two — or in formatting, since the editor's Prettier folds `runArgs`
+  onto one line — is reported in sync instead of re-asked every run, and the
+  diff shown for a real change is against upstream with your name and flags
+  already in place, so the name line no longer appears as a change. A copy
+  that predates the flags key syncs cleanly too. Install and
   `--replace` ask for the container name up front (default: the directory
   name, or the previous name in replace mode) and write it, so `/init` has
   nothing left to rename. Plain awk/sed, so it works on a macOS host.

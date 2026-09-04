@@ -113,7 +113,9 @@ ask3() {
 # Read / set a string value on a `"key": "value"` line (first match). Plain
 # awk/sed so it runs on a macOS host too; JSONC comments are left untouched.
 json_line_value() {
-  grep -m1 -E "^[[:space:]]*\"$2\":" "$1" 2>/dev/null \
+  # Always succeeds (empty output when the key is absent) — callers assign
+  # the result under set -e/pipefail, so a missing key must not be an error.
+  { grep -m1 -E "^[[:space:]]*\"$2\":" "$1" 2>/dev/null || true; } \
     | sed -E 's/^[^:]*:[[:space:]]*"([^"]*)".*$/\1/'
 }
 set_json_line_value() {
@@ -131,16 +133,25 @@ set_json_line_value() {
 }
 DEVCONTAINER=.devcontainer/devcontainer.json
 DEFAULT_CONTAINER_NAME="Claude Boilerplate Repo"
-# True when the target's devcontainer.json equals upstream once the target's
-# own "name" and CLAUDE_SHORTCUT_FLAGS are put into the upstream copy — i.e.
-# nothing but the two per-project values differs, so there is nothing to ask.
-devcontainer_in_sync_modulo_fields() {
-  local tmp k v; tmp=$(mktemp); cp "$SRC/$DEVCONTAINER" "$tmp"
+# Upstream devcontainer.json with the target's own "name" and
+# CLAUDE_SHORTCUT_FLAGS substituted — what an overwrite would actually
+# produce. Written to the file named by $1.
+devcontainer_upstream_with_target_fields() {
+  local k v; cp "$SRC/$DEVCONTAINER" "$1"
   for k in name CLAUDE_SHORTCUT_FLAGS; do
     v=$(json_line_value "$TARGET/$DEVCONTAINER" "$k")
-    [ -n "$v" ] && set_json_line_value "$tmp" "$k" "$v"
+    if [ -n "$v" ]; then set_json_line_value "$1" "$k" "$v"; fi
   done
-  cmp -s "$tmp" "$TARGET/$DEVCONTAINER"; local rc=$?; rm -f "$tmp"; return $rc
+}
+# JSONC minus comments and all whitespace: the target's copy is usually
+# reformatted by the editor (Prettier folds runArgs onto one line, etc.), and
+# that is not a difference worth a prompt.
+jsonc_squash() { sed 's|^[[:space:]]*//.*$||' "$1" | tr -d ' \t\r\n'; }
+# True when nothing but formatting and the two per-project values differs.
+devcontainer_in_sync_modulo_fields() {
+  local tmp rc; tmp=$(mktemp); devcontainer_upstream_with_target_fields "$tmp"
+  [ "$(jsonc_squash "$tmp")" = "$(jsonc_squash "$TARGET/$DEVCONTAINER")" ]; rc=$?
+  rm -f "$tmp"; return $rc
 }
 
 
@@ -225,8 +236,18 @@ dockerfile_tail() { tail -n +"$(( $(marker_line "$1") + 1 ))" "$1"; }
 ask_first() {
   local f="$1"
   echo
-  echo "differs   $f (target may hold per-project edits)"
-  diff -u "$TARGET/$f" "$SRC/$f" || true
+  if [ "$f" = "$DEVCONTAINER" ]; then
+    # Diff against what an overwrite would produce: the target's name and
+    # flags already in place, so only real upstream changes show.
+    local want; want=$(mktemp); devcontainer_upstream_with_target_fields "$want"
+    echo "differs   $f (your \"name\" and CLAUDE_SHORTCUT_FLAGS are kept on overwrite;"
+    echo "          whitespace-only differences are ignored — this diff has real changes)"
+    diff -u "$TARGET/$f" "$want" || true
+    rm -f "$want"
+  else
+    echo "differs   $f (target may hold per-project edits)"
+    diff -u "$TARGET/$f" "$SRC/$f" || true
+  fi
   case "$(ask3 "  $f:")" in
     overwrite)
       if [ "$f" = "$DEVCONTAINER" ]; then

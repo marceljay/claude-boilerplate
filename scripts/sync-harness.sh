@@ -36,7 +36,12 @@
 #     .claude/settings.json (permissions), .npmrc (registry/auth config) —
 #     it shows the full diff and asks: y = overwrite, N = keep (default),
 #     u = keep AND write the boilerplate version next to it as <file>.upstream
-#     for a hand merge (delete the .upstream copy when done).
+#     for a hand merge (delete the .upstream copy when done). Overwriting
+#     devcontainer.json keeps the target's "name" and CLAUDE_SHORTCUT_FLAGS
+#     values — the two single-value, always-per-project fields.
+#   - INSTALL and REPLACE ask for the container name up front (default: the
+#     directory name, or the old name in REPLACE) and write it into the
+#     copied devcontainer.json, so /init has nothing left to rename.
 #   - Never touches: settings.local.json, .claude/logs/, _planning/,
 #     project code, git state.
 #
@@ -82,6 +87,7 @@ ask() {
   local reply=""
   printf '%s [y/N] ' "$1"
   read -r reply || reply=n
+  [ -t 0 ] || echo >&2   # piped input: end the prompt line ourselves
   case "$reply" in
     y | Y | yes | YES) return 0 ;;
     *) return 1 ;;
@@ -95,6 +101,7 @@ ask3() {
   local reply=""
   printf '%s [y=overwrite / N=keep / u=keep + write .upstream copy] ' "$1" >&2
   read -r reply || reply=n
+  [ -t 0 ] || echo >&2   # piped input: end the prompt line ourselves
   case "$reply" in
     y | Y | yes | YES) echo overwrite ;;
     u | U) echo upstream ;;
@@ -102,12 +109,48 @@ ask3() {
   esac
 }
 
+# --- devcontainer.json field helpers ----------------------------------------
+# Read / set a string value on a `"key": "value"` line (first match). Plain
+# awk/sed so it runs on a macOS host too; JSONC comments are left untouched.
+json_line_value() {
+  grep -m1 -E "^[[:space:]]*\"$2\":" "$1" 2>/dev/null \
+    | sed -E 's/^[^:]*:[[:space:]]*"([^"]*)".*$/\1/'
+}
+set_json_line_value() {
+  local tmp; tmp=$(mktemp)
+  awk -v key="$2" -v val="$3" '
+    !done && $0 ~ ("^[[:space:]]*\"" key "\":") {
+      match($0, /^[[:space:]]*"[^"]*":[[:space:]]*/)
+      pre = substr($0, 1, RLENGTH); rest = substr($0, RLENGTH + 1)
+      sub(/^"[^"]*"/, "", rest)
+      gsub(/"/, "\\\"", val)
+      print pre "\"" val "\"" rest; done = 1; next
+    }
+    { print }' "$1" > "$tmp" && cat "$tmp" > "$1"
+  rm -f "$tmp"
+}
+DEVCONTAINER=.devcontainer/devcontainer.json
+DEFAULT_CONTAINER_NAME="Claude Boilerplate Repo"
+# True when the target's devcontainer.json equals upstream once the target's
+# own "name" and CLAUDE_SHORTCUT_FLAGS are put into the upstream copy — i.e.
+# nothing but the two per-project values differs, so there is nothing to ask.
+devcontainer_in_sync_modulo_fields() {
+  local tmp k v; tmp=$(mktemp); cp "$SRC/$DEVCONTAINER" "$tmp"
+  for k in name CLAUDE_SHORTCUT_FLAGS; do
+    v=$(json_line_value "$TARGET/$DEVCONTAINER" "$k")
+    [ -n "$v" ] && set_json_line_value "$tmp" "$k" "$v"
+  done
+  cmp -s "$tmp" "$TARGET/$DEVCONTAINER"; local rc=$?; rm -f "$tmp"; return $rc
+}
+
+
 ADOPT=0
 if [ "$REPLACE" = 1 ] && { [ -d "$TARGET/.claude" ] || [ -d "$TARGET/.devcontainer" ]; }; then
   old_dirs=""
   [ -d "$TARGET/.claude" ] && old_dirs=".claude"
   [ -d "$TARGET/.devcontainer" ] && old_dirs="$old_dirs .devcontainer"
   backup="harness-backup-$(date +%Y%m%d-%H%M%S).tar.gz"
+  OLD_CONTAINER_NAME=$(json_line_value "$TARGET/.devcontainer/devcontainer.json" name 2>/dev/null || true)
   echo "REPLACE: the target's existing ${old_dirs# } will be removed and replaced"
   echo "with this boilerplate's harness. Code, .git and _planning/ stay untouched."
   echo "Backup first: $TARGET/$backup"
@@ -186,8 +229,24 @@ ask_first() {
   diff -u "$TARGET/$f" "$SRC/$f" || true
   case "$(ask3 "  $f:")" in
     overwrite)
-      cp -p "$SRC/$f" "$TARGET/$f"
-      echo "overwrote $f" ;;
+      if [ "$f" = "$DEVCONTAINER" ]; then
+        # Carry the per-project single values over; everything else is upstream.
+        local keep_name keep_flags k
+        keep_name=$(json_line_value "$TARGET/$f" name)
+        keep_flags=$(json_line_value "$TARGET/$f" CLAUDE_SHORTCUT_FLAGS)
+        cp -p "$SRC/$f" "$TARGET/$f"
+        for k in name CLAUDE_SHORTCUT_FLAGS; do
+          local v; v=$([ "$k" = name ] && echo "$keep_name" || echo "$keep_flags")
+          if [ -n "$v" ] && [ "$(json_line_value "$TARGET/$f" "$k")" != "$v" ]; then
+            set_json_line_value "$TARGET/$f" "$k" "$v"
+            echo "overwrote $f (kept \"$k\": \"$v\")"
+          fi
+        done
+        echo "overwrote $f"
+      else
+        cp -p "$SRC/$f" "$TARGET/$f"
+        echo "overwrote $f"
+      fi ;;
     upstream)
       cp -p "$SRC/$f" "$TARGET/$f.upstream"
       echo "kept      $f (target version); boilerplate copy written to $f.upstream"
@@ -239,6 +298,8 @@ for f in $ASK_FILES; do
     echo "copied    $f (was missing in target)"
   elif cmp -s "$SRC/$f" "$TARGET/$f"; then
     echo "in sync   $f"
+  elif [ "$f" = "$DEVCONTAINER" ] && devcontainer_in_sync_modulo_fields; then
+    echo "in sync   $f (name / CLAUDE_SHORTCUT_FLAGS are the target's own)"
   else
     ask_first "$f"
   fi
@@ -251,6 +312,20 @@ if [ "$ADOPT" = 1 ]; then
   sed -i.bak -e '/^- Commit policy:/d' -e '/^- Testing policy:/d' \
     -e '/^- Harness:/d' -e '/^- STATUS\.md:/d' \
     "$TARGET/.claude/CLAUDE.md" && rm -f "$TARGET/.claude/CLAUDE.md.bak"
+
+  # Container name: it labels the container in Docker/VS Code, and the
+  # boilerplate default is what the first-run hook keys off — so set it now
+  # rather than shipping a copy that still says "Claude Boilerplate Repo".
+  if [ -f "$TARGET/$DEVCONTAINER" ] && [ "$(json_line_value "$TARGET/$DEVCONTAINER" name)" = "$DEFAULT_CONTAINER_NAME" ]; then
+    default_name="${OLD_CONTAINER_NAME:-}"
+    [ -n "$default_name" ] && [ "$default_name" != "$DEFAULT_CONTAINER_NAME" ] || default_name="$(basename "$TARGET")"
+    printf 'Dev container name [%s]: ' "$default_name"
+    read -r new_name || new_name=""
+    [ -t 0 ] || echo
+    [ -n "$new_name" ] || new_name="$default_name"
+    set_json_line_value "$TARGET/$DEVCONTAINER" name "$new_name"
+    echo "named     $DEVCONTAINER \"$new_name\""
+  fi
   echo
   echo "Harness installed. Next steps:"
   echo "  1. Open $TARGET in its dev container (VS Code: 'Reopen in Container')"

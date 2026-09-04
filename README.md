@@ -113,7 +113,8 @@ scripts/sync-harness.sh ../your-project
 
 When the target has no `.claude/` yet, the script runs in **install mode**:
 after one confirmation it copies `.claude/` and `.devcontainer/` — and nothing
-else. Your `.git`, code, and README are never touched. (It also strips this
+else — and asks for the dev container's name (default: the directory name).
+Your `.git`, code, and README are never touched. (It also strips this
 repo's recorded commit/testing policies from the copied `CLAUDE.md` so `/init`
 asks you fresh.) Then reopen the project in its dev container, start Claude
 (`cc` or `claude`) and run **`/init`**: it fills gaps without overwriting —
@@ -128,9 +129,11 @@ Re-run the same command later to pull harness updates into the project
 script, confirms deletions, splices the `Dockerfile` at its
 `# ==== PROJECT LAYERS ====` marker so upstream fixes land while your stack
 layers below it stay, and diff-asks before touching files that hold
-per-project edits, such as `allowed-domains.txt` or the container name — with
+per-project edits, such as `allowed-domains.txt` or `devcontainer.json` — with
 a `u` answer that keeps yours and drops the boilerplate version beside it as
-`<file>.upstream` for a hand merge).
+`<file>.upstream` for a hand merge). Overwriting `devcontainer.json` keeps
+your container `"name"` and `CLAUDE_SHORTCUT_FLAGS`, and a copy that differs
+only in those two counts as in sync, so they never get asked about again.
 
 Already have a `.claude/` setup you want rid of — a hand-rolled harness, or
 conventions worth abandoning? `scripts/sync-harness.sh --replace ../your-project`

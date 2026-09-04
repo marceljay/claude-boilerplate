@@ -29,6 +29,15 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   Preference Persistence, `/remember` and `/status` read the line first
   (falling back to `git check-ignore` / the file's location). `sync-harness.sh`
   strips both lines on install so an adopting project is asked fresh.
+- **`sync-harness.sh` no longer clobbers the container name.** Overwriting
+  `devcontainer.json` in refresh mode carries the target's `"name"` and
+  `CLAUDE_SHORTCUT_FLAGS` into the new file (the two single-value,
+  always-per-project fields), and a target that differs from upstream only in
+  those two is reported in sync instead of re-asked every run. Install and
+  `--replace` ask for the container name up front (default: the directory
+  name, or the previous name in replace mode) and write it, so `/init` has
+  nothing left to rename. Plain awk/sed, so it works on a macOS host.
+  Prompts end their own line when input is piped.
 - **Firewall allowlist is a data file: `.devcontainer/allowed-domains.txt`.**
   `init-firewall.sh` no longer carries the `allowed_domains` array; it reads
   the list from `/etc/init-firewall/allowed-domains.txt`, which the Dockerfile

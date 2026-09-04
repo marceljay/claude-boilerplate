@@ -155,6 +155,65 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- **Dev container overhaul** (`.devcontainer/Dockerfile` + `devcontainer.json`),
+  from a debugging handover on a downstream copy; every fix was verified
+  against observed failures there:
+  - **Claude Code install now survives this repo's own hardening.** The
+    root `.npmrc` sets `ignore-scripts=true`, which npm applies even to `-g`
+    installs run from `/workspace` — so the CC wrapper installed but the
+    platform-native binary (delivered as an optional dep, linked by
+    postinstall) didn't, and `claude` failed only at runtime. The install now
+    passes `--include=optional --ignore-scripts=false` and runs
+    `claude --version` in the same layer, turning that into a build failure.
+    `DISABLE_AUTOUPDATER=1` is set for the same reason: even a *successful*
+    autoupdate runs from `/workspace` where the `.npmrc` applies, stripping
+    the native binary again — updates now happen only on rebuild, where
+    failure is visible. `CLAUDE_CODE_VERSION` stays `latest` by choice: each
+    rebuild snapshots the newest release, frozen between rebuilds (pin
+    exactly via the `devcontainer.json` build arg, which overrides the
+    Dockerfile default).
+  - **zsh history persistence actually works now.** The old layer assigned a
+    `SNIPPET` variable it never wrote anywhere, and used `PROMPT_COMMAND` +
+    `.bash_history` — both bash-only, in a container whose default shell is
+    zsh. The mounted history volume stayed empty on every project. Now:
+    `HISTFILE=/commandhistory/.zsh_history` + `INC_APPEND_HISTORY`/
+    `SHARE_HISTORY` via zsh-in-docker.
+  - **Remote downloads are sha256-pinned.** `zsh-in-docker.sh` was piped
+    straight into `sh` and the git-delta `.deb` installed unverified — the
+    largest code-exec holes in an image otherwise built around supply-chain
+    hardening. Both now download-verify-execute against hashes recorded in
+    the Dockerfile (per-arch for the .deb; unknown arch fails the build).
+    Trust-on-first-use: the hashes were computed from our own downloads
+    (2026-09-04), so confirm once against the upstream releases.
+  - **Base image `node:20` (EOL) → `node:22-bookworm`**, distro pinned
+    because the apt package list depends on the Debian release. Existing
+    projects may need `npm rebuild` for native modules after the major bump.
+  - **Invalid `TZ` now fails the build** instead of silently running UTC.
+    This caught a real one: the fallback had been set to `Etc/Berlin`, which
+    is not a zoneinfo name — fixed to `Europe/Berlin` in `devcontainer.json`.
+  - Smaller: npm self-upgrade added (as root, *before* `NPM_CONFIG_PREFIX`,
+    else two npms shadow each other), `chown` scoped to `npm-global` instead
+    of all of `/usr/local/share`, redundant `sudo` dropped from the delta
+    layer, `curl`/`wget`/`ca-certificates` installed explicitly.
+  - **Migration for existing copies** (they hold *snapshots* of
+    `.devcontainer/`, so fixing upstream repairs nothing on disk): re-sync or
+    hand-apply the above, then rebuild. If a broken autoupdate already
+    bricked `claude` (symptoms: `permission denied: claude`, then "native
+    binary not installed", then `ENOTEMPTY` on reinstall):
+    `rm -rf "$(npm prefix -g)/lib/node_modules/@anthropic-ai/claude-code" "$(npm prefix -g)/lib/node_modules/@anthropic-ai/.claude-code-"*`
+    then `npm install -g @anthropic-ai/claude-code --include=optional --ignore-scripts=false`.
+- **`/dev` no longer spawns duplicate servers.** It had no idempotency check —
+  every invocation launched fresh, so re-runs (or the model "verifying" after
+  an edit) piled up servers dying on "port in use", the observed
+  new-server-every-few-seconds loop. New step 2: probe the port and existing
+  background tasks first; reuse a running server (hot reload makes restarts
+  unnecessary for code edits); if the port is held by something else, ask —
+  never auto-pick a port or retry-launch in a loop. Also documented in
+  `.claude/README.md` §7: never add `appPort`/`-p` alongside dynamic
+  forwarding (Docker treats `3000:3000` and `0.0.0.0:3000:3000` as distinct
+  mappings, so the container conflicts with *itself*, with an empty `lsof` as
+  the tell), and a failing `init-firewall.sh` blocks readiness via
+  `waitFor: postStartCommand` — a distinct "won't start" cause.
 - `/init` no longer skips an existing `.gitignore` wholesale — the universal
   security/planning entries (`.env*`, `*.pem`, `*.key`, transcripts backup,
   the private-by-default `_planning/STATUS.md`) are now *ensured*: missing

@@ -133,6 +133,19 @@ set_json_line_value() {
 }
 DEVCONTAINER=.devcontainer/devcontainer.json
 DEFAULT_CONTAINER_NAME="Claude Boilerplate Repo"
+
+# A Dockerfile whose FROM line changed means a different Node (or distro):
+# native modules built against the old one fail to load until rebuilt, and
+# under the repo's .npmrc a plain `npm rebuild` is a silent no-op. Say so.
+from_line() { grep -m1 -E '^FROM ' "$1" 2>/dev/null || true; }
+warn_if_base_image_changed() {   # old-content-file new-content-file
+  local a b; a=$(from_line "$1"); b=$(from_line "$2")
+  if [ -n "$a" ] && [ -n "$b" ] && [ "$a" != "$b" ]; then
+    echo "BASE_IMAGE_CHANGED: '$a' -> '$b'. After rebuilding the container, rebuild native"
+    echo "          modules: see .devcontainer/STACKS.md §Native modules (approve once, then"
+    echo "          'npm rebuild --ignore-scripts=false' — a plain 'npm rebuild' does nothing)."
+  fi
+}
 # Upstream devcontainer.json with the target's own "name" and
 # CLAUDE_SHORTCUT_FLAGS substituted — what an overwrite would actually
 # produce. Written to the file named by $1.
@@ -250,6 +263,7 @@ ask_first() {
   fi
   case "$(ask3 "  $f:")" in
     overwrite)
+      [ "$f" = "$DOCKERFILE" ] && warn_if_base_image_changed "$TARGET/$f" "$SRC/$f"
       if [ "$f" = "$DEVCONTAINER" ]; then
         # Carry the per-project single values over; everything else is upstream.
         local keep_name keep_flags k
@@ -294,6 +308,7 @@ if [ -f "$SRC/$DOCKERFILE" ]; then
       echo
       echo "splicing  $DOCKERFILE — harness section refreshed, project layers below the marker kept:"
       diff -u "$TARGET/$DOCKERFILE" "$spliced" || true
+      warn_if_base_image_changed "$TARGET/$DOCKERFILE" "$spliced"
       cat "$spliced" > "$TARGET/$DOCKERFILE"
       echo "spliced   $DOCKERFILE (review with git diff; rebuild the container to apply)"
     fi

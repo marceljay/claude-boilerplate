@@ -107,13 +107,33 @@ Baseline for every stack: commit the lockfile and use frozen installs in CI
 which is exactly where an age rule can be enforced.
 
 - **npm** — the repo ships a root `.npmrc` with `ignore-scripts=true` (no
-  postinstall code execution) and `save-exact=true`. For the few packages
-  that need a build step: `npm install-scripts approve <pkg>` once (records
-  it under `allowScripts` in `package.json` — npm ≥ 12 blocks unlisted
-  scripts regardless of `ignore-scripts`), then
-  `npm rebuild <pkg> --ignore-scripts=false`. npm has no rolling age gate,
-  only a fixed cutoff (`npm install --before=<date>`); get the age rule from
-  pnpm or an update bot (below).
+  postinstall code execution) and `save-exact=true`. npm has no rolling age
+  gate, only a fixed cutoff (`npm install --before=<date>`); get the age rule
+  from pnpm or an update bot (below).
+
+  **Native modules (better-sqlite3, sharp, esbuild, …) under this policy —
+  read this once, it bites in a specific way.** Their binary is produced by a
+  postinstall script, so with `ignore-scripts=true` **every** `npm ci` /
+  `npm install` leaves them unbuilt; the symptom is a test suite failing on
+  "bindings not found" or a module compiled for the wrong Node version, and
+  `npm rebuild` alone silently does nothing. The container's npm is ≥ 12,
+  which adds its own gate: a package's scripts run only if it is approved in
+  `package.json`'s `allowScripts`, and unapproved packages stay blocked even
+  with `--ignore-scripts=false`. So the policy-preserving recipe is:
+  1. once per package: `npm install-scripts approve <pkg>` (records it under
+     `allowScripts`; commit that);
+  2. after every install: `npm rebuild --ignore-scripts=false` — runs the
+     build step of the *approved* packages only (verified: unapproved ones
+     are still blocked). Put it in `package.json` as
+     `"scripts": { "build:native": "npm rebuild --ignore-scripts=false" }`
+     and run it after `npm ci` — locally, in `/dev`, and in CI.
+  Also expect this after a **Node major bump of the container image**
+  (a harness sync that changes the Dockerfile's `FROM` prints a reminder):
+  bindings built for the old Node fail to load until rebuilt. Prebuilt
+  binaries download from GitHub releases, which the firewall allows;
+  compiling from source needs Node headers from `nodejs.org`, which it does
+  not — add `nodejs.org` to `allowed-domains.txt` only if a package has no
+  prebuilt binary for the container's Node/arch.
 - **pnpm** — the strongest native option. In `pnpm-workspace.yaml`:
   `minimumReleaseAge: 10080` (minutes = 7 days; pnpm ≥ 10.16) hides younger
   versions from resolution entirely; `minimumReleaseAgeExclude` lists escape

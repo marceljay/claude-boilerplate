@@ -42,6 +42,20 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   name, or the previous name in replace mode) and write it, so `/init` has
   nothing left to rename. Plain awk/sed, so it works on a macOS host.
   Prompts end their own line when input is piped.
+- **Native modules under `ignore-scripts=true`: the recipe that actually
+  works, and a sync warning for base-image bumps.** A downstream copy hit
+  525/997 failing tests after the `node:20` → `node:22` image bump:
+  better-sqlite3's binding was built for Node 20, `npm rebuild` no-op'd under
+  `.npmrc`'s `ignore-scripts=true`, and npm 12's allowScripts gate blocked
+  the old `--ignore-scripts=false` escape hatch too. Verified on npm 12:
+  approve the package once (`npm install-scripts approve <pkg>`), then a bare
+  `npm rebuild --ignore-scripts=false` builds exactly the approved packages
+  (unapproved stay blocked) — and this recurs after every `npm ci`, because
+  `ignore-scripts=true` skips postinstall on install, so STACKS.md now says
+  to keep it as a `build:native` script run after installs. `sync-harness.sh`
+  prints `BASE_IMAGE_CHANGED` when a Dockerfile splice or overwrite changes
+  the `FROM` line, pointing at that recipe. The overhaul's migration note
+  used to say "may need `npm rebuild`", which is the silent no-op; corrected.
 - **Firewall allowlist is a data file: `.devcontainer/allowed-domains.txt`.**
   `init-firewall.sh` no longer carries the `allowed_domains` array; it reads
   the list from `/etc/init-firewall/allowed-domains.txt`, which the Dockerfile
@@ -328,7 +342,11 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
     (2026-09-04), so confirm once against the upstream releases.
   - **Base image `node:20` (EOL) → `node:22-bookworm`**, distro pinned
     because the apt package list depends on the Debian release. Existing
-    projects may need `npm rebuild` for native modules after the major bump.
+    projects have native modules (better-sqlite3 and friends) built for the
+    old Node and must rebuild them — and under this repo's `.npmrc` a plain
+    `npm rebuild` is a silent no-op; the working recipe is in STACKS.md
+    §Supply-chain hardening → npm → Native modules (approve once, then
+    `npm rebuild --ignore-scripts=false` after every install).
   - **Invalid `TZ` now fails the build** instead of silently running UTC.
     This caught a real one: the fallback had been set to `Etc/Berlin`, which
     is not a zoneinfo name — fixed to `Europe/Berlin` in `devcontainer.json`.

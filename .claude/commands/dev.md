@@ -9,7 +9,7 @@ recorded default port (see step 1a), falling back to stack detection.
 
 0. **Detect the environment first.** If `/.dockerenv` exists or
    `$REMOTE_CONTAINERS`/`$DEVCONTAINER` is set, you're in the dev container —
-   follow the container path in steps 2–3 (this is the usual case). Otherwise
+   follow the container path in steps 2–4 (this is the usual case). Otherwise
    use the host path.
 
 1. Detect the dev command and port from the project's stack:
@@ -30,13 +30,31 @@ recorded default port (see step 1a), falling back to stack detection.
       honor a `PORT` env var) — don't edit config files to change the port.
 
    b. **First use of a port sets the default.** After the server is confirmed
-      up (step 3) on an explicitly requested port that isn't the recorded
+      up (step 4) on an explicitly requested port that isn't the recorded
       default yet, persist it: add or update the one-liner `Dev port: <port>`
       in the project CLAUDE.md (same pattern as `Commit policy:`), and tell
       the user it's now the default for future `/dev` runs. Never record
       ports that came from detection or from the recorded default itself.
 
-2. **Launch it without blocking this chat.**
+2. **Never launch a second server — check for a running one first.** This
+   step is what prevents the spawn-loop failure mode (a new server every few
+   seconds, each dying on "port in use").
+   - Probe before launching: is something already listening on the chosen
+     port (`ss -tlnp 2>/dev/null | grep :<port>` or
+     `curl -sf -o /dev/null http://localhost:<port>`), or is a dev-server
+     process of this project already alive (check your own background tasks
+     first, then `pgrep -af "vite|next|uvicorn|runserver|flask"`)?
+   - **If yes: reuse it.** Report the URL of the running server and stop —
+     dev servers hot-reload, so edits don't need a restart. Only restart
+     (kill first, confirm the port is free, then launch) if the user asked
+     for a restart or the change genuinely requires one (env vars, deps,
+     server config).
+   - **If the port is taken by something else:** say so and ask — don't
+     auto-pick another port, and never retry the same launch in a loop. One
+     failed launch = stop and diagnose (Error Recovery rule), because each
+     retry leaks another background process.
+
+3. **Launch it without blocking this chat.**
    - **In the container:** run the server as a background task (e.g. the Bash
      tool's `run_in_background`), and make it **bind `0.0.0.0`, not
      `127.0.0.1`** — a server bound to localhost inside the container isn't
@@ -50,7 +68,7 @@ recorded default port (see step 1a), falling back to stack detection.
      it stays up independently (PowerShell: `Start-Process powershell
 -ArgumentList '-NoExit','-Command','cd \"PROJECT_PATH\"; DEV_COMMAND'`).
 
-3. Wait ~3 seconds, then surface the URL — **do not open a browser yourself**:
+4. Wait ~3 seconds, then surface the URL — **do not open a browser yourself**:
    - **In the container:** there is no host browser, and the host port may not
      match the container port. Tell the user the container port (e.g. `3000`)
      and that the editor auto-forwards it — they open it from VS Code's **Ports**
@@ -58,7 +76,7 @@ recorded default port (see step 1a), falling back to stack detection.
    - **On the host:** you may open it — `open` (macOS) / `xdg-open` (Linux) /
      `Start-Process` (Windows) on `http://localhost:PORT`.
 
-4. Confirm to the user: server is running in the background / a new terminal,
+5. Confirm to the user: server is running in the background / a new terminal,
    how to reach it (forwarded port or `http://localhost:PORT`), and that this
    chat stays available.
 

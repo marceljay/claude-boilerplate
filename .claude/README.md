@@ -408,6 +408,18 @@ prune` / a Docker Desktop reset / a `devcontainerId` change wipes it. Memory
   parallel without colliding. Don't hardcode a host port, and don't try to open
   a browser from inside the container — surface the URL and let the user open it
   from the editor's **Ports** panel. (`/dev` follows this.)
+- **Never add `appPort` or a `-p` runArg to `devcontainer.json`.** It fights
+  the dynamic forwarding above, and Docker treats `"3000:3000"` and
+  `"0.0.0.0:3000:3000"` as *distinct* mappings — list both (easy to do across
+  `appPort` and `runArgs`) and the container conflicts with **itself** at
+  startup: `bind: address already in use` while `lsof -iTCP:3000` on the host
+  shows nothing, because no external process holds the port. If you saw that
+  error with an empty lsof, this is what happened.
+- **A container that "won't start" has a second, unrelated cause:**
+  `"waitFor": "postStartCommand"` means a failing `init-firewall.sh` (e.g. a
+  typo'd domain that won't resolve) blocks the container from ever becoming
+  ready. Distinguish them by the log: port conflicts fail at `docker run`,
+  firewall failures fail after it, in the postStart output.
 
 ---
 

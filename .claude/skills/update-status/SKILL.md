@@ -1,6 +1,6 @@
 ---
 name: update-status
-description: Use when a work item starts, completes, or becomes blocked, and as part of every milestone commit — moves items between In Progress/Blockers/Backlog in _planning/STATUS.md and CHANGELOG.md so finished work never lingers in STATUS.md. Also for adding or reprioritizing backlog items.
+description: Use when a work item starts, completes, or becomes blocked, and as part of every milestone commit — moves items between In Progress/Blockers/Backlog in _planning/STATUS.md and CHANGELOG.md so finished work never lingers in STATUS.md. Every run first reconciles In Progress against git log/CHANGELOG and evicts items that already shipped. Also for adding or reprioritizing backlog items. Accepts free-text context as arguments (e.g. "done: X", "start: Y", "reconcile").
 ---
 
 # Update Project Status
@@ -17,6 +17,17 @@ types `/update-status`. When it fires automatically, don't ask for permission to
 do the bookkeeping: make the move, then show what changed in one or two lines.
 The whole point is that finished items leave "In Progress" at the moment of
 completion, not when someone remembers to clean up.
+
+## Arguments
+
+Anything typed after `/update-status` is context for this run, free-form. Use
+it to decide the transition instead of guessing from the conversation:
+`done: <item>` / `finished X`, `start: <item>` / `starting Y`,
+`blocked: <item> — needs <what>`, `backlog: <item>` (optionally `high|med|low`),
+or `reconcile` (just the cleanup in step 2, nothing else). Plain prose works
+too — "shipped the auth flow, next up is billing" is a done + a start. If the
+arguments name an item that isn't in STATUS.md, say so and add it where it
+belongs rather than silently ignoring it.
 
 ## Steps
 
@@ -49,7 +60,19 @@ _The only queue of future work, priority-ordered. Top High-Priority item = next 
 ## Low Priority / Ideas
 ```
 
-2. Apply the updates for the transition that triggered this skill:
+2. **Reconcile In Progress before anything else — on every run.** Items pile up
+   there in projects where features shipped without the skill firing (commits
+   from other sessions, hand edits, `/clear` mid-task). For each In Progress
+   item, check whether it has actually landed: `git log --oneline` since the
+   file's "Last updated" date, the `CHANGELOG.md` `[Unreleased]` section, and
+   the code itself if the item names a file or command. Anything shipped moves
+   out now — into `CHANGELOG.md` (the `log` skill) if it isn't there yet, or
+   simply deleted from In Progress if it is. Anything clearly abandoned goes
+   back to the Backlog with a one-line note. If you genuinely can't tell, leave
+   it and say which items you left and why. Report what you moved in one line
+   each; don't ask first — this is bookkeeping, and the user sees the result.
+
+3. Apply the updates for the transition that triggered this skill:
    - **In Progress** holds at most ~3 truly active items. Starting something new
      means pulling it from the top of the `# Backlog` section (below, same file)
      into In Progress and deleting it from the backlog — move, never copy.

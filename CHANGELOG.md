@@ -33,6 +33,15 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   `N` keep (default), `u` keep *and* write the boilerplate version beside the
   file as `<file>.upstream` for a hand merge. Diffs are shown in full (the
   old 60-line cap hid exactly the hunk you needed to see in a Dockerfile).
+- **`update-status` skill reconciles on every run and takes arguments.**
+  Downstream repos accumulated shipped features in STATUS.md's In Progress
+  section whenever the skill didn't fire at completion (other sessions, hand
+  commits, `/clear` mid-task). The skill now checks each In Progress item
+  against `git log` since the file's "Last updated" date and the CHANGELOG
+  before doing anything else, and evicts what already landed. It also
+  documents its argument slot: `/update-status done: X`, `start: Y`,
+  `blocked: Z — needs …`, `backlog: …`, `reconcile`, or plain prose.
+
 - Git-worktree guidance for parallel agents: new `.claude/README.md` §4
   subsection "Parallel work: git worktrees", a `.worktrees/` entry in
   `.gitignore`, and a lean pointer in `.claude/CLAUDE.md`. Subagents share one

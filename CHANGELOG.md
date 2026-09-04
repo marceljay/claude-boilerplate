@@ -44,7 +44,10 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   seeded into `/commandhistory/.zsh_history` on the first interactive shell
   per volume (idempotent; the stamp file records the flags, so changing them
   re-seeds), so Ctrl-R finds them after a rebuild instead of a trip through
-  `--help`. Mirrored by `sync-harness.sh`.
+  `--help`. Mirrored by `sync-harness.sh`. `/init` now asks once whether
+  the shortcuts should skip permission prompts (recommended in the
+  container) and sets the knob — or, if the permission system refuses to
+  write that flag, hands the user the one-line edit.
 - **Dockerfile `# ==== PROJECT LAYERS ====` marker + splicing sync.** The
   boilerplate Dockerfile ends with a marker line; project-specific layers
   (stack toolchains, per STACKS.md) go below it. `sync-harness.sh` now

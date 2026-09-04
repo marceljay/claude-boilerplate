@@ -56,7 +56,7 @@
     // claude-harness.zsh) pass to `claude`. Typically the flag that skips
     // permission prompts, which is reasonable in here: the container is the
     // sandbox. Empty = shortcuts prompt like plain `claude`. Per-project by
-    // design (this file is ask-first in sync-harness.sh); no /init question.
+    // design (this file is ask-first in sync-harness.sh); /init asks once.
     "CLAUDE_SHORTCUT_FLAGS": ""
   },
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",

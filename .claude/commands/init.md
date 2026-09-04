@@ -256,6 +256,22 @@ Scaffold the standard file structure for a new project.
    that nudge. (`scripts/new-project.sh` already does this on detach; do it here
    for copies that skipped the script.)
 
+   **Ask about the shell shortcuts' permission mode.** `cc`/`ccc`/`ccr`/`ccw`
+   (`.devcontainer/claude-harness.zsh`) append `CLAUDE_SHORTCUT_FLAGS` from
+   `devcontainer.json`'s `containerEnv`, empty by default. Skip the ask if it
+   is already non-empty. Otherwise explain in two sentences and ask:
+   - **Skip permission prompts in the shortcuts (recommended in the
+     container)** — the sandbox is the guardrail here: default-deny firewall,
+     only `/workspace` mounted. Plain `claude` still prompts, and nothing
+     leaks to a host session. On yes, set the value to the permissions-bypass
+     flag (`claude --help` lists it; it starts with `--dangerously`). The
+     permission system may refuse to let you write that flag — if so, don't
+     work around it: give the user the exact one-line edit to make in
+     `devcontainer.json` themselves.
+   - **Keep prompts** — leave it empty; the shortcuts behave like `claude`.
+   Either way, note that `containerEnv` applies on the next **rebuild**;
+   until then `export CLAUDE_SHORTCUT_FLAGS=…` in `~/.zshrc` bridges it.
+
 4. Initialize git if not already a repo (`git init`).
 
 5. Report what was created, listing each file. Also point out the **bundled skills**

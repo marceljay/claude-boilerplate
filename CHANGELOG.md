@@ -12,6 +12,13 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   an IP with `api.anthropic.com` today, which is the only reason first-run
   sign-in inside the container ever worked; listed explicitly so a CDN change
   can't silently break it.
+- **README "Signing in" section.** The getting-started path never said how
+  to authenticate: first-run sign-in without a browser (URL on the host,
+  paste the code back), where credentials persist (the `~/.claude` volume)
+  and what wipes them, `claude auth status`/`login`/`logout`, using an API
+  key instead (gitignored `settings.local.json` `env`, or a `remoteEnv`
+  pass-through from the host; an env key wins over a sign-in — verified),
+  and Bedrock/Vertex/gateway setups with the firewall step they need.
 - **Firewall allowlist is a data file: `.devcontainer/allowed-domains.txt`.**
   `init-firewall.sh` no longer carries the `allowed_domains` array; it reads
   the list from `/etc/init-firewall/allowed-domains.txt`, which the Dockerfile

@@ -418,7 +418,8 @@ below.
   `/home/node/.claude` (`$CLAUDE_CONFIG_DIR`) is a **named Docker volume** — it
   persists across rebuilds but is _not_ on the host disk, so `docker volume
 prune` / a Docker Desktop reset / a `devcontainerId` change wipes it. Memory
-  (§5) and session history live there; `/backup-memory` is the failsafe.
+  (§5), session history, and your Claude sign-in live there; `/backup-memory`
+  is the failsafe for memory, and a wipe just means signing in again.
 - **No host browser, and ports are forwarded, not shared.** A dev server must
   bind `0.0.0.0` (not `127.0.0.1`) to be reachable from the host. There's no
   `forwardPorts` pinned, so the editor **auto-forwards each container port to a

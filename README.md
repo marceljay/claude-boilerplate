@@ -85,7 +85,8 @@ Two ways in, depending on whether your project already exists.
    tools listed under [Dev Container](#dev-container). Or use your own env and
    skip the container-specific steps.
 3. **Start Claude** in the container terminal — `cc` (the shortcut; `cc-help`
-   lists the others) or plain `claude` — and run **`/init`**. It offers to
+   lists the others) or plain `claude`. The first run asks you to sign in
+   (see [Signing in](#signing-in)). Then run **`/init`**. It offers to
    detach the boilerplate first (`scripts/new-project.sh` — removes this
    README/LICENSE, resets state files, drops the boilerplate's git history),
    then detects your stack and scaffolds `README.md`, `CHANGELOG.md`,
@@ -137,6 +138,37 @@ backs the old `.claude/` + `.devcontainer/` up to a timestamped `tar.gz` at the
 project root, then installs fresh. To replace just one file's conventions
 (say, a sloppy `CLAUDE.md`), plain refresh mode is enough: answer `y` at that
 file's diff prompt.
+
+### Signing in
+
+The first `claude` (or `cc`) in the container asks you to sign in. There's no
+browser in the container, so it prints a URL: open it on your host, sign in
+with your Claude subscription (Pro/Max/Team) or a Console account for
+pay-per-token API billing, and paste the code back. Credentials live in the
+`~/.claude` named volume, so they survive rebuilds and disappear only when the
+volume does (Docker Desktop reset, `docker volume prune`, a container-ID
+change) — then sign in again. `claude auth status` / `login` / `logout` manage
+it from the shell, `/login` inside a session switches accounts. The firewall
+allows the sign-in endpoints out of the box.
+
+**API key instead of a sign-in.** Set `ANTHROPIC_API_KEY`. Put it in the
+gitignored `.claude/settings.local.json` under `"env"` — the same place `/init`
+puts the Socket token — never in `devcontainer.json` or any committed file. Or
+pass a host variable through without storing it in the repo at all:
+`"remoteEnv": { "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY}" }` in
+`devcontainer.json`. A key in the environment wins over a subscription
+sign-in, so a stray key on the host silently moves you to pay-per-token;
+`claude auth status` shows `apiKeySource` when that's happening.
+
+**Other providers.** Claude Code can reach Anthropic's models through Amazon
+Bedrock (`CLAUDE_CODE_USE_BEDROCK=1` + AWS credentials), Google Vertex AI
+(`CLAUDE_CODE_USE_VERTEX=1` + gcloud credentials), or a compatible gateway
+(`ANTHROPIC_BASE_URL`); setup per provider is in the
+[Claude Code docs](https://code.claude.com/docs). Same rule for where the
+variables go, plus one container-specific step: add the provider's **exact**
+hostnames to [`.devcontainer/allowed-domains.txt`](.devcontainer/allowed-domains.txt)
+and rebuild (no wildcards — e.g. `bedrock-runtime.eu-central-1.amazonaws.com`),
+or the firewall drops every request and the tool just hangs.
 
 ### Then, either way
 

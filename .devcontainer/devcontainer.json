@@ -51,7 +51,13 @@
   "containerEnv": {
     "NODE_OPTIONS": "--max-old-space-size=4096",
     "CLAUDE_CONFIG_DIR": "/home/node/.claude",
-    "POWERLEVEL9K_DISABLE_GITSTATUS": "true"
+    "POWERLEVEL9K_DISABLE_GITSTATUS": "true",
+    // Extra flags the shell shortcuts (cc, ccc, ccr, ccw — see
+    // claude-harness.zsh) pass to `claude`. Typically the flag that skips
+    // permission prompts, which is reasonable in here: the container is the
+    // sandbox. Empty = shortcuts prompt like plain `claude`. Per-project by
+    // design (this file is ask-first in sync-harness.sh); no /init question.
+    "CLAUDE_SHORTCUT_FLAGS": ""
   },
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",

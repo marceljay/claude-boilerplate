@@ -193,6 +193,23 @@ allowlist, so commands Claude runs can't reach arbitrary hosts:
 - **Self-verifying:** it confirms `example.com` is unreachable and `api.github.com`
   is reachable, and fails the startup if either check is wrong.
 
+**Shell.** Every prompt carries a timestamp on the right (the moment the
+previous command finished), handy for reading back a long session, and the
+prompt uses plain-Unicode glyphs so it renders without a Nerd Font on the
+host. The
+container's zsh also defines `cc` (new session), `ccc` (continue the last
+one), `ccr` (resume picker) and `ccw <name> [base]` (new session in a fresh
+git worktree — with no base given it offers the default branch,
+`dev`/`develop` if they exist, and the current branch), plus `cc-help`. All
+of them append `CLAUDE_SHORTCUT_FLAGS`, set per project in
+`devcontainer.json`'s `containerEnv` — typically the flag that skips
+permission prompts, which is what the sandbox is for; leave it empty in a
+project where you want the prompts. The full commands (flags included) are
+seeded into the persisted shell history on the first shell of a fresh volume,
+so Ctrl-R finds them. Plain `claude` never gets the flags, and none of this
+exists on the host. Defined in
+[`.devcontainer/claude-harness.zsh`](.devcontainer/claude-harness.zsh).
+
 To allow another host, add its domain to
 [`.devcontainer/allowed-domains.txt`](.devcontainer/allowed-domains.txt) and
 **rebuild** (the list and the script are baked into the image; editing the repo

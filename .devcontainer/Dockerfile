@@ -118,6 +118,28 @@ RUN wget -qO /tmp/zsh-in-docker.sh "https://github.com/deluan/zsh-in-docker/rele
   -x && \
   rm /tmp/zsh-in-docker.sh
 
+# Appended AFTER zsh-in-docker's own block: its `-a` lines land before
+# oh-my-zsh is sourced and before its POWERLEVEL9K_* defaults, which would
+# override anything set earlier. Right prompt = a per-command timestamp
+# (p10k evaluates it when each prompt is drawn, so it's the time the prompt
+# appeared — i.e. when the previous command finished). MODE=compatible plus
+# empty separators: the default draws private-use Nerd Font glyphs (U+E0B0
+# arrows, folder/branch icons) that render as boxes unless the HOST terminal
+# has a Nerd Font — which this image can't arrange — and even "compatible"
+# mode's ⮀ (U+2B80) is missing from many fonts. The coloured segment
+# backgrounds already delimit the prompt, so drop separators entirely; what
+# remains (@branch, ●, ↑) is basic Unicode every font has. Then the shortcuts
+# file (COPY'd below; sourced lazily so the order of layers doesn't matter).
+RUN printf '%s\n' \
+  'POWERLEVEL9K_MODE=compatible' \
+  'POWERLEVEL9K_LEFT_SEGMENT_SEPARATOR=""' \
+  'POWERLEVEL9K_RIGHT_SEGMENT_SEPARATOR=""' \
+  'POWERLEVEL9K_LEFT_PROMPT_LAST_SEGMENT_END_SYMBOL=""' \
+  'POWERLEVEL9K_RIGHT_PROMPT_FIRST_SEGMENT_START_SYMBOL=""' \
+  'POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(time)' \
+  "POWERLEVEL9K_TIME_FORMAT='%D{%H:%M:%S}'" \
+  'source /etc/zsh/claude-harness.zsh' >> /home/node/.zshrc
+
 # Updates happen on image rebuild, not mid-session. This matters doubly here:
 # a failed autoupdate leaves a half-installed binary, and even a SUCCESSFUL one
 # runs from /workspace where the repo's .npmrc (ignore-scripts=true) applies —
@@ -161,6 +183,12 @@ RUN npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" \
       --allow-scripts=@anthropic-ai/claude-code \
       --ignore-scripts=false \
  && claude --version
+
+# Shell shortcuts (cc, ccc, ccr, ccw, cc-help) + first-shell history seeding.
+# Sourced at the end of ~/.zshrc (RUN above). Flag-free by itself: the flags
+# the shortcuts add come from CLAUDE_SHORTCUT_FLAGS in devcontainer.json's
+# containerEnv, so they exist only inside this sandbox and per project.
+COPY claude-harness.zsh /etc/zsh/claude-harness.zsh
 
 # Firewall: the script (harness logic) and its domain allowlist (per-project
 # data) are baked into the image, so the running container can't widen its

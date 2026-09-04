@@ -21,6 +21,30 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   at the data file now. **Migration for existing copies:** move your custom
   domains from the array into the new file (the sync writes it if missing,
   or offers it as `allowed-domains.txt.upstream`), then rebuild.
+- **Prompt: timestamp, and no more boxes.** The zsh right prompt shows
+  `HH:MM:SS` when each prompt is drawn (powerlevel10k `time` segment), and
+  the Nerd Font glyphs (boxes unless the host terminal has a Nerd Font,
+  something the image can't arrange) are gone: `POWERLEVEL9K_MODE=compatible`
+  plus empty segment separators, since even compatible mode's `⮀` is missing
+  from many fonts and the coloured backgrounds already delimit segments. Both appended to `.zshrc`
+  after zsh-in-docker's block, because its `-a` lines land before oh-my-zsh
+  and its own `POWERLEVEL9K_*` defaults, which would otherwise win.
+- **Shell shortcuts + history seeding: `.devcontainer/claude-harness.zsh`.**
+  Baked into the image and sourced from `.zshrc`: `cc` (new session), `ccc`
+  (`--continue`), `ccr` (`--resume`), `ccw <name> [base]` (session in a
+  fresh worktree; creates it from the chosen base — prompted from the
+  default branch, `dev`/`develop` if present, and the current branch — then
+  hands it to `claude --worktree`, which reuses an existing worktree of that
+  name and keeps its exit-time cleanup), and `cc-help`. All append
+  `CLAUDE_SHORTCUT_FLAGS`, a new `containerEnv` knob in `devcontainer.json`
+  (per project, ask-first in sync; empty by default) — typically the
+  skip-permissions flag, deliberately bound to the container rather than to
+  `settings.json`, which would also apply to a host session in the same
+  repo with no firewall behind it. The full commands, flags included, are
+  seeded into `/commandhistory/.zsh_history` on the first interactive shell
+  per volume (idempotent; the stamp file records the flags, so changing them
+  re-seeds), so Ctrl-R finds them after a rebuild instead of a trip through
+  `--help`. Mirrored by `sync-harness.sh`.
 - **Dockerfile `# ==== PROJECT LAYERS ====` marker + splicing sync.** The
   boilerplate Dockerfile ends with a marker line; project-specific layers
   (stack toolchains, per STACKS.md) go below it. `sync-harness.sh` now

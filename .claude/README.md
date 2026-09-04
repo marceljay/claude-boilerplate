@@ -402,8 +402,9 @@ to load this week's TODO list on every message.
 
 Defines the sandboxed Docker environment Claude runs in: the image
 (`Dockerfile`), a network firewall (`init-firewall.sh` — logic only; the domain
-allowlist is the data file `allowed-domains.txt`), and editor/mount config
-(`devcontainer.json`). You generally only touch this when changing the runtime
+allowlist is the data file `allowed-domains.txt`), shell shortcuts
+(`claude-harness.zsh`: `cc`/`ccc`/`ccr`/`ccw`, `cc-help` lists them), and
+editor/mount config (`devcontainer.json`). You generally only touch this when changing the runtime
 environment, not day-to-day. Project-specific Dockerfile layers go **below**
 the `# ==== PROJECT LAYERS ====` marker: `scripts/sync-harness.sh` replaces
 everything above it with the boilerplate's version on refresh and keeps what's

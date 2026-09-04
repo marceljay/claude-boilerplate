@@ -22,7 +22,8 @@
 #   - MIRRORS the pure-harness dirs (.claude/{commands,skills,agents,hooks,
 #     scripts}) and files (.claude/README.md, .devcontainer/STACKS.md,
 #     .devcontainer/init-firewall.sh — the firewall LOGIC; the domain list
-#     lives in allowed-domains.txt). Mirroring also deletes files this repo
+#     lives in allowed-domains.txt — and .devcontainer/claude-harness.zsh,
+#     the shell shortcuts). Mirroring also deletes files this repo
 #     has since retired (e.g. removed commands) — it lists those and asks
 #     first.
 #   - SPLICES .devcontainer/Dockerfile: everything above its
@@ -155,7 +156,7 @@ done
 # init-firewall.sh is mirrored because it is pure logic now — the per-project
 # domain list lives in allowed-domains.txt (ask-first, below). cp -p keeps
 # its exec bit.
-for f in .claude/README.md .devcontainer/STACKS.md .devcontainer/init-firewall.sh; do
+for f in .claude/README.md .devcontainer/STACKS.md .devcontainer/init-firewall.sh .devcontainer/claude-harness.zsh; do
   [ -f "$SRC/$f" ] || continue
   mkdir -p "$TARGET/$(dirname "$f")"
   cp -p "$SRC/$f" "$TARGET/$f"

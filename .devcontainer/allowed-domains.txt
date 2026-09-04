@@ -1,0 +1,49 @@
+# Outbound firewall allowlist for the dev container — one domain per line.
+# Read by init-firewall.sh on every container start; `#` starts a comment,
+# blank lines are ignored, and a line that isn't a bare hostname fails the
+# start loudly (a typo here is otherwise a silent "why can't X reach the
+# network" mystery — see .claude/README.md §7).
+#
+# Each domain is resolved to its CURRENT A records at start. List the host a
+# tool actually calls (api.example.com), not a parent domain that happens to
+# share a CDN today. GitHub is NOT listed here: init-firewall.sh allowlists
+# its published IP ranges wholesale.
+#
+# This file is baked into the image (/etc/init-firewall/allowed-domains.txt)
+# and that copy is what the firewall reads — edits here take effect only
+# after a container REBUILD. That is deliberate: the firewall exists to bound
+# what commands run inside the container can reach, so widening it must go
+# through a rebuild a human triggers, not a file the container can edit.
+#
+# Per-project additions belong here; the logic in init-firewall.sh is
+# harness code that scripts/sync-harness.sh mirrors from the boilerplate.
+# Package managers usually need TWO hosts (index + download CDN); missing
+# the second makes installs hang mid-download with no error. Per-stack
+# domain lists: .devcontainer/STACKS.md.
+
+# --- Claude Code harness: API + its error/telemetry endpoints ---
+api.anthropic.com
+sentry.io
+statsig.com
+
+# --- xAI / Grok API ---
+api.x.ai
+
+# --- Node/JS — the stack built into the image (npm install/publish) ---
+registry.npmjs.org
+
+# --- VS Code: extension marketplace + updates ---
+marketplace.visualstudio.com
+vscode.blob.core.windows.net
+update.code.visualstudio.com
+
+# --- Socket.dev supply-chain scanning (opt-in) ---
+# The CLI analyzes packages server-side, so it needs egress. Uncomment
+# both, rebuild, and see .devcontainer/STACKS.md §Active scanning (Socket).
+# api.socket.dev
+# socket.dev
+
+# --- Additional stacks — recipes incl. exact domains: .devcontainer/STACKS.md ---
+# E.g. Python:
+# pypi.org
+# files.pythonhosted.org

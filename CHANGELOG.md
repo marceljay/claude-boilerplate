@@ -7,6 +7,32 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Firewall allowlist is a data file: `.devcontainer/allowed-domains.txt`.**
+  `init-firewall.sh` no longer carries the `allowed_domains` array; it reads
+  the list from `/etc/init-firewall/allowed-domains.txt`, which the Dockerfile
+  bakes in next to the script (still root-owned, still rebuild-to-change, so
+  the running container can't widen its own egress). One domain per line,
+  `#` comments, and a line that isn't a bare hostname fails the start with
+  its line number instead of a silent no-op. Motivation: the script is now
+  pure harness logic that `sync-harness.sh` mirrors, and only the small
+  per-project domain file stays ask-first — before, a project with custom
+  domains had to choose between losing them and missing upstream firewall
+  fixes. All docs (README, STACKS.md, `/init`, `.claude/README.md` §7) point
+  at the data file now. **Migration for existing copies:** move your custom
+  domains from the array into the new file (the sync writes it if missing,
+  or offers it as `allowed-domains.txt.upstream`), then rebuild.
+- **Dockerfile `# ==== PROJECT LAYERS ====` marker + splicing sync.** The
+  boilerplate Dockerfile ends with a marker line; project-specific layers
+  (stack toolchains, per STACKS.md) go below it. `sync-harness.sh` now
+  replaces everything above the marker with the boilerplate's version and
+  keeps everything below, so fixes like the npm-12 install change land in
+  downstream repos without a hand merge. A target Dockerfile that predates
+  the marker falls back to the ask-first prompt with instructions to move its
+  layers below the marker once.
+- **`sync-harness.sh` ask-first prompts are three-way now:** `y` overwrite,
+  `N` keep (default), `u` keep *and* write the boilerplate version beside the
+  file as `<file>.upstream` for a hand merge. Diffs are shown in full (the
+  old 60-line cap hid exactly the hunk you needed to see in a Dockerfile).
 - Git-worktree guidance for parallel agents: new `.claude/README.md` §4
   subsection "Parallel work: git worktrees", a `.worktrees/` entry in
   `.gitignore`, and a lean pointer in `.claude/CLAUDE.md`. Subagents share one

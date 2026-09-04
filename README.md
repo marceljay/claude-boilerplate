@@ -109,9 +109,13 @@ the container, records your policies, and flags non-Node stacks (the container
 ships Node-only; recipes in [`.devcontainer/STACKS.md`](.devcontainer/STACKS.md)).
 
 Re-run the same command later to pull harness updates into the project
-(**refresh mode**: mirrors commands/skills/agents/hooks, confirms deletions,
-and diff-asks before touching files that hold per-project edits, such as
-firewall domains or the container name).
+(**refresh mode**: mirrors commands/skills/agents/hooks and the firewall
+script, confirms deletions, splices the `Dockerfile` at its
+`# ==== PROJECT LAYERS ====` marker so upstream fixes land while your stack
+layers below it stay, and diff-asks before touching files that hold
+per-project edits, such as `allowed-domains.txt` or the container name — with
+a `u` answer that keeps yours and drops the boilerplate version beside it as
+`<file>.upstream` for a hand merge).
 
 Already have a `.claude/` setup you want rid of — a hand-rolled harness, or
 conventions worth abandoning? `scripts/sync-harness.sh --replace ../your-project`
@@ -189,9 +193,12 @@ allowlist, so commands Claude runs can't reach arbitrary hosts:
 - **Self-verifying:** it confirms `example.com` is unreachable and `api.github.com`
   is reachable, and fails the startup if either check is wrong.
 
-To allow another host, add its domain to the `allowed_domains` array in
-`init-firewall.sh` and **rebuild** (the script is baked into the image; editing
-the repo copy alone does nothing). Adding a language stack? Use the tested
+To allow another host, add its domain to
+[`.devcontainer/allowed-domains.txt`](.devcontainer/allowed-domains.txt) and
+**rebuild** (the list and the script are baked into the image; editing the repo
+copy alone does nothing — deliberately, so the running container can't widen
+its own egress). The script itself is harness logic and is mirrored by
+`sync-harness.sh`; only the domain file is per-project. Adding a language stack? Use the tested
 per-stack domain lists in [`.devcontainer/STACKS.md`](.devcontainer/STACKS.md) —
 package managers usually need an index host *and* a separate download host, and
 missing one makes installs hang silently. If a tool mysteriously can't reach

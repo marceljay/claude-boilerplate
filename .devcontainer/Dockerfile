@@ -162,10 +162,23 @@ RUN npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" \
       --ignore-scripts=false \
  && claude --version
 
-# Copy and set up firewall script
+# Firewall: the script (harness logic) and its domain allowlist (per-project
+# data) are baked into the image, so the running container can't widen its
+# own egress — changes to either need a rebuild. Both root-owned, 0644/0755.
 COPY init-firewall.sh /usr/local/bin/
+COPY allowed-domains.txt /etc/init-firewall/allowed-domains.txt
 USER root
 RUN chmod +x /usr/local/bin/init-firewall.sh && \
+  chmod 0644 /etc/init-firewall/allowed-domains.txt && \
   echo "$USERNAME ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh" > /etc/sudoers.d/node-firewall && \
   chmod 0440 /etc/sudoers.d/node-firewall
 USER $USERNAME
+
+# Everything ABOVE the marker line below is harness: scripts/sync-harness.sh
+# replaces it wholesale with the boilerplate's current Dockerfile and KEEPS
+# everything below the marker. So put stack toolchains and other
+# project-specific layers BELOW it (recipes: STACKS.md), never above. Layers
+# there run as `node`; wrap steps that need root in `USER root` …
+# `USER $USERNAME`. Prefer a devcontainer.json feature for a toolchain where
+# one exists — then no Dockerfile edit is needed at all.
+# ==== PROJECT LAYERS ==== (keep this line verbatim, column 1, nothing appended)

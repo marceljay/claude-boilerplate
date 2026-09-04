@@ -63,42 +63,35 @@ while read -r cidr; do
     ipset add allowed-domains "$cidr"
 done < <(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]' | aggregate -q)
 
-# Resolve and add other allowed domains.
-# (GitHub is handled above via its published IP ranges, not listed here.)
+# Resolve and add the other allowed domains, read from the allowlist file.
+# (GitHub is handled above via its published IP ranges, not listed there.)
 #
-# NOTE: this script is baked into the image (/usr/local/bin/init-firewall.sh)
-# and that copy is what runs on container start — edits here take effect only
-# after a container rebuild.
-allowed_domains=(
-    # --- Claude Code harness: API + its error/telemetry endpoints ---
-    "api.anthropic.com"
-    "sentry.io"
-    "statsig.com"
+# The file is .devcontainer/allowed-domains.txt in the repo, baked into the
+# image by the Dockerfile — like this script, the baked copy is what runs, so
+# edits take effect only after a container rebuild. Keeping the domains in a
+# data file means this script is pure harness logic that sync-harness.sh can
+# mirror, while the per-project list stays put.
+ALLOWED_DOMAINS_FILE=/etc/init-firewall/allowed-domains.txt
+if [ ! -f "$ALLOWED_DOMAINS_FILE" ]; then
+    echo "ERROR: $ALLOWED_DOMAINS_FILE missing — the Dockerfile must COPY allowed-domains.txt there"
+    exit 1
+fi
 
-    # --- xAI / Grok API (the bare x.ai happens to share IPs today; list the
-    # host actually called so a CDN change can't silently break it) ---
-    "api.x.ai"
-
-    # --- Node/JS — the stack built into the image (npm install/publish) ---
-    "registry.npmjs.org"
-
-    # --- VS Code: extension marketplace + updates ---
-    "marketplace.visualstudio.com"
-    "vscode.blob.core.windows.net"
-    "update.code.visualstudio.com"
-
-    # --- Socket.dev supply-chain scanning (opt-in) ---
-    # The CLI analyzes packages server-side, so it needs egress. Uncomment
-    # both, rebuild, and see .devcontainer/STACKS.md §Active scanning (Socket).
-    # "api.socket.dev"
-    # "socket.dev"
-
-    # --- Additional stacks — recipes incl. exact domains: .devcontainer/STACKS.md ---
-    # Package managers usually need TWO hosts (index + download CDN); missing
-    # the second makes installs hang mid-download with no error. E.g. Python:
-    # "pypi.org"
-    # "files.pythonhosted.org"
-)
+allowed_domains=()
+lineno=0
+while IFS= read -r line || [ -n "$line" ]; do
+    lineno=$((lineno + 1))
+    line="${line%%#*}"              # drop comments
+    line="${line//[[:space:]]/}"    # drop whitespace
+    [ -z "$line" ] && continue
+    # A bare hostname: labels of [A-Za-z0-9-], dot-separated, no scheme/path/port.
+    if [[ ! "$line" =~ ^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$ ]]; then
+        echo "ERROR: $ALLOWED_DOMAINS_FILE:$lineno: not a bare hostname: '$line'"
+        exit 1
+    fi
+    allowed_domains+=("$line")
+done < "$ALLOWED_DOMAINS_FILE"
+echo "Loaded ${#allowed_domains[@]} domains from $ALLOWED_DOMAINS_FILE"
 
 for domain in "${allowed_domains[@]}"; do
     echo "Resolving $domain..."

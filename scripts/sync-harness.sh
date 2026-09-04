@@ -20,15 +20,22 @@
 #
 # REFRESH (target already has .claude/):
 #   - MIRRORS the pure-harness dirs (.claude/{commands,skills,agents,hooks,
-#     scripts}, plus .claude/README.md and .devcontainer/STACKS.md). Mirroring
-#     also deletes files this repo has since retired (e.g. removed commands) —
-#     it lists those and asks first.
+#     scripts}) and files (.claude/README.md, .devcontainer/STACKS.md,
+#     .devcontainer/init-firewall.sh — the firewall LOGIC; the domain list
+#     lives in allowed-domains.txt). Mirroring also deletes files this repo
+#     has since retired (e.g. removed commands) — it lists those and asks
+#     first.
+#   - SPLICES .devcontainer/Dockerfile: everything above its
+#     `# ==== PROJECT LAYERS ====` marker is harness and is replaced with the
+#     boilerplate's version; everything below (stack toolchains) is kept.
+#     A target Dockerfile without the marker falls back to ask-first.
 #   - For files that usually carry PER-PROJECT edits — .devcontainer/
-#     init-firewall.sh (custom allowlist domains), devcontainer.json
-#     (container name, stack features), Dockerfile (stack toolchains),
-#     .claude/CLAUDE.md (commit/testing policy), .claude/settings.json
-#     (permissions), .npmrc (registry/auth config) — it shows a diff and asks
-#     before overwriting. Default is always KEEP the target's version.
+#     allowed-domains.txt (firewall domains), devcontainer.json (container
+#     name, stack features), .claude/CLAUDE.md (commit/testing policy),
+#     .claude/settings.json (permissions), .npmrc (registry/auth config) —
+#     it shows the full diff and asks: y = overwrite, N = keep (default),
+#     u = keep AND write the boilerplate version next to it as <file>.upstream
+#     for a hand merge (delete the .upstream copy when done).
 #   - Never touches: settings.local.json, .claude/logs/, _planning/,
 #     project code, git state.
 #
@@ -40,10 +47,6 @@
 # commit/testing rules). Still never touches code, .git, or _planning/.
 # To overwrite only ONE file's conventions (e.g. just CLAUDE.md), plain
 # refresh mode already covers it: answer y at that file's diff prompt.
-#
-# TODO(backlog): once the firewall's domain allowlist lives in its own data
-# file, init-firewall.sh can move to the mirror group and only the domain
-# file stays ask-first.
 
 set -euo pipefail
 
@@ -81,6 +84,20 @@ ask() {
   case "$reply" in
     y | Y | yes | YES) return 0 ;;
     *) return 1 ;;
+  esac
+}
+
+# Three-way prompt for ask-first files. Prints one of: overwrite, upstream,
+# keep — on stdout, for $(...) capture, so the prompt itself goes to stderr.
+# Default (and piped/EOF input) is keep.
+ask3() {
+  local reply=""
+  printf '%s [y=overwrite / N=keep / u=keep + write .upstream copy] ' "$1" >&2
+  read -r reply || reply=n
+  case "$reply" in
+    y | Y | yes | YES) echo overwrite ;;
+    u | U) echo upstream ;;
+    *) echo keep ;;
   esac
 }
 
@@ -135,17 +152,84 @@ for d in $MIRROR_DIRS; do
   echo "mirrored  $d"
 done
 
-for f in .claude/README.md .devcontainer/STACKS.md; do
+# init-firewall.sh is mirrored because it is pure logic now — the per-project
+# domain list lives in allowed-domains.txt (ask-first, below). cp -p keeps
+# its exec bit.
+for f in .claude/README.md .devcontainer/STACKS.md .devcontainer/init-firewall.sh; do
   [ -f "$SRC/$f" ] || continue
   mkdir -p "$TARGET/$(dirname "$f")"
   cp -p "$SRC/$f" "$TARGET/$f"
   echo "copied    $f"
 done
 
-# --- 2. Ask-first files (commonly hold per-project edits) ------------------
-ASK_FILES=".devcontainer/init-firewall.sh .devcontainer/devcontainer.json .devcontainer/Dockerfile .claude/CLAUDE.md .claude/settings.json .npmrc"
+# --- 2. Dockerfile: splice at the project-layers marker ---------------------
+# Above the marker = harness (replaced); below = the project's own layers
+# (kept). Matched on the fixed prefix so trailing commentary can change.
+DOCKERFILE=.devcontainer/Dockerfile
+DOCKERFILE_MARKER='# ==== PROJECT LAYERS ===='
+
+# Line number of the first marker line (must start at column 1 — an indented
+# or otherwise mangled marker deliberately does NOT count, so such a target
+# falls back to ask-first instead of being mis-spliced). Empty if absent.
+marker_line() { grep -n -m1 -F -- "$DOCKERFILE_MARKER" "$1" | grep "^[0-9]*:$DOCKERFILE_MARKER" | cut -d: -f1; }
+has_marker() { [ -n "$(marker_line "$1")" ]; }
+# Upstream part: through the marker line. Project part: everything after it.
+dockerfile_head() { head -n "$(marker_line "$1")" "$1"; }
+dockerfile_tail() { tail -n +"$(( $(marker_line "$1") + 1 ))" "$1"; }
+
+# Ask-first handling shared by the fallback below and step 3.
+ask_first() {
+  local f="$1"
+  echo
+  echo "differs   $f (target may hold per-project edits)"
+  diff -u "$TARGET/$f" "$SRC/$f" || true
+  case "$(ask3 "  $f:")" in
+    overwrite)
+      cp -p "$SRC/$f" "$TARGET/$f"
+      echo "overwrote $f" ;;
+    upstream)
+      cp -p "$SRC/$f" "$TARGET/$f.upstream"
+      echo "kept      $f (target version); boilerplate copy written to $f.upstream"
+      echo "          — merge by hand, then delete the .upstream file" ;;
+    *)
+      echo "kept      $f (target version)" ;;
+  esac
+}
 
 echo
+if [ -f "$SRC/$DOCKERFILE" ]; then
+  if [ ! -f "$TARGET/$DOCKERFILE" ]; then
+    mkdir -p "$TARGET/.devcontainer"
+    cp -p "$SRC/$DOCKERFILE" "$TARGET/$DOCKERFILE"
+    echo "copied    $DOCKERFILE (was missing in target)"
+  elif cmp -s "$SRC/$DOCKERFILE" "$TARGET/$DOCKERFILE"; then
+    echo "in sync   $DOCKERFILE"
+  elif has_marker "$SRC/$DOCKERFILE" && has_marker "$TARGET/$DOCKERFILE"; then
+    spliced=$(mktemp)
+    { dockerfile_head "$SRC/$DOCKERFILE"; dockerfile_tail "$TARGET/$DOCKERFILE"; } > "$spliced"
+    if cmp -s "$spliced" "$TARGET/$DOCKERFILE"; then
+      echo "in sync   $DOCKERFILE (harness section; project layers untouched)"
+    else
+      echo
+      echo "splicing  $DOCKERFILE — harness section refreshed, project layers below the marker kept:"
+      diff -u "$TARGET/$DOCKERFILE" "$spliced" || true
+      cat "$spliced" > "$TARGET/$DOCKERFILE"
+      echo "spliced   $DOCKERFILE (review with git diff; rebuild the container to apply)"
+    fi
+    rm -f "$spliced"
+  else
+    echo
+    echo "note      $DOCKERFILE: target has no '$DOCKERFILE_MARKER' marker line (at column 1),"
+    echo "          so it can't be spliced. Answer y if it has no project-specific layers; otherwise u,"
+    echo "          then move your layers BELOW the marker in the .upstream copy and"
+    echo "          rename it over the target — future syncs then splice automatically."
+    ask_first "$DOCKERFILE"
+  fi
+fi
+
+# --- 3. Ask-first files (commonly hold per-project edits) ------------------
+ASK_FILES=".devcontainer/allowed-domains.txt .devcontainer/devcontainer.json .claude/CLAUDE.md .claude/settings.json .npmrc"
+
 for f in $ASK_FILES; do
   [ -f "$SRC/$f" ] || continue
   if [ ! -f "$TARGET/$f" ]; then
@@ -155,19 +239,11 @@ for f in $ASK_FILES; do
   elif cmp -s "$SRC/$f" "$TARGET/$f"; then
     echo "in sync   $f"
   else
-    echo
-    echo "differs   $f (target may hold per-project edits, e.g. firewall domains)"
-    diff -u "$TARGET/$f" "$SRC/$f" | head -60 || true
-    if ask "  Overwrite the target's $f with the boilerplate version?"; then
-      cp -p "$SRC/$f" "$TARGET/$f"
-      echo "overwrote $f"
-    else
-      echo "kept      $f (target version)"
-    fi
+    ask_first "$f"
   fi
 done
 
-# --- 3. Install-mode fixups -------------------------------------------------
+# --- 4. Install-mode fixups -------------------------------------------------
 if [ "$ADOPT" = 1 ]; then
   # The copied CLAUDE.md records THIS repo's per-project choices — strip them
   # so /init asks the adopting project fresh.

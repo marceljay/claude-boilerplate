@@ -11,17 +11,21 @@ Two independent layers must both be handled, and they fail differently:
 1. **Toolchain (build time).** Compilers/interpreters install during
    `docker build`, which runs on the host network — the firewall does **not**
    apply there. Install via a [dev container feature](https://containers.dev/features)
-   in `devcontainer.json` (easiest) or apt/tarball lines in the `Dockerfile`.
+   in `devcontainer.json` (easiest) or apt/tarball lines in the `Dockerfile`
+   — **below its `# ==== PROJECT LAYERS ====` marker**, so `sync-harness.sh`
+   keeps them when it refreshes the harness section above.
 2. **Package registry (runtime).** Once the container is running, the
-   default-deny firewall blocks every host not in the `allowed_domains` array
-   in `init-firewall.sh`. Package managers typically need **two** domains — a
+   default-deny firewall blocks every host not listed in
+   `.devcontainer/allowed-domains.txt`. Package managers typically need **two** domains — a
    metadata/index host *and* a separate download/CDN host. Missing the second
    is the classic trap: the index resolves, then the first real download hangs
    forever with no error.
 
 Both edits land only after a **container rebuild** ("Rebuild Container" in the
-editor): the firewall script is baked into the image at `/usr/local/bin/` and
-that copy is what runs on start — editing the repo copy alone changes nothing.
+editor): the firewall script and its domain list are baked into the image
+(`/usr/local/bin/init-firewall.sh`, `/etc/init-firewall/allowed-domains.txt`)
+and those copies are what run on start — editing the repo copy alone changes
+nothing.
 
 Git dependencies need no firewall change (GitHub's IP ranges are allowlisted
 wholesale at startup).
@@ -29,8 +33,8 @@ wholesale at startup).
 ## The recipe
 
 1. Add the stack's **feature** to `devcontainer.json` (or Dockerfile lines).
-2. Add the stack's **domains** to the `allowed_domains` array in
-   `init-firewall.sh`, under the stacks comment block.
+2. Add the stack's **domains** to `.devcontainer/allowed-domains.txt`, under
+   the stacks comment block.
 3. **Rebuild** the container.
 4. **Verify end-to-end** with the stack's check below — it must download a real
    package, not just print a version, or you haven't tested the firewall.
@@ -167,8 +171,8 @@ Two things to know before committing to it:
   manifest to a third party. Free tier is ~1K scans/month, and it's free for
   qualifying open-source projects.
 - **The container firewall blocks it by default.** Uncomment the Socket
-  domains in `init-firewall.sh` and rebuild, or every command hangs and then
-  fails at the network layer.
+  domains in `.devcontainer/allowed-domains.txt` and rebuild, or every command
+  hangs and then fails at the network layer.
 
 **Exempt `socket` itself from the age gate — and know where that gate
 reaches.** The install above is global, and nothing in this section governs a

@@ -236,7 +236,7 @@ Scaffold the standard file structure for a new project.
         qualifying open source) and set it in the gitignored
         `.claude/settings.local.json` under `"env"` as `SOCKET_CLI_API_TOKEN`
         — never in `settings.json`, `CLAUDE.md`, or any committed file
-     3. uncomment the two Socket domains in `.devcontainer/init-firewall.sh`
+     3. uncomment the two Socket domains in `.devcontainer/allowed-domains.txt`
         and tell them a **container rebuild** is required — until then every
         `socket` call fails at the network layer
      4. confirm the hook is live: with the token set and `socket` on PATH,

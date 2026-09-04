@@ -383,7 +383,14 @@ never copied.
 - **`CHANGELOG.md`** — _past_: the only completion record, and the public one.
 - **`_planning/`** — also holds saved plans (`plans/`), design specs (`specs/`),
   and a cold memory snapshot (`memory-backup/`, written by `/backup-memory` as a
-  failsafe against Docker volume loss; read only on demand).
+  failsafe against Docker volume loss; read only on demand). **A plan is not a
+  queue**: it records the approach and the decisions (what was rejected and
+  why, what was measured — the part `git log` can't reconstruct). Its
+  checkboxes are a scratchpad while it's being executed; when work pauses, the
+  remainder moves to STATUS.md. A plan carrying its own open-item list is a
+  second copy of the queue, and the second copy is the one that rots — a
+  downstream repo retired one with 28 open boxes, 25 of them describing work
+  that had shipped, and it had been believed.
 
 **Why the backlog lives inside STATUS.md** (not a separate `_planning/backlog.md`):
 a status file goes stale when "In Progress" drifts from reality. Putting the queue
@@ -392,6 +399,11 @@ fixing — what's stale. One living file beats two that fall out of sync. `CHANG
 stays separate because the past grows unbounded and would bloat the live file.
 Two things flag staleness: a `SessionStart` hook prints STATUS.md's age at the top
 of each session when it goes cold, and `/status` checks its "Last updated" date.
+A sibling hook, `plan-staleness-check.sh`, does the same for plans: an open
+plan that three or more commits have landed against since it was last touched
+prints `PLAN_DRIFT` — the cue to check each box against the tree, move what
+survives to STATUS.md, and retire the plan. It's the backstop; the rule above
+is the fix.
 
 The other point: keep fast-changing stuff _out_ of `CLAUDE.md` so you're not paying
 to load this week's TODO list on every message.

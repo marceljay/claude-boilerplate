@@ -238,6 +238,34 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- **CLAUDE.md no longer orders a second copy of the queue.** Project State
+  said STATUS.md's Backlog is "the only queue … never copied", then fifteen
+  lines later told every Plan Mode exit to save a plan "with checkboxed
+  steps" — a queue. Downstream (LibreSesh, 2026-09-04) that produced a plan
+  retired with 28 open boxes, 25 of them describing work that had shipped,
+  tested and committed; it read as a credible backlog and was believed, and
+  one genuinely outstanding item existed nowhere else. Now: a plan records the
+  approach and decisions (what was rejected and why, what was measured — what
+  `git log` can't reconstruct); checkboxes are a scratchpad during execution;
+  when work pauses the remainder moves to STATUS.md; a plan that goes quiet
+  with boxes open gets retired. Git Conventions gets the companion rule (a
+  plan moves in the commit step with decisions, not a progress bar), `/plans`
+  treats progress counts as a hint and offers to retire stale plans, and a new
+  `plan-staleness-check.sh` SessionStart hook prints `PLAN_DRIFT` for an open
+  plan with ≥3 commits landed since its last update (skips finished, dirty,
+  and never-committed plans; `PLAN_STALE_COMMITS` tunes the threshold). The
+  hook is the backstop, not the fix.
+- **Docs stop promising that `.claude/` is shared when a project chose to
+  keep it local.** Preference Persistence and `/remember` said `/workspace`
+  is version-controlled "for `.claude/`", and `/remember`'s table offered a
+  "shared/committed" `settings.json` — false in any project that took
+  `/init`'s "keep the harness local" option, which gitignores the whole
+  directory (upstream itself tracks it). Both now check for that case
+  (`git check-ignore -q .claude/CLAUDE.md`) and say plainly that everything
+  under `.claude/` is then host-local; `/init`'s option spells out the
+  consequence before you pick it. The blanket ignore stays as the local
+  option on purpose — a partial ignore that committed CLAUDE.md, hooks and
+  skills would defeat the reason people choose it (a public repo).
 - **Dev container overhaul** (`.devcontainer/Dockerfile` + `devcontainer.json`),
   from a debugging handover on a downstream copy; every fix was verified
   against observed failures there:

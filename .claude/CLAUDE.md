@@ -61,6 +61,9 @@ All actions are auto-approved, so:
 - Commit policy: milestones (this repo).
 - A milestone commit isn't complete until STATUS.md and CHANGELOG.md reflect it —
   invoke the `update-status`/`log` skills as part of the commit step.
+- If a plan governs the work, update it in the same step — with the decisions
+  the commit settled, not a progress bar; open items go to STATUS.md (see
+  Project State).
 
 ## Code Quality
 
@@ -107,8 +110,11 @@ On option 3, pick the target by environment. In a dev container `~/.claude/` is 
 per-container volume (lost on rebuild, not shared across projects), so persist to
 the bind-mounted `/workspace`: behavioral prefs → project `.claude/CLAUDE.md`;
 tool permissions → `.claude/settings.local.json` (per-dev, gitignored) or
-`.claude/settings.json` if shared. On the host: `~/.claude/CLAUDE.md` and
-`~/.claude/settings.json`. See `/remember` for the full routing table.
+`.claude/settings.json` if shared. That "shared" holds only while `.claude/` is
+committed; if `/init`'s keep-the-harness-local option gitignored it, everything
+under `.claude/` is host-local to this machine — say so instead of promising
+sharing. On the host: `~/.claude/CLAUDE.md` and `~/.claude/settings.json`. See
+`/remember` for the full routing table.
 
 ## Project State
 
@@ -124,10 +130,19 @@ scaffolds these and asks whether to make STATUS.md public; see `.claude/README.m
 Read `_planning/STATUS.md` alongside CLAUDE.md at session start. Manage via the
 `update-status`, `log`, `status`, and `backlog` skills — they auto-fire when work
 starts/completes/blocks (also invocable by name) — and `/plans`.
-On exiting Plan Mode, save the plan to `_planning/plans/YYYY-MM-DD-name.md`
-with checkboxed steps. If a Superpowers skill (e.g. writing-plans, brainstorming)
-saves a plan or design/spec doc, route it to `_planning/plans/` and
-`_planning/specs/` — never create a `docs/superpowers/` directory.
+On exiting Plan Mode, save the plan to `_planning/plans/YYYY-MM-DD-name.md`.
+A plan records the approach and the decisions — what was chosen, what was
+rejected and why, what was measured: the part `git log` can't reconstruct.
+**A plan is not a queue.** Outstanding work lives in STATUS.md and nowhere else
+(never copied, per above). Checkboxes are a scratchpad while a plan is actively
+executed; when work pauses, move the remainder to STATUS.md and keep only the
+decisions. A plan that goes quiet with boxes open ends up describing shipped
+work and gets believed — retire it: check each box against the tree, move what
+survives to STATUS.md, delete the file. The `plan-staleness-check` SessionStart
+hook flags that case; it's the backstop, not the process.
+If a Superpowers skill (e.g. writing-plans, brainstorming) saves a plan or
+design/spec doc, route it to `_planning/plans/` and `_planning/specs/` — never
+create a `docs/superpowers/` directory.
 A cold memory snapshot lives at `_planning/memory-backup/` (`/backup-memory`
 refreshes it). Don't read it in normal work — only when memory seems missing or
 you need detail the live index lacks; `/backup-memory restore` after a volume wipe.

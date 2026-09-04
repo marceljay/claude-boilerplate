@@ -118,20 +118,30 @@ RUN wget -qO /tmp/zsh-in-docker.sh "https://github.com/deluan/zsh-in-docker/rele
   -x && \
   rm /tmp/zsh-in-docker.sh
 
+# Updates happen on image rebuild, not mid-session. This matters doubly here:
+# a failed autoupdate leaves a half-installed binary, and even a SUCCESSFUL one
+# runs from /workspace where the repo's .npmrc (ignore-scripts=true) applies —
+# stripping the native binary the install below exists to link. Set BEFORE the
+# install layer: ENV only affects later instructions, and the build-time
+# `claude --version` check below is itself a claude invocation.
+ENV DISABLE_AUTOUPDATER=1
+
 # Install Claude Code.
 #
 #   --include=optional      pulls the platform-native binary
 #                           (@anthropic-ai/claude-code-linux-arm64 and friends)
-#   --ignore-scripts=false  lets the postinstall link that binary into place —
-#                           needed because the repo's /workspace/.npmrc sets
-#                           ignore-scripts=true (deliberate hardening; see
-#                           STACKS.md §Supply-chain hardening), which npm
-#                           applies even to -g installs run from /workspace
+#   --ignore-scripts=false  lets the postinstall link that binary into place
 #
-# Missing either one produces exactly the "native binary not installed" failure:
-# the wrapper installs, the binary does not, and `claude` only errors at runtime.
-# `claude --version` at the end turns that into a BUILD failure instead of a
-# mid-session surprise.
+# At build time both flags match npm's defaults (/workspace is empty during
+# `docker build` — the bind mount and its .npmrc exist only at runtime), so
+# they look like dead weight. They are not: they immunize this layer against
+# inherited NPM_CONFIG_* env or base-image config, and they document the exact
+# flags any RUNTIME reinstall needs, where /workspace/.npmrc's
+# ignore-scripts=true (deliberate hardening; STACKS.md §Supply-chain
+# hardening) DOES apply to -g installs and produces exactly the "native binary
+# not installed" failure: the wrapper installs, the binary does not, and
+# `claude` only errors at runtime. `claude --version` at the end turns a
+# broken install into a BUILD failure instead of a mid-session surprise.
 #
 # `latest` is a per-rebuild snapshot, not a pin — each rebuild takes the newest
 # release and DISABLE_AUTOUPDATER freezes it until the next rebuild. To pin
@@ -141,12 +151,6 @@ ARG CLAUDE_CODE_VERSION=latest
 RUN npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" \
       --include=optional --ignore-scripts=false \
  && claude --version
-
-# Updates happen on image rebuild, not mid-session. This matters doubly here:
-# a failed autoupdate leaves a half-installed binary, and even a SUCCESSFUL one
-# runs from /workspace where the repo's .npmrc (ignore-scripts=true) applies —
-# stripping the native binary the flags above exist to install.
-ENV DISABLE_AUTOUPDATER=1
 
 # Copy and set up firewall script
 COPY init-firewall.sh /usr/local/bin/

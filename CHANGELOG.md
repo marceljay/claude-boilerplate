@@ -33,6 +33,15 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   `N` keep (default), `u` keep *and* write the boilerplate version beside the
   file as `<file>.upstream` for a hand merge. Diffs are shown in full (the
   old 60-line cap hid exactly the hunk you needed to see in a Dockerfile).
+- **Worktree docs now lead with Claude Code's built-in support.** §4 of
+  `.claude/README.md` (and the CLAUDE.md pointer) read as if you had to
+  `git worktree add` by hand; in fact `claude --worktree <name>` starts a
+  session in a fresh worktree, `EnterWorktree` does it mid-session, and
+  subagents get `isolation: "worktree"`. All default to `.claude/worktrees/`
+  inside the repo (verified against the current CLI), which is exactly what
+  the dev container needs — and which Claude Code does *not* gitignore for
+  you, so `.gitignore` now lists it alongside the older `.worktrees/`. Also
+  notes `.worktreeinclude` for copying `.env`-style files into each one.
 - **`update-status` skill reconciles on every run and takes arguments.**
   Downstream repos accumulated shipped features in STATUS.md's In Progress
   section whenever the skill didn't fire at completion (other sessions, hand

@@ -29,6 +29,9 @@ __pycache__/
 # /workspace) so the dev container can see them; this ignore stops the parent
 # from tracking them. See .claude/README.md §4 "Parallel work: git worktrees".
 .worktrees/
+# Where Claude Code's own worktree features (`claude --worktree`, the
+# EnterWorktree tool, subagent isolation) create theirs. Not auto-ignored.
+.claude/worktrees/
 
 # Working status + backlog — private by default. /init asks per-project whether to
 # make it public; to commit it, remove this line (or `git add -f _planning/STATUS.md`).

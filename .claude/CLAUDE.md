@@ -12,10 +12,11 @@ must bind `0.0.0.0` (not `127.0.0.1`) to be reachable, and the editor auto-forwa
 to a host port that may differ from the container port — never assume a fixed one,
 and don't try to `open`/`xdg-open` a browser. Print the URL and let the user open
 it. Details: `.claude/README.md` §7.
-- For parallel agents that edit concurrently, use git worktrees under
-  `.worktrees/` (inside `/workspace`, so the container sees them) — never a
-  `../sibling` dir. Prefer launching agents with `isolation: "worktree"`.
-  Details: `.claude/README.md` §4.
+- For parallel agents that edit concurrently, use git worktrees: launch
+  agents with `isolation: "worktree"`, or use `EnterWorktree` / suggest
+  `claude --worktree <name>` for a whole session. They live in
+  `.claude/worktrees/` (inside `/workspace`, so the container sees them) —
+  never create one in a `../sibling` dir. Details: `.claude/README.md` §4.
 
 ## Communication Style
 

@@ -293,29 +293,43 @@ two coding tasks *concurrently*. A **git worktree** gives each agent its own
 checkout of the same repo (one `.git`, many working directories on different
 branches), so parallel edits can't collide.
 
-Two ways to get one:
+Claude Code creates and manages them itself — you rarely need `git worktree`
+by hand. Three ways, most common first:
 
-- **Automatic (preferred).** Launch an agent with `isolation: "worktree"` and
-  the harness creates a throwaway worktree for it and cleans it up if nothing
-  changed. You don't manage its path or lifecycle. Reach for this first — it's
-  the whole feature for most parallel work.
-- **Manual**, for a longer-lived parallel line you (or Claude) drive by hand:
+- **A whole session in a worktree: `claude --worktree <name>`** (`-w`). Start
+  Claude this way for a second terminal working a parallel task. It creates
+  `.claude/worktrees/<name>/` on a fresh branch `worktree-<name>` (from the
+  default branch; `worktree.baseRef: "head"` in settings branches from your
+  current HEAD, and `claude -w "#123"` starts from a PR). On exit it removes a
+  clean worktree and asks whether to keep one that has changes. Mid-session,
+  asking Claude to "work in a worktree" does the same via its `EnterWorktree`
+  tool. (Verified 2026-09-04: the path and branch name above are what the
+  current CLI produces.)
+- **Subagents: `isolation: "worktree"`.** Claude launches a parallel agent
+  into a throwaway worktree and cleans it up if nothing changed. No path or
+  lifecycle to manage. This is the tool for "run these two edits concurrently".
+- **Manual `git worktree add`**, only for something the above don't cover
+  (e.g. a long-lived worktree on an existing branch):
 
   ```sh
-  git worktree add .worktrees/<branch> -b feat/<branch>   # create
-  git worktree list                                       # see them
-  git worktree remove .worktrees/<branch>                 # delete when merged
-  git worktree prune                                      # clear dangling refs
+  git worktree add .claude/worktrees/<name> <existing-branch>   # create
+  git worktree list                                             # see them
+  git worktree remove .claude/worktrees/<name>                  # when merged
+  git worktree prune                                            # dangling refs
   ```
 
-**Put worktrees under `.worktrees/` inside the repo — not `../sibling` dirs.**
-The dev container bind-mounts only `/workspace` (§7), so a worktree created
-outside it — which `git worktree add ../foo`, the usual tutorial default, does —
-is invisible inside the container. `.worktrees/` is gitignored, so the parent
-repo won't try to track the checkouts; because the ignore is shared through the
-one `.git`, worktrees don't recursively see each other either. (On the *host*,
-outside any container, a sibling dir is fine — the constraint is the mount, not
-git.)
+**Keep worktrees inside the repo — never `../sibling` dirs.** The dev
+container bind-mounts only `/workspace` (§7), so a worktree created outside it
+— which `git worktree add ../foo`, the usual tutorial default, does — is
+invisible inside the container. Claude Code's default `.claude/worktrees/` is
+already inside; use it for manual ones too so there's one place to look. It is
+**not** auto-ignored by Claude Code, so `.gitignore` lists it (plus the older
+`.worktrees/`); because the ignore is shared through the one `.git`, worktrees
+don't recursively see each other either. Files that are gitignored but needed
+in every worktree (`.env`, local settings) can be listed in a
+`.worktreeinclude` file at the repo root, gitignore syntax, and Claude Code
+copies them in. (On the *host*, outside any container, a sibling dir is fine —
+the constraint is the mount, not git.)
 
 Two things worktrees do **not** share: installed dependencies and build output.
 Each worktree needs its own `npm install` / equivalent (with this repo's

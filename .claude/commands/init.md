@@ -59,6 +59,10 @@ Scaffold the standard file structure for a new project.
 
    # Working status + backlog — private by default (see the STATUS.md visibility ask below)
    _planning/STATUS.md
+
+   # Git worktrees Claude Code creates (claude --worktree, EnterWorktree, subagent
+   # isolation) — checkouts, not source; kept in-repo so the dev container sees them
+   .claude/worktrees/
    ```
 
    **If `.gitignore` already exists, do NOT skip it** — the universal base

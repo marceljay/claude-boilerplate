@@ -13,8 +13,8 @@
 # the harness, or a brand-new directory that is created if it doesn't exist):
 # after one confirmation it copies .claude/ and .devcontainer/
 # — and nothing else. Your .git, code, README, etc. are never touched. It
-# strips this repo's recorded commit/testing-policy lines from the copied
-# CLAUDE.md so /init asks fresh. Then reopen the project in its container
+# strips this repo's recorded per-project choice lines (commit/testing
+# policy, Harness:, STATUS.md:) from the copied CLAUDE.md so /init asks fresh. Then reopen the project in its container
 # and run /init to gap-fill (.gitignore security entries, _planning/,
 # container rename, policies).
 #
@@ -249,6 +249,7 @@ if [ "$ADOPT" = 1 ]; then
   # The copied CLAUDE.md records THIS repo's per-project choices — strip them
   # so /init asks the adopting project fresh.
   sed -i.bak -e '/^- Commit policy:/d' -e '/^- Testing policy:/d' \
+    -e '/^- Harness:/d' -e '/^- STATUS\.md:/d' \
     "$TARGET/.claude/CLAUDE.md" && rm -f "$TARGET/.claude/CLAUDE.md.bak"
   echo
   echo "Harness installed. Next steps:"

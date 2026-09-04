@@ -15,10 +15,12 @@ written there applies only inside this one container and is **lost if the volume
 rebuilt**, and it doesn't carry to the user's other projects. So "global" is
 effectively meaningless here. Persist to the bind-mounted `/workspace` instead,
 which lives on the host and is version-controlled — **unless** `/init`'s
-"keep the harness local" option put `.claude/` in `.gitignore`. Check
-(`git check-ignore -q .claude/CLAUDE.md`): if it is ignored, every target in the
-dev-container column is local to this machine, the "shared/committed" branch
-below does not exist, and you must say so rather than promise sharing.
+"keep the harness local" option put `.claude/` in `.gitignore`. The project
+CLAUDE.md records which as a `- Harness: committed | local` line (fall back to
+`git check-ignore -q .claude/CLAUDE.md` if the line is missing). With
+`Harness: local`, every target in the dev-container column is local to this
+machine, the "shared/committed" branch below does not exist, and you must say
+so rather than promise sharing.
 
 | What                  | Dev-container target                                                                                                       | Host target (no container) |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------- | -------------------------- |

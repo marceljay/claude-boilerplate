@@ -110,11 +110,14 @@ On option 3, pick the target by environment. In a dev container `~/.claude/` is 
 per-container volume (lost on rebuild, not shared across projects), so persist to
 the bind-mounted `/workspace`: behavioral prefs → project `.claude/CLAUDE.md`;
 tool permissions → `.claude/settings.local.json` (per-dev, gitignored) or
-`.claude/settings.json` if shared. That "shared" holds only while `.claude/` is
-committed; if `/init`'s keep-the-harness-local option gitignored it, everything
-under `.claude/` is host-local to this machine — say so instead of promising
-sharing. On the host: `~/.claude/CLAUDE.md` and `~/.claude/settings.json`. See
-`/remember` for the full routing table.
+`.claude/settings.json` if shared. "Shared" holds only while `.claude/` is
+committed — the `Harness:` line below records which (`/init` asks once; if the
+line is missing, `git check-ignore -q .claude/CLAUDE.md` tells you). With
+`Harness: local`, everything under `.claude/` is host-local to this machine —
+say so instead of promising sharing. On the host: `~/.claude/CLAUDE.md` and
+`~/.claude/settings.json`. See `/remember` for the full routing table.
+
+- Harness: committed (this repo).
 
 ## Project State
 
@@ -126,7 +129,8 @@ record. Items move between sections/files, never copied: backlog → In Progress
 CHANGELOG. Keeping the queue in STATUS.md is deliberate — it stops it going stale,
 since you can't grab the next item without seeing what's in flight. Always bump its
 "Last updated" date when editing (a SessionStart hook flags it when cold). `/init`
-scaffolds these and asks whether to make STATUS.md public; see `.claude/README.md` §6.
+scaffolds these and asks whether to make STATUS.md public, recording the answer
+as the `STATUS.md:` line below; see `.claude/README.md` §6.
 Read `_planning/STATUS.md` alongside CLAUDE.md at session start. Manage via the
 `update-status`, `log`, `status`, and `backlog` skills — they auto-fire when work
 starts/completes/blocks (also invocable by name) — and `/plans`.
@@ -146,6 +150,8 @@ create a `docs/superpowers/` directory.
 A cold memory snapshot lives at `_planning/memory-backup/` (`/backup-memory`
 refreshes it). Don't read it in normal work — only when memory seems missing or
 you need detail the live index lacks; `/backup-memory restore` after a volume wipe.
+
+- STATUS.md: private (this repo).
 
 ## Context Save on Compaction
 

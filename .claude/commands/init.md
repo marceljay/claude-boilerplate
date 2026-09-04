@@ -84,13 +84,17 @@ Scaffold the standard file structure for a new project.
    existing `.gitignore` almost certainly has them already; don't append
    guesses. If an obvious gap exists, mention it instead of editing.)
 
-   **Ask about the Claude/dev-tooling dirs.** The `.claude/` harness (your
+   **Ask about the Claude/dev-tooling dirs** (skip if the project CLAUDE.md
+   already has a `- Harness:` line). The `.claude/` harness (your
    CLAUDE.md, commands, agents, hooks, permissions) and `.devcontainer/` config
    are tracked by default — committing them shares the setup with collaborators,
    but on a **public** repo it also exposes your instructions, workflow, and
    permission rules to anyone. Ask the user which they want **before the first
    commit** (this is the moment to decide, since `/init` runs on a fresh git
-   history):
+   history), then **record the answer** in the project CLAUDE.md, in the
+   Preference Persistence section, as `- Harness: committed (this repo).` or
+   `- Harness: local (this repo).` — it's the baton later sessions and
+   `/remember` read to know whether "shared" means anything here:
    - **Commit them (default, recommended for teams/private repos)** — leave them
      tracked; the harness travels with the repo.
    - **Keep them local (recommended if the repo is/_will be_ public and the setup
@@ -109,11 +113,13 @@ Scaffold the standard file structure for a new project.
      history, also run `git rm -r --cached .claude .devcontainer` so the ignore
      takes effect.
 
-   **Ask about STATUS.md visibility.** `_planning/STATUS.md` holds the living
+   **Ask about STATUS.md visibility** (skip if the project CLAUDE.md already has
+   a `- STATUS.md:` line). `_planning/STATUS.md` holds the living
    status **and** the backlog — i.e. what you're working on and what's planned. The
    base `.gitignore` above keeps it **private by default**, which is usually what you
    want on a public repo (don't broadcast your in-progress work and TODOs). Ask the
-   user:
+   user, then record the answer in the project CLAUDE.md's Project State section
+   as `- STATUS.md: private (this repo).` or `- STATUS.md: public (this repo).`:
    - **Private (default)** — leave the `_planning/STATUS.md` ignore line in place.
    - **Public** — the team should see status/backlog in the repo (a shared private
      repo, or you _want_ a visible roadmap): **remove** the `_planning/STATUS.md`

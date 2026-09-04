@@ -19,6 +19,16 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   key instead (gitignored `settings.local.json` `env`, or a `remoteEnv`
   pass-through from the host; an env key wins over a sign-in — verified),
   and Bedrock/Vertex/gateway setups with the firewall step they need.
+- **Two more per-project "baton" lines in CLAUDE.md: `Harness:` and
+  `STATUS.md:`.** `/init` asked whether to keep the harness local and whether
+  STATUS.md is public, then recorded neither — so a later session (or
+  `/remember`) had no way to know and promised sharing that didn't exist
+  downstream. Like `Commit policy:`/`Testing policy:`, `/init` now writes
+  `- Harness: committed | local (this repo).` and `- STATUS.md: private |
+  public (this repo).`, skips the ask when the line exists, and
+  Preference Persistence, `/remember` and `/status` read the line first
+  (falling back to `git check-ignore` / the file's location). `sync-harness.sh`
+  strips both lines on install so an adopting project is asked fresh.
 - **Firewall allowlist is a data file: `.devcontainer/allowed-domains.txt`.**
   `init-firewall.sh` no longer carries the `allowed_domains` array; it reads
   the list from `/etc/init-firewall/allowed-domains.txt`, which the Dockerfile

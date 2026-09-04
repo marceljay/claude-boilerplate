@@ -21,8 +21,12 @@
 # the second makes installs hang mid-download with no error. Per-stack
 # domain lists: .devcontainer/STACKS.md.
 
-# --- Claude Code harness: API + its error/telemetry endpoints ---
+# --- Claude Code harness: API, login, and its error/telemetry endpoints ---
 api.anthropic.com
+# OAuth token exchange for `claude` login / `/login` (shares an IP with the
+# API today, so login "worked" without it — list it so a CDN change can't
+# silently break first-run sign-in).
+platform.claude.com
 sentry.io
 statsig.com
 

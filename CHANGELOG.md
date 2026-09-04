@@ -7,6 +7,11 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **`platform.claude.com` in the default firewall allowlist.** It is the
+  OAuth token-exchange host behind `claude` sign-in and `/login`. It shares
+  an IP with `api.anthropic.com` today, which is the only reason first-run
+  sign-in inside the container ever worked; listed explicitly so a CDN change
+  can't silently break it.
 - **Firewall allowlist is a data file: `.devcontainer/allowed-domains.txt`.**
   `init-firewall.sh` no longer carries the `allowed_domains` array; it reads
   the list from `/etc/init-firewall/allowed-domains.txt`, which the Dockerfile

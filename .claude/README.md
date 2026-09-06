@@ -117,7 +117,7 @@ Common events you can hook:
 | `SessionStart`     | A session begins                       | Print project status                 |
 | `SubagentStop`     | A subagent finishes                    | Log its task, model, token usage     |
 
-This project uses `PreToolUse` (matcher `Bash`) for two hooks. The first
+This project uses `PreToolUse` (matcher `Bash`) for three hooks. The first
 blocks destructive command variants the deny list's prefix matching can't
 catch — see the honesty note under `permissions` above. The second
 (`socket_scan.py`) routes package installs through
@@ -130,7 +130,15 @@ dependency manifest to a third party. `/init` asks; `.devcontainer/STACKS.md`
 §Active scanning (Socket) has the full picture, including why `socket` itself
 is exempt from the age gate. Set `SOCKET_HOOK=off` to silence it. Note the
 scope: it covers what *Claude* runs, not what you type in a terminal and not
-a `git pull` that changes a lockfile — those need a CI step.
+a `git pull` that changes a lockfile — those need a CI step. The third
+(`bounded_reads.py`) blocks a bare `cat` of a file over ~250 lines / 20 KB
+unless its output is piped, and tells Claude the size and the bounded forms
+(`grep -n … | head`, `sed -n 'A,Bp'`) to use instead. Every Bash result stays
+in context for the rest of the session, and unbounded `cat` of a 65 KB
+STATUS.md or whole component files "for 20 lines" was the single largest
+avoidable cost measured in a downstream project — this makes CLAUDE.md's
+"read bounded" rule a guarantee rather than advice. `BOUNDED_READS=off`
+disables it; `BOUNDED_READS_MAX_LINES` / `_MAX_BYTES` tune it.
 
 It also uses `SubagentStop` to log every subagent run — task, model,
 token usage, result summary — to `.claude/logs/subagents.jsonl`

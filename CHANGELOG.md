@@ -7,6 +7,16 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **`bounded_reads.py` PreToolUse hook + sharper "read bounded" wording.** A
+  downstream project measured Bash output at 16% of the context window, half
+  of it avoidable: `cat STATUS.md` (65 KB) in one shot, whole component files
+  for 20 needed lines, full `npm audit`/`npm outdated` tables for four
+  fields. Root cause: auto mode says "read with `cat`/`sed -n` rather than
+  `Read`", CLAUDE.md said "use `offset`/`limit`" — the two pulled apart and
+  the unbounded one won. The hook blocks a bare `cat` past ~250 lines /
+  20 KB (piped output is exempt) and replies with the size and the bounded
+  forms; CLAUDE.md §Token Optimization now names the Bash forms explicitly
+  and says to project structured output through `--json | jq`.
 - **`platform.claude.com` in the default firewall allowlist.** It is the
   OAuth token-exchange host behind `claude` sign-in and `/login`. It shares
   an IP with `api.anthropic.com` today, which is the only reason first-run

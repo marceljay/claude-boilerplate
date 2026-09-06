@@ -25,7 +25,11 @@ it. Details: `.claude/README.md` §7.
 
 ## Token Optimization
 
-- Read files with targeted line ranges (`offset`/`limit`), not whole files.
+- Read bounded, whatever the tool: `Read` with `offset`/`limit`; in Bash
+  `grep -n PATTERN f | head` to locate, then `sed -n 'A,Bp' f` — never bare
+  `cat` of a file you haven't sized (a hook blocks it past ~250 lines).
+- Project structured output through `--json | jq '…'` (`npm audit`,
+  `npm outdated`, `gh … --json`) for the fields you need, not the full table.
 - Delegate broad codebase reading to the `explore-via-sonnet` subagent and diff
   reviews to the `review-diff` subagent (defaults to Haiku; pass `model: sonnet`
   for a deeper pass) — keeps the main context small.

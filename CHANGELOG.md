@@ -7,6 +7,44 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **First in-depth harness audit (2026-09-07), findings applied.** Two
+  subagents: a consistency audit (docs vs. wiring vs. behaviour) and a code
+  review of every hook and script. What it fixed:
+  - `sync-harness.sh` now warns when hook files reached a downstream repo
+    but its kept `settings.json` doesn't wire them — before, a hook added
+    upstream silently never ran after a refresh.
+  - `block_destructive.py` resolves relative `rm` targets against the cwd
+    Claude Code reports, not the hook process's; heredoc bodies are stripped
+    before parsing, so a script that *contains* `rm -rf /` (or an apostrophe)
+    no longer trips it or breaks the quote parser. `bounded_reads.py` shares
+    the stripper, treats `> file` as bounded output, and survives a typo in
+    its env overrides.
+  - `init-firewall.sh` skips GitHub's IPv6 ranges instead of aborting
+    container provisioning on them.
+  - `new-project.sh` escapes the folder name before the `sed` that renames
+    the container; the status line prints `ctx ?` instead of going blank
+    without `jq`; `log_subagent.py` skips a malformed transcript line instead
+    of discarding the run.
+  - Docs: root README's file inventory listed four of eight hooks and no
+    SessionStart event; the status line was undocumented (now in
+    `.claude/README.md` §2 with the `TZ` note); "removes the README" was
+    "renames it to BOILERPLATE.md" in four places; the deny-list example
+    cited spellings the deny list now has; a dangling STACKS.md section
+    reference; three slightly different STATUS.md templates unified; all
+    SessionStart/PreCompact hooks now `cd "$CLAUDE_PROJECT_DIR"` first.
+  - `memory-backup/` is documented as deliberately committed (so: no
+    secrets); the TS/vitest example files in `systematic-debugging` are
+    noted in ATTRIBUTION as upstream examples, not a stack assumption.
+
+### Changed
+
+- **`backlog` skill folded into `update-status`.** Its trigger phrases moved
+  into update-status's description and its steps into a "Backlog mode"
+  section; the @ds1 credit moved to ATTRIBUTION.md. Three project-state
+  skills instead of four: one less competing auto-fire trigger and ~250
+  chars less loaded on every message. The audit's body-overlap check showed
+  the reconcile rule stated three times across the four skills.
+
 - **Status line shows context-window fill next to the rate limits**
   (`… │ ctx 37%`). It was only shown as the fallback before rate-limit data
   arrived; it is the number that says when to `/clear` or `/compact`, and the

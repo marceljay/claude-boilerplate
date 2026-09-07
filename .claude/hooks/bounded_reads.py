@@ -29,20 +29,31 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from block_destructive import SEP_RE, strip_wrappers, tokenize  # noqa: E402
+from block_destructive import SEP_RE, strip_heredocs, strip_wrappers, tokenize  # noqa: E402
 
 WS = os.path.realpath(os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd())
-MAX_LINES = int(os.environ.get("BOUNDED_READS_MAX_LINES") or 250)
-MAX_BYTES = int(os.environ.get("BOUNDED_READS_MAX_BYTES") or 20000)
+
+
+def env_int(name, default):
+    try:
+        return int(os.environ.get(name) or default)
+    except ValueError:
+        return default  # a typo in the override must not take the hook down
+
+
+MAX_LINES = env_int("BOUNDED_READS_MAX_LINES", 250)
+MAX_BYTES = env_int("BOUNDED_READS_MAX_BYTES", 20000)
 
 
 def segments_with_pipe(tokens):
-    """Yield (segment, is_piped): is_piped is True when a `|` follows it."""
+    """Yield (segment, bounded): bounded is True when a `|` or a `>` file
+    redirect follows it — a consumer or a file takes the output, not the
+    transcript. (`2>&1` is a `>&` token, not a redirect of stdout.)"""
     seg = []
     for t in tokens:
         if SEP_RE.fullmatch(t):
             if seg:
-                yield seg, ("|" in t and "||" not in t)
+                yield seg, (("|" in t and "||" not in t) or (">" in t and "&" not in t))
             seg = []
         else:
             seg.append(t)
@@ -74,7 +85,7 @@ def measure(files):
 
 def check(cmd, cwd):
     try:
-        tokens = tokenize(cmd)
+        tokens = tokenize(strip_heredocs(cmd))
     except ValueError:
         return  # unparseable — fail open; block_destructive covers the scary cases
     for seg, piped in segments_with_pipe(tokens):

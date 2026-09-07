@@ -22,7 +22,8 @@ vals=$(printf '%s' "$input" | jq -r '
   [ (.rate_limits.five_hour.used_percentage // -1 | floor),
     (.rate_limits.five_hour.resets_at        // 0),
     (.rate_limits.seven_day.used_percentage  // -1 | floor),
-    (.rate_limits.seven_day.resets_at        // 0) ] | @tsv')
+    (.rate_limits.seven_day.resets_at        // 0) ] | @tsv') \
+  || { printf 'ctx ?'; exit 0; }   # no jq, or odd input: say so rather than go blank
 IFS=$'\t' read -r h_pct h_reset d_pct d_reset <<<"$vals"
 
 # Context-window usage: how full the current conversation is. Shown always —

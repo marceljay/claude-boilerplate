@@ -55,6 +55,9 @@ fi
 
 echo "Processing GitHub IPs..."
 while read -r cidr; do
+    if [[ "$cidr" == *:* ]]; then
+        continue  # IPv6 range — the ipset is inet-only and the container has no v6 route
+    fi
     if [[ ! "$cidr" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/[0-9]{1,2}$ ]]; then
         echo "ERROR: Invalid CIDR range from GitHub meta: $cidr"
         exit 1

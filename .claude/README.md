@@ -12,6 +12,7 @@ This README explains each piece in plain terms so you can edit it confidently.
 > | Slash commands | `commands/*.md` | When you type `/name` | Claude reads it |
 > | Subagents | `agents/*.md` | When delegated to | A separate Claude |
 > | Memory | `$CLAUDE_CONFIG_DIR/projects/<repo>/memory/*.md` | Recalled on relevance | Claude reads it |
+> | Status line | `scripts/usage-statusline.sh` (via `settings.json`) | Every response | The harness |
 
 ## Contents
 
@@ -69,8 +70,8 @@ Claude wants to run.
 `Bash(npm:*)` means "any command starting with `npm`". The `:*` is a wildcard.
 
 **Honesty note on `deny`:** rules are *prefix* matches, so `Bash(rm -rf:*)`
-misses `rm -fr` / `rm -r -f`, and `Bash(git push --force:*)` misses
-`git push -f`. Treat the deny list as a free tripwire for the canonical
+misses `rm -r -f`, `rm --recursive --force` and `cd /tmp && rm -rf ~`, and
+`Bash(git push --force:*)` misses `git push origin --force`. Treat the deny list as a free tripwire for the canonical
 spellings, not protection. The robust guard here is a `PreToolUse` hook
 (`.claude/hooks/block_destructive.py`) that tokenizes each Bash command
 (quote-aware — a commit message *mentioning* `rm -rf` doesn't trip it) and
@@ -168,6 +169,17 @@ A practical example you might add — auto-format every file Claude edits:
 ]
 ```
 
+### `statusLine`
+
+`settings.json` also wires `.claude/scripts/usage-statusline.sh` as the status
+line: `5h 12% · resets 17:46 │ 7d 41% · resets Wed 12:26 │ ctx 37%`. The two
+rate-limit windows come from Claude.ai Pro/Max sessions (absent until the first
+response; the line shows only `ctx` before then), and `ctx` is how full the
+current context window is — the number that says when to `/clear` or
+`/compact`. It runs locally, needs `jq`, and never enters the model context.
+Reset times print in `$TZ`; set it in your gitignored `settings.local.json`
+(`"env": { "TZ": "Area/City" }`) or they show as UTC.
+
 ---
 
 ## 3. `commands/` — slash commands
@@ -187,7 +199,7 @@ toward your own answer — a command rather than a skill on purpose, since only
 you know when you want to be questioned instead of answered). Open any of them —
 they're just markdown with a numbered list of steps.
 
-The four project-state procedures (`update-status`, `log`, `status`, `backlog`)
+The three project-state procedures (`update-status`, `log`, `status`)
 used to live here but are now **skills** (see below): moving a finished item out
 of STATUS.md is exactly the step that gets forgotten when it needs a human to
 type the command, so those fire automatically at the right moments instead. You
@@ -209,8 +221,8 @@ Claude Code also has a **Skills** feature, and the two are easy to confuse:
 They're complementary — a command is a manual button, a skill is an
 auto-trigger. The slash commands here are procedures you choose to run; the
 **bundled skills** in `.claude/skills/` are capabilities Claude reaches for on its
-own. Four are the project-state procedures (`update-status`, `log`, `status`,
-`backlog`) that manage STATUS.md/CHANGELOG.md — made skills so state upkeep
+own. Three are the project-state procedures (`update-status`, `log`, `status`)
+that manage STATUS.md/CHANGELOG.md — made skills so state upkeep
 happens at work-item transitions without being asked. Five more ship vendored
 from Jesse Vincent's [Superpowers](https://github.com/obra/superpowers)
 collection (MIT — see `.claude/skills/ATTRIBUTION.md`):
@@ -489,7 +501,7 @@ silently keeps the template's README/LICENSE/git history).
 | Consumer | When | With marker (origin) | Without marker (copy) |
 | --- | --- | --- | --- |
 | `hooks/first-run-check.sh` | SessionStart, automatic | silent | prints the `FIRST_RUN_BOILERPLATE` nudge while the container name is still the default |
-| `scripts/new-project.sh` | you run it | refuses (won't reset origin history) | detaches: strips template README/LICENSE, resets history, renames container, self-deletes |
+| `scripts/new-project.sh` | you run it | refuses (won't reset origin history) | detaches: renames README → BOILERPLATE.md, deletes LICENSE, resets history, renames container, self-deletes |
 | `/init` | you run it | skips detach offer + container rename | offers detach (copy) or gap-fills (installed harness) |
 
 **The flows, including the edge cases:**

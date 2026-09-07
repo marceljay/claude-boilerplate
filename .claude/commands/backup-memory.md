@@ -21,6 +21,9 @@ under `$CLAUDE_CONFIG_DIR` lives in a named volume that can vanish.
 
    `<project-slug>` is the project path with `/` → `-`, e.g. `/workspace` →
    `-workspace`; list `$CLAUDE_CONFIG_DIR/projects/` to find it.
+   `memory-backup/` **is** committed — that's the point, it's the only copy
+   outside the container volume — so it must never hold secrets (CLAUDE.md
+   §Security). Transcripts (next step) are not.
 
    Also mirror raw session transcripts (gitignored — may contain secrets from
    tool output; host-disk durability only, never commit):

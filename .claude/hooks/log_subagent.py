@@ -63,6 +63,8 @@ def log_run(data):
                     continue
 
                 msg = entry.get("message", entry)
+                if not isinstance(msg, dict):
+                    continue  # a null/odd "message" line; skip it, keep the run
                 role = msg.get("role")
 
                 # first user message = the task that was delegated

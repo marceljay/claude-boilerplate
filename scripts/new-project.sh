@@ -55,7 +55,10 @@ TODAY="$(date +%F)"
 PROJECT_NAME="$(basename "$(pwd)")"
 dc=".devcontainer/devcontainer.json"
 if [ -f "$dc" ]; then
-  sed -i.bak "s/\"name\": \"Claude Boilerplate Repo\"/\"name\": \"${PROJECT_NAME}\"/" "$dc"
+  # Escape sed's replacement metacharacters (& \ /) — a folder called "a&b" or
+  # "x/y" must not corrupt the JSON or abort the script half-detached.
+  safe_name="$(printf '%s' "$PROJECT_NAME" | sed 's/[&\/\\]/\\&/g')"
+  sed -i.bak "s/\"name\": \"Claude Boilerplate Repo\"/\"name\": \"${safe_name}\"/" "$dc"
   rm -f "$dc.bak"
 fi
 
@@ -66,9 +69,11 @@ cat > _planning/STATUS.md <<EOF
 Last updated: ${TODAY}
 
 ## In Progress
-_None yet_
+
+_None_
 
 ## Blockers
+
 _None_
 
 ---

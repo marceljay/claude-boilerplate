@@ -22,7 +22,7 @@ if [[ -f "$dc" ]] && grep -q '"name"[[:space:]]*:[[:space:]]*"Claude Boilerplate
 FIRST_RUN_BOILERPLATE: This repo is still an un-detached copy of the boilerplate
 (its dev container is still named "Claude Boilerplate Repo"). Before building, tell
 the user they can run /init to set the project up — it offers to detach first
-(remove the template README/LICENSE and reset the boilerplate's git history),
+(rename the template README to BOILERPLATE.md, delete LICENSE, reset git history),
 renames the dev container to their project, and scaffolds their project files.
 Mention this once; don't nag every turn.
 EOF

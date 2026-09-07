@@ -2,15 +2,18 @@
 """PreToolUse hook: block destructive Bash commands the deny list can't catch.
 
 Why this exists: settings.json `deny` rules are *prefix* matches, so
-`Bash(rm -rf:*)` misses `rm -fr` / `rm -r -f`, and `Bash(git push --force:*)`
-misses `git push -f`. This hook tokenizes the actual command (quote-aware, so
+`Bash(rm -rf:*)` misses `rm -r -f` / `rm --recursive --force` / `cd x && rm -rf ~`,
+and `Bash(git push --force:*)` misses `git push origin --force`. This hook tokenizes the actual command (quote-aware, so
 a commit message that merely *mentions* a dangerous string doesn't trip it)
 and blocks the intent, not the spelling. It runs in every permission mode,
 including bypassPermissions.
 
 It is defense-in-depth — a tripwire, NOT a sandbox. The devcontainer and its
 firewall are the real containment. Known limits: it doesn't chase targets fed
-through `xargs`/`find -delete`, and only recurses one level into `bash -c`.
+through `xargs`/`find -delete`, and recurses at most three levels into
+`bash -c`. Heredoc bodies (`<<EOF … EOF`) are stripped before parsing — they
+are data, so a script or commit message that *contains* `rm -rf /` doesn't
+trip it (and doesn't break the quote parser either).
 
 Blocked:
   - rm with recursive+force flags aimed at a protected target: /, ~/$HOME,
@@ -39,6 +42,7 @@ import subprocess
 import sys
 
 WS = os.path.realpath(os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd())
+CWD = os.getcwd()  # overwritten in main() with the cwd Claude Code reports
 # Newline must be a separator, not whitespace: otherwise a multi-line command
 # collapses into one segment and e.g. an `rm` on line 1 "sees" later lines'
 # arguments as its targets (found the hard way — false positive on a test
@@ -61,6 +65,27 @@ def deny(reason):
         file=sys.stderr,
     )
     sys.exit(2)
+
+
+HEREDOC_RE = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
+
+
+def strip_heredocs(cmd):
+    """Drop heredoc bodies: everything after the line that opens `<<TAG` up to
+    and including the line that is exactly TAG. Bodies are data to the shell,
+    so they must be data to us too."""
+    out, lines, i = [], cmd.split("\n"), 0
+    while i < len(lines):
+        line = lines[i]
+        out.append(HEREDOC_RE.sub("", line))
+        m = HEREDOC_RE.search(line)
+        if m:
+            tag = m.group(2)
+            i += 1
+            while i < len(lines) and lines[i].strip() != tag:
+                i += 1
+        i += 1
+    return "\n".join(out)
 
 
 def tokenize(cmd):
@@ -111,7 +136,7 @@ def dangerous_rm_target(t):
     base = re.split(r"[*?]", t, maxsplit=1)[0]
     if base == "":
         return True  # token started with a wildcard
-    p = os.path.realpath(base)  # relative paths resolve against the session cwd
+    p = os.path.realpath(os.path.join(CWD, base))  # relative to the session cwd
     home = os.path.realpath(os.path.expanduser("~"))
     if p in ("/", WS, home):
         return True
@@ -207,6 +232,7 @@ def check_segment(seg, depth):
 def analyze(cmd, depth=0):
     if depth > 3 or not cmd.strip():
         return
+    cmd = strip_heredocs(cmd)
     try:
         tokens = tokenize(cmd)
     except ValueError:
@@ -229,6 +255,8 @@ def main():
     data = json.loads(raw)
     if data.get("tool_name") != "Bash":
         return
+    global CWD
+    CWD = data.get("cwd") or CWD
     analyze(data.get("tool_input", {}).get("command") or "")
 
 

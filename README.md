@@ -43,12 +43,12 @@ sandbox. See [Dev Container](#dev-container) below.
 .claude/
 ├── CLAUDE.md          # Always-on project instructions (kept deliberately short)
 ├── README.md          # ★ Guide to the harness — read this first
-├── settings.json      # Permissions (allow/deny) + hooks (PreToolUse guard, PreCompact, SubagentStop)
+├── settings.json      # Permissions (allow/deny), hooks (PreToolUse, SessionStart, PreCompact, SubagentStop), status line
 ├── commands/          # Slash commands: /init /cleanup /plans /pr /socratic …
 ├── agents/            # Subagents: explore-via-sonnet (search), review-diff, implement-scoped, docs-updater
-├── skills/            # Auto-invoked skills: project-state upkeep (update-status, log, status, backlog), TDD, systematic-debugging, writing-plans, brainstorming, using-superpowers
-├── scripts/           # subagent_summary.py — tabulates the SubagentStop log
-└── hooks/             # block_destructive.py (guards rm -rf/force-push variants), socket_scan.py (routes npm installs through Socket; opt-in), save-context.sh (pre-compaction), log_subagent.py (logs subagent runs)
+├── skills/            # Auto-invoked skills: project-state upkeep (update-status, log, status), TDD, systematic-debugging, writing-plans, brainstorming, using-superpowers
+├── scripts/           # usage-statusline.sh (rate limits + context fill in the status line), subagent_summary.py (tabulates the SubagentStop log)
+└── hooks/             # PreToolUse: block_destructive.py (rm -rf/force-push variants), socket_scan.py (installs via Socket; opt-in), bounded_reads.py (no bare cat of big files) · SessionStart: first-run-check.sh, status-staleness-check.sh, plan-staleness-check.sh · PreCompact: save-context.sh · SubagentStop: log_subagent.py
 .devcontainer/         # Sandboxed Docker env: Dockerfile, firewall script + allowed-domains.txt, shell shortcuts, STACKS.md (see below)
 scripts/               # sync-harness.sh (install/refresh the harness in another repo), new-project.sh (detach a copy)
 .npmrc                 # Supply-chain hardening: no install scripts, exact pins (see STACKS.md §Supply-chain hardening — incl. pnpm/cargo/go equivalents)
@@ -58,7 +58,7 @@ LICENSE                # MIT
 **Bundled skills** (in `.claude/skills/`) work out of the box — Claude Code
 auto-discovers any `.claude/skills/<name>/SKILL.md` at session start and Claude
 invokes the matching one itself; there's nothing to install or call manually.
-Four manage project state (`update-status`, `log`, `status`, `backlog`): they
+Three manage project state (`update-status`, `log`, `status`): they
 fire when work starts, completes, or blocks, so finished items actually leave
 STATUS.md instead of waiting for someone to run a command (you can still type
 `/update-status` etc.). Five more ship vendored from [Superpowers](https://github.com/obra/superpowers)
@@ -87,8 +87,9 @@ Two ways in, depending on whether your project already exists.
 3. **Start Claude** in the container terminal — `cc` (the shortcut; `cc-help`
    lists the others) or plain `claude`. The first run asks you to sign in
    (see [Signing in](#signing-in)). Then run **`/init`**. It offers to
-   detach the boilerplate first (`scripts/new-project.sh` — removes this
-   README/LICENSE, resets state files, drops the boilerplate's git history),
+   detach the boilerplate first (`scripts/new-project.sh` — renames this
+   README to `BOILERPLATE.md`, deletes LICENSE, resets state files, drops the
+   boilerplate's git history),
    then detects your stack and scaffolds `README.md`, `CHANGELOG.md`,
    `.gitignore`, `.gitattributes`, and `_planning/` (including
    `_planning/STATUS.md`, your living status + backlog — gitignored by default).
@@ -126,7 +127,8 @@ container once afterwards, as in Path A step 4.
 
 Re-run the same command later to pull harness updates into the project
 (**refresh mode**: mirrors commands/skills/agents/hooks and the firewall
-script, confirms deletions, splices the `Dockerfile` at its
+script, confirms deletions, warns about hook files your kept `settings.json`
+doesn't wire, splices the `Dockerfile` at its
 `# ==== PROJECT LAYERS ====` marker so upstream fixes land while your stack
 layers below it stay, and diff-asks before touching files that hold
 per-project edits, such as `allowed-domains.txt` or `devcontainer.json` — with

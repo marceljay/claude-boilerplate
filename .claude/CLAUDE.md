@@ -142,7 +142,7 @@ since you can't grab the next item without seeing what's in flight. Always bump 
 scaffolds these and asks whether to make STATUS.md public, recording the answer
 as the `STATUS.md:` line below; see `.claude/README.md` §6.
 Read `_planning/STATUS.md` alongside CLAUDE.md at session start. Manage via the
-`update-status`, `log`, `status`, and `backlog` skills — they auto-fire when work
+`update-status`, `log`, and `status` skills — they auto-fire when work
 starts/completes/blocks (also invocable by name) — and `/plans`.
 On exiting Plan Mode, save the plan to `_planning/plans/YYYY-MM-DD-name.md`.
 A plan records the approach and the decisions — what was chosen, what was

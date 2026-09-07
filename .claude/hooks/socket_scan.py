@@ -116,7 +116,10 @@ def unwrapped_install(seg):
 
 
 def main():
-    data = json.load(sys.stdin)
+    raw = sys.stdin.read()
+    if not raw.strip():  # run by hand with no input — nothing to judge
+        return
+    data = json.loads(raw)
     if data.get("tool_name") != "Bash":
         return
     if not enabled():

@@ -142,7 +142,7 @@ warn_if_base_image_changed() {   # old-content-file new-content-file
   local a b; a=$(from_line "$1"); b=$(from_line "$2")
   if [ -n "$a" ] && [ -n "$b" ] && [ "$a" != "$b" ]; then
     echo "BASE_IMAGE_CHANGED: '$a' -> '$b'. After rebuilding the container, rebuild native"
-    echo "          modules: see .devcontainer/STACKS.md §Native modules (approve once, then"
+    echo "          modules: see .devcontainer/STACKS.md §Supply-chain hardening (the "Native modules" paragraph) (approve once, then"
     echo "          'npm rebuild --ignore-scripts=false' — a plain 'npm rebuild' does nothing)."
   fi
 }
@@ -340,6 +340,22 @@ for f in $ASK_FILES; do
     ask_first "$f"
   fi
 done
+
+# --- 3b. Hook files that reached the target but aren't wired ---------------
+# settings.json is ask-first and usually kept, so a hook added upstream lands
+# in .claude/hooks/ without a PreToolUse/SessionStart entry and silently never
+# runs. Say so; the fix is one copied block, not the whole file.
+if [ -f "$TARGET/.claude/settings.json" ]; then
+  unwired=""
+  for h in "$TARGET"/.claude/hooks/*.py "$TARGET"/.claude/hooks/*.sh; do
+    [ -f "$h" ] || continue
+    grep -q "$(basename "$h")" "$TARGET/.claude/settings.json" || unwired="$unwired $(basename "$h")"
+  done
+  if [ -n "$unwired" ]; then
+    echo "WARNING   hook file(s) present but not wired in .claude/settings.json:$unwired"
+    echo "          copy their entries from $SRC/.claude/settings.json (\"hooks\") into yours, or they never run."
+  fi
+fi
 
 # --- 4. Install-mode fixups -------------------------------------------------
 if [ "$ADOPT" = 1 ]; then

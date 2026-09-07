@@ -1,6 +1,6 @@
 ---
 name: update-status
-description: Use when a work item starts, completes, or becomes blocked, and as part of every milestone commit — moves items between In Progress/Blockers/Backlog in _planning/STATUS.md and CHANGELOG.md so finished work never lingers in STATUS.md. Every run first reconciles In Progress against git log/CHANGELOG and evicts items that already shipped. Also for adding or reprioritizing backlog items. Accepts free-text context as arguments (e.g. "done: X", "start: Y", "reconcile").
+description: Use when a work item starts, completes, or becomes blocked, and as part of every milestone commit — moves items between In Progress/Blockers/Backlog in _planning/STATUS.md and CHANGELOG.md so finished work never lingers in STATUS.md. Every run first reconciles In Progress against git log/CHANGELOG and evicts items that already shipped. Also the backlog manager: use when the user mentions work for later ("we should…", "someday", "add that to the backlog") or wants to review, reprioritize, or groom the queue. Accepts free-text arguments (e.g. "done: X", "start: Y", "backlog: Z", "reconcile", "review backlog").
 ---
 
 # Update Project Status
@@ -92,6 +92,17 @@ _The only queue of future work, priority-ordered. Top High-Priority item = next 
      the signal `/status` uses to detect staleness.
    - While editing, delete any `<!-- context compacted … -->` markers left by the
      PreCompact hook — they've served their purpose once the file is reconciled.
+
+## Backlog mode
+
+When this fires because the user mentioned an idea for later, just capture it:
+add one well-placed item under `# Backlog` (High / Medium / Low Priority), bump
+the date, confirm in a line. Don't launch a review unless asked. For a review
+("what's in the backlog", "groom the queue"): present it by priority — the top
+High-Priority item is "next up" — reprioritize in place on request, and if the
+section is missing, create it (seed from `gh issue list --limit 20` if there are
+issues). Step 2's reconcile still runs first: you can't look at what's next
+without seeing what's stale.
 
 Do NOT put any of this in CLAUDE.md. Keep one home per work item: future and present
 live in their own sections of STATUS.md, the past in CHANGELOG.md.

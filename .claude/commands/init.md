@@ -14,8 +14,8 @@ Scaffold the standard file structure for a new project.
    `.claude/README.md` §8 for the full origin-vs-copy flow.)
 
    Otherwise, if this copy hasn't been detached from the boilerplate yet
-   (`scripts/new-project.sh` still exists), offer to run it first — it removes
-   the boilerplate's README/LICENSE, resets the state files, drops the
+   (`scripts/new-project.sh` still exists), offer to run it first — it renames
+   the boilerplate's README to `BOILERPLATE.md`, deletes LICENSE, resets the state files, drops the
    boilerplate's git history (default; `--keep-git` retains it), and deletes
    itself. Example:
 
@@ -143,7 +143,7 @@ Scaffold the standard file structure for a new project.
 
    ## In Progress
 
-   _None yet_
+   _None_
 
    ## Blockers
 

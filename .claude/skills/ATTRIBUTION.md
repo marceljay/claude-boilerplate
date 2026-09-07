@@ -9,6 +9,14 @@ Jesse Vincent, so they ship with this boilerplate out of the box:
 - `writing-plans/` — turn a spec into a bite-sized implementation plan
 - `brainstorming/` — turn an idea into a design/spec via dialogue
 
+`systematic-debugging/` carries two upstream reference files written for a
+TS/vitest codebase (`condition-based-waiting-example.ts`, `find-polluter.sh`).
+They are worked examples, not a stack assumption of this harness.
+
+The backlog-review steps now folded into `update-status/` (its "Backlog mode"
+section) derive from [@ds1's boilerplate.md](https://github.com/ds1/boilerplate.md),
+which the former `backlog/` skill credited inline.
+
 ## Local modifications
 
 These vendored copies differ from upstream (changes © the boilerplate, same MIT):

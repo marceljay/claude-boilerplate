@@ -91,7 +91,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/save-context.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash .claude/hooks/save-context.sh"
           }
         ]
       }
@@ -101,15 +101,15 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/first-run-check.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash .claude/hooks/first-run-check.sh"
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/status-staleness-check.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash .claude/hooks/status-staleness-check.sh"
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/plan-staleness-check.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash .claude/hooks/plan-staleness-check.sh"
           }
         ]
       }

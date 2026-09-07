@@ -96,7 +96,7 @@ Principle: **the version that fixes it, not the latest.**
   hardening, "Native modules", for the rebuild step.
 - Never run a scratch install inside the repo tree; package managers walk up
   and install into the project. Use `mktemp -d`.
-- **A green suite is not evidence for a major.** Ask what the suite cannot
+- **All tests passing is not evidence that a major upgrade is safe.** Ask what the suite cannot
   see, and go look: user-visible strings a library generates (validation
   messages), escaping it used to do for you (a markdown renderer that stops
   escaping link titles is a stored XSS), code paths no test enters (a static

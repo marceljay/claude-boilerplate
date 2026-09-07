@@ -18,6 +18,10 @@ These load on every message — keep them lean: rules here, rationale in
 
 - Be concise: no long preamble, show results, summarize what changed. Explain
   a longer shell command in a phrase.
+- Use clear, unambiguous terminology: say "all tests pass", not "green
+  suite"; "landing page", not "front door". No jargon, metaphors, or coined
+  names where a plain technical term exists — in prose, commits, code, and
+  docs alike.
 
 ## Token Optimization
 

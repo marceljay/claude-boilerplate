@@ -5,6 +5,18 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Changed
+
+- **CLAUDE.md trimmed by a third (10.4 KB → 6.9 KB, 185 → 135 lines) with
+  no rule removed.** It is loaded on every message, and the 2026-09-07
+  audit found the same rationale stated up to five times across CLAUDE.md,
+  README §6, skills, and hook docstrings. Every imperative stays; the
+  anecdotes ("28 open boxes"), the three-option policy menus (now one line
+  each: "if no line is recorded, ask and record"), and the Preference
+  Persistence routing prose (now a pointer to `/remember`) moved out or
+  collapsed. All six per-project baton lines and every section name that
+  `/init`, `/remember`, and `sync-harness.sh` grep for are unchanged.
+
 ### Added
 
 - **"Needs input" section in STATUS.md, overflow file, and an opt-in review

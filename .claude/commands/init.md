@@ -236,6 +236,14 @@ Scaffold the standard file structure for a new project.
    - **tdd** — failing test first; activates the `test-driven-development`
      skill (fits projects with critical core logic)
 
+   Ask whether commit messages may carry a Claude session link (skip if the
+   project CLAUDE.md already has a `- Commit session links:` line). Claude
+   Code appends a `Claude-Session: https://claude.ai/code/session_…` trailer
+   when the harness requests it; the link is tied to one account, goes stale,
+   and is noise in `git log` for everyone else, so the default is **off**.
+   Record the answer as `- Commit session links: off (this repo).` or
+   `- Commit session links: on (this repo).` under Git Conventions.
+
    Finally, **ask whether to enable Socket supply-chain scanning** — only if
    the project uses npm/pnpm/yarn, since those are the managers Socket's
    wrappers front. Ask rather than install: it needs an API token, and it

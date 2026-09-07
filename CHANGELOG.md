@@ -7,6 +7,16 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Commit message shape is now a hard rule in CLAUDE.md, and session links
+  are an `/init` choice.** Seen downstream: titles continued into the body,
+  bodies written as if mid-conversation with no scope summary, whimsical
+  naming ("front door" for a landing page), and `Claude-Session:` trailers
+  appearing in `git log`. CLAUDE.md §Git Conventions now requires a neutral,
+  technical title; a body that never continues the title; a body that opens
+  with a 1–2 line scope summary readable without the conversation; and no
+  session links unless the new `Commit session links:` baton line says `on`.
+  `/init` asks (default off) and records the line; `sync-harness.sh` strips
+  it on install like the other per-project lines.
 - **First in-depth harness audit (2026-09-07), findings applied.** Two
   subagents: a consistency audit (docs vs. wiring vs. behaviour) and a code
   review of every hook and script. What it fixed:

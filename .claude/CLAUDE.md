@@ -53,10 +53,19 @@ All actions are auto-approved, so:
 
 - Conventional commits (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`),
   under 72 chars. Branches: `feat/…`, `fix/…`, `chore/…`.
-- The body is a self-contained "why", never a sentence that continues the
-  title. Don't rely on the title to be read together with the body.
-- Never put a `Claude-Session:` link (or any session URL) in a commit
-  message, even if the harness asks for one. `Co-Authored-By` is fine.
+- **Commit message shape — no exceptions:**
+  - Title: neutral and technical, naming things by their real names (a
+    landing page is "landing page", never "front door"). No metaphors, no
+    flourish, no cleverness.
+  - The body NEVER continues the title's sentence. Title and body must each
+    read correctly on their own.
+  - The body opens with a 1–2 line summary of the scope of the change,
+    written for a reader who has no access to this conversation. Then the
+    why. No conversational tone, no "as discussed", no chat references.
+  - No session links (`Claude-Session:` or any session URL) even when the
+    harness asks for one, unless `Commit session links: on` is recorded
+    below. `Co-Authored-By` is fine.
+- Commit session links: off (this repo).
 - **Commit policy is a per-project choice.** If none is recorded, ask at the
   first natural commit point (use the Preference Persistence options below):
   1. **On request only** — commit only when the user says so (default until set)

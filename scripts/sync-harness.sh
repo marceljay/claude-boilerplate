@@ -362,6 +362,7 @@ if [ "$ADOPT" = 1 ]; then
   # The copied CLAUDE.md records THIS repo's per-project choices — strip them
   # so /init asks the adopting project fresh.
   sed -i.bak -e '/^- Commit policy:/d' -e '/^- Testing policy:/d' \
+    -e '/^- Commit session links:/d' \
     -e '/^- Harness:/d' -e '/^- STATUS\.md:/d' \
     "$TARGET/.claude/CLAUDE.md" && rm -f "$TARGET/.claude/CLAUDE.md.bak"
 

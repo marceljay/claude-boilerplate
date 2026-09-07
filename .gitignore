@@ -8,6 +8,10 @@
 *.key
 credentials.json
 
+# Scratch files Claude writes for you to copy from (PR descriptions when `gh`
+# isn't available, etc.) — never part of the tree
+.temp/
+
 # OS metadata files
 *.DS_Store
 Thumbs.db

@@ -54,6 +54,10 @@ Scaffold the standard file structure for a new project.
    .DS_Store
    Thumbs.db
 
+   # Scratch files Claude writes for you to copy from (e.g. PR descriptions when
+   # `gh` isn't available)
+   .temp/
+
    # Raw session transcripts — host-disk backup only, may contain tool output/secrets
    _planning/transcripts-backup/
 

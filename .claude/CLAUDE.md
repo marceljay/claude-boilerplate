@@ -60,6 +60,9 @@ These load on every message — keep them lean: rules here, rationale in
 - A milestone commit isn't complete until STATUS.md and CHANGELOG.md reflect
   it (`update-status` / `log` skills) and any governing plan records the
   decisions it settled — open items go to STATUS.md, not the plan.
+- Feature-branch work ends with `/pr`. Without `gh` (or a GitHub remote) it
+  writes the PR description to gitignored `.temp/pr-<branch>.md` for you to
+  paste — it never falls back to dumping the description into chat.
 - Commit session links: off (this repo).
 - Commit policy: milestones (this repo).
 

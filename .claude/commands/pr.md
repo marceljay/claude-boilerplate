@@ -5,6 +5,10 @@ Create a pull request with a standardized format.
 ## Steps
 
 1. Gather context:
+   - Whether a PR can be opened from here: `gh` on PATH **and** `gh auth
+     status` succeeds **and** `git remote get-url origin` is a GitHub URL. If
+     any of those fails, use the file fallback in step 3b — don't try to
+     install `gh` or guess at another host's CLI.
    - Current branch name and base branch
    - All commits since diverging from base (`git log base..HEAD --oneline`)
    - Full diff summary (`git diff base...HEAD --stat`)
@@ -34,6 +38,15 @@ Create a pull request with a standardized format.
    gh pr create --title "..." --body "..."
    ```
 
-4. Return the PR URL to the user.
+   Return the PR URL to the user.
+
+3b. **No `gh`, not authenticated, or not a GitHub remote:** write the
+   description to `.temp/pr-<branch>.md` (gitignored; `<branch>` with `/`
+   replaced by `-`), title as the first line, then the body from step 2, and
+   push the branch. Tell the user the file path and the compare URL if the
+   remote's host has an obvious one (GitHub/GitLab/Bitbucket
+   `…/compare/<base>...<branch>`); they open the PR in the browser and paste.
+   Never print the whole description into the chat as well — the file is the
+   deliverable.
 
 ---

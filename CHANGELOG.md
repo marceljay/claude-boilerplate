@@ -5,6 +5,15 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- **`/pr` fallback without `gh`.** When `gh` is missing, unauthenticated, or
+  the remote isn't GitHub, `/pr` now writes the description to gitignored
+  `.temp/pr-<branch>.md`, pushes the branch, and prints the path plus the
+  compare URL — instead of dumping the description into chat or trying to
+  install tooling. `.temp/` joins `.gitignore` here and in `/init`'s
+  universal base; CLAUDE.md §Git Conventions has the one-line rule.
+
 ### Changed
 
 - **CLAUDE.md trimmed by a third (10.4 KB → 6.9 KB, 185 → 135 lines) with

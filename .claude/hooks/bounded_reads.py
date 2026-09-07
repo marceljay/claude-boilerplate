@@ -104,7 +104,10 @@ def check(cmd, cwd):
 def main():
     if os.environ.get("BOUNDED_READS", "").lower() in {"off", "0", "false"}:
         return
-    data = json.load(sys.stdin)
+    raw = sys.stdin.read()
+    if not raw.strip():  # run by hand with no input — nothing to judge, not an error
+        return
+    data = json.loads(raw)
     if data.get("tool_name") != "Bash":
         return
     check(

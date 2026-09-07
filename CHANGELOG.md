@@ -7,6 +7,14 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Status line shows context-window fill next to the rate limits**
+  (`… │ ctx 37%`). It was only shown as the fallback before rate-limit data
+  arrived; it is the number that says when to `/clear` or `/compact`, and the
+  5h/7d limits say nothing about it.
+- **Bash hooks are silent on empty stdin.** Running `block_destructive.py`
+  or `bounded_reads.py` by hand with no input logged a JSON traceback to
+  `hook_errors.log` (the one stale entry there dated from 2026-07-04); now
+  they just exit 0.
 - **STATUS.md never holds finished work — enforced.** The backlog had grown
   parentheticals like "(b) done 2026-07-06" and "option A shipped
   2026-07-07" on partially-done items: the past leaking into the queue, which

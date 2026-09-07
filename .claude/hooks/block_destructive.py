@@ -223,7 +223,10 @@ def analyze(cmd, depth=0):
 
 
 def main():
-    data = json.load(sys.stdin)
+    raw = sys.stdin.read()
+    if not raw.strip():  # run by hand with no input — nothing to judge, not an error
+        return
+    data = json.loads(raw)
     if data.get("tool_name") != "Bash":
         return
     analyze(data.get("tool_input", {}).get("command") or "")

@@ -134,7 +134,9 @@ CLAUDE.md is for stable instructions only — no TODOs, changelogs, or status he
 living state file: **In Progress** + **Blockers** (now) and a **Backlog** section
 (future, the only queue, priority-ordered). `CHANGELOG.md` = past, and is the public
 record. Items move between sections/files, never copied: backlog → In Progress →
-CHANGELOG. Keeping the queue in STATUS.md is deliberate — it stops it going stale,
+CHANGELOG. STATUS.md never holds finished work, not even as an annotation on a
+backlog item ("(b) done", "shipped 2026-…"): split the item — the shipped part
+becomes a CHANGELOG entry, the remainder stays as a clean item. Keeping the queue in STATUS.md is deliberate — it stops it going stale,
 since you can't grab the next item without seeing what's in flight. Always bump its
 "Last updated" date when editing (a SessionStart hook flags it when cold). `/init`
 scaffolds these and asks whether to make STATUS.md public, recording the answer

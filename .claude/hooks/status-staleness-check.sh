@@ -12,6 +12,10 @@
 #      cleared", and it flags the very next session instead of waiting out the
 #      7-day window. (STATUS.md is gitignored, so its mtime only moves on a
 #      real local edit — a reliable "last reconciled" signal.)
+#   3) STATUS_DONE_ITEMS — a line carries a done-annotation ("(b) done
+#      2026-…", "shipped 2026-…", "fixed (commit …)"). Finished work belongs in
+#      CHANGELOG.md, never in STATUS.md — not even as a parenthetical on a
+#      partially-done backlog item (split the item instead).
 #
 # STATUS.md is private-by-default and lives at _planning/STATUS.md; fall back to a
 # repo-root STATUS.md for projects that chose to make it public there.
@@ -46,4 +50,11 @@ if (( in_progress > 0 )) && git rev-parse --git-dir >/dev/null 2>&1; then
   if [[ -n "$commit_s" && -n "$file_s" ]] && (( commit_s > file_s )); then
     echo "STATUS_DRIFT: commits have landed since $f was last touched, and In Progress lists ${in_progress} item(s). If any are finished, move them to CHANGELOG.md now (update-status skill)."
   fi
+fi
+
+# --- Check 3: finished work hiding in the file as an annotation.
+done_lines="$(grep -nE '\b(done|shipped|landed|fixed|completed)\b[^.]{0,20}(20[0-9]{2}-[0-9]{2}|\(commit|[0-9a-f]{7}\b)' "$f" 2>/dev/null | head -5 || true)"
+if [[ -n "$done_lines" ]]; then
+  echo "STATUS_DONE_ITEMS: $f mentions finished work — it belongs in CHANGELOG.md, not here. Split each item: shipped part → CHANGELOG, remainder stays clean (update-status skill)."
+  echo "$done_lines" | sed 's/^/  /'
 fi

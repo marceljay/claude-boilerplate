@@ -71,6 +71,12 @@ _The only queue of future work, priority-ordered. Top High-Priority item = next 
    back to the Backlog with a one-line note. If you genuinely can't tell, leave
    it and say which items you left and why. Report what you moved in one line
    each; don't ask first — this is bookkeeping, and the user sees the result.
+   Sweep the **Backlog** in the same pass for done-annotations — "(b) done
+   2026-…", "shipped 2026-…", "fixed (commit …)" inside an item. Finished work
+   never lives in STATUS.md, not even as a parenthetical: split the item, put
+   the shipped part in CHANGELOG.md if it isn't there, and leave the remainder
+   as a clean item with no history attached. (The SessionStart hook flags
+   these as `STATUS_DONE_ITEMS`.)
 
 3. Apply the updates for the transition that triggered this skill:
    - **In Progress** holds at most ~3 truly active items. Starting something new

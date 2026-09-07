@@ -7,6 +7,14 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **STATUS.md never holds finished work — enforced.** The backlog had grown
+  parentheticals like "(b) done 2026-07-06" and "option A shipped
+  2026-07-07" on partially-done items: the past leaking into the queue, which
+  is exactly what the one-home-per-item rule forbids. CLAUDE.md §Project
+  State and the `update-status` skill now say to split such items (shipped
+  part → CHANGELOG, remainder stays clean), and the SessionStart staleness
+  hook has a third check, `STATUS_DONE_ITEMS`, that greps for
+  done-annotations and prints the offending lines.
 - **`bounded_reads.py` PreToolUse hook + sharper "read bounded" wording.** A
   downstream project measured Bash output at 16% of the context window, half
   of it avoidable: `cat STATUS.md` (65 KB) in one shot, whole component files
@@ -285,6 +293,9 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- **`/init` merges required entries into an existing `.gitignore`** instead
+  of skipping when the file already exists (2026-07-06, commit 2e39b0c;
+  recorded late — it had only lived as a "(b) done" note in STATUS.md).
 - **CLAUDE.md no longer orders a second copy of the queue.** Project State
   said STATUS.md's Backlog is "the only queue … never copied", then fifteen
   lines later told every Plan Mode exit to save a plan "with checkboxed

@@ -7,6 +7,17 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **`release` skill: version management.** Until now the only guidance was
+  the `log` skill's semver hint. The new skill owns the version: `git fetch
+  origin --tags` before any conclusion about what has shipped (a stale local
+  ref is how published commits and shipped CHANGELOG sections get rewritten);
+  released sections are frozen; the cut is one commit (version file and every
+  lockfile copy, `[Unreleased]` → `[x.y.z] - date`, lint + build + suite);
+  tags go on the release branch and are verified on the remote; dependency
+  upgrades take the version that fixes it, not latest, and a green suite is
+  not evidence for a major. Stack-agnostic (package.json/Cargo/pyproject/Go
+  tags); adapted from a downstream project's skill with its project-specific
+  steps removed. `log` now defers to it instead of asking about tagging.
 - **`/pr` fallback without `gh`.** When `gh` is missing, unauthenticated, or
   the remote isn't GitHub, `/pr` now writes the description to gitignored
   `.temp/pr-<branch>.md`, pushes the branch, and prints the path plus the

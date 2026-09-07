@@ -199,7 +199,7 @@ toward your own answer — a command rather than a skill on purpose, since only
 you know when you want to be questioned instead of answered). Open any of them —
 they're just markdown with a numbered list of steps.
 
-The three project-state procedures (`update-status`, `log`, `status`)
+The four project-state procedures (`update-status`, `log`, `status`, `release`)
 used to live here but are now **skills** (see below): moving a finished item out
 of STATUS.md is exactly the step that gets forgotten when it needs a human to
 type the command, so those fire automatically at the right moments instead. You
@@ -221,8 +221,8 @@ Claude Code also has a **Skills** feature, and the two are easy to confuse:
 They're complementary — a command is a manual button, a skill is an
 auto-trigger. The slash commands here are procedures you choose to run; the
 **bundled skills** in `.claude/skills/` are capabilities Claude reaches for on its
-own. Three are the project-state procedures (`update-status`, `log`, `status`)
-that manage STATUS.md/CHANGELOG.md — made skills so state upkeep
+own. Four are the project-state procedures (`update-status`, `log`, `status`,
+`release`) that manage STATUS.md/CHANGELOG.md — made skills so state upkeep
 happens at work-item transitions without being asked. Five more ship vendored
 from Jesse Vincent's [Superpowers](https://github.com/obra/superpowers)
 collection (MIT — see `.claude/skills/ATTRIBUTION.md`):

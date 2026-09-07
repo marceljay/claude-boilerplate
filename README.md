@@ -46,7 +46,7 @@ sandbox. See [Dev Container](#dev-container) below.
 ├── settings.json      # Permissions (allow/deny), hooks (PreToolUse, SessionStart, PreCompact, SubagentStop), status line
 ├── commands/          # Slash commands: /init /cleanup /plans /pr /review /socratic …
 ├── agents/            # Subagents: explore-via-sonnet (search), review-diff, implement-scoped, docs-updater
-├── skills/            # Auto-invoked skills: project-state upkeep (update-status, log, status), TDD, systematic-debugging, writing-plans, brainstorming, using-superpowers
+├── skills/            # Auto-invoked skills: project-state upkeep (update-status, log, status, release), TDD, systematic-debugging, writing-plans, brainstorming, using-superpowers
 ├── scripts/           # usage-statusline.sh (status line), review_page.py (/review page), subagent_summary.py (tabulates the SubagentStop log)
 └── hooks/             # PreToolUse: block_destructive.py (rm -rf/force-push variants), socket_scan.py (installs via Socket; opt-in), bounded_reads.py (no bare cat of big files) · SessionStart: first-run-check.sh, status-staleness-check.sh, plan-staleness-check.sh · PreCompact: save-context.sh · SubagentStop: log_subagent.py
 .devcontainer/         # Sandboxed Docker env: Dockerfile, firewall script + allowed-domains.txt, shell shortcuts, STACKS.md (see below)
@@ -58,7 +58,7 @@ LICENSE                # MIT
 **Bundled skills** (in `.claude/skills/`) work out of the box — Claude Code
 auto-discovers any `.claude/skills/<name>/SKILL.md` at session start and Claude
 invokes the matching one itself; there's nothing to install or call manually.
-Three manage project state (`update-status`, `log`, `status`): they
+Four manage project state (`update-status`, `log`, `status`, `release`): they
 fire when work starts, completes, or blocks, so finished items actually leave
 STATUS.md instead of waiting for someone to run a command (you can still type
 `/update-status` etc.). Five more ship vendored from [Superpowers](https://github.com/obra/superpowers)

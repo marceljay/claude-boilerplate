@@ -42,26 +42,11 @@ All notable changes to this project are documented here.
 
 3. Add the entry under `[Unreleased]` in the appropriate category. Use concise, user-facing language (not implementation details).
 
-4. **Version tagging:** Only ask about tagging a release when the user hints
-   at one (mentions a version, "release", "ship", "tag") — otherwise leave the
-   entry under `[Unreleased]` without asking. When they do want a release,
-   move all `[Unreleased]` items under a new version heading:
-
-   ```markdown
-   ## [1.3.0] - 2026-02-11
-
-   ### Added
-
-   - Feature description
-
-   ### Fixed
-
-   - Bug fix description
-   ```
-
-   Then create a fresh empty `[Unreleased]` section above it. Suggest semver bumps:
-   - **Patch** (1.0.X) — bug fixes only
-   - **Minor** (1.X.0) — new features, backwards compatible
-   - **Major** (X.0.0) — breaking changes
+4. **Versions are the `release` skill's job.** Leave the entry under
+   `[Unreleased]` and don't ask about tagging. If the user hints at a release
+   (mentions a version, "release", "ship", "tag"), the `release` skill takes
+   over: it fetches first, picks the number, moves `[Unreleased]` under a
+   `[<version>] - YYYY-MM-DD` heading, bumps the version file, and tags on
+   the release branch. Never add to a version section that has shipped.
 
 5. Show what was added.

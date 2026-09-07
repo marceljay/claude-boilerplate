@@ -392,9 +392,18 @@ between homes (backlog → "In Progress" → CHANGELOG), deleted from the previo
 never copied.
 
 - **`CLAUDE.md`** — stable only (commands, architecture). Changes rarely.
-- **`_planning/STATUS.md`** — the single **living** state file, with three sections:
+- **`_planning/STATUS.md`** — the single **living** state file, with four sections:
   - **In Progress** — ≤3 truly active items (_now_).
-  - **Blockers** — anything stuck or waiting on input (_now_).
+  - **Needs input** — decisions or reviews waiting on *you*, never mixed into
+    In Progress. Past four items they move, with full context, to
+    `_planning/REVIEW.md` (same gitignore status) and STATUS.md keeps one
+    pointer line. `/review` renders them as a click-through page
+    (`_planning/review.html`: Approve / Needs change / Reject + notes per
+    item, "Copy decisions" gives you a markdown block to paste back). The
+    `Review page: on | off` line in CLAUDE.md says whether Claude regenerates
+    it on its own after every status edit; off by default, since that is a
+    tool call per edit.
+  - **Blockers** — anything stuck on external events (_now_).
   - **Backlog** — the only queue of future work, priority-ordered; the top
     High-Priority item is "next up" (_future_).
   It's **gitignored by default** — your working status and backlog are private,

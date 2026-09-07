@@ -140,8 +140,12 @@ say so instead of promising sharing. On the host: `~/.claude/CLAUDE.md` and
 
 CLAUDE.md is for stable instructions only — no TODOs, changelogs, or status here.
 `_planning/STATUS.md` (gitignored by default — private working state) is the single
-living state file: **In Progress** + **Blockers** (now) and a **Backlog** section
-(future, the only queue, priority-ordered). `CHANGELOG.md` = past, and is the public
+living state file: **In Progress** + **Needs input** + **Blockers** (now) and a
+**Backlog** section (future, the only queue, priority-ordered). Anything waiting
+on the user's decision or review goes in **Needs input**, never In Progress; past
+four items, move them with full context to `_planning/REVIEW.md` and leave one
+pointer line. `/review` renders them as a click-through page (auto-regenerated
+only when `Review page: on`). `CHANGELOG.md` = past, and is the public
 record. Items move between sections/files, never copied: backlog → In Progress →
 CHANGELOG. STATUS.md never holds finished work, not even as an annotation on a
 backlog item ("(b) done", "shipped 2026-…"): split the item — the shipped part
@@ -171,6 +175,7 @@ refreshes it). Don't read it in normal work — only when memory seems missing o
 you need detail the live index lacks; `/backup-memory restore` after a volume wipe.
 
 - STATUS.md: private (this repo).
+- Review page: off (this repo).
 
 ## Context Save on Compaction
 

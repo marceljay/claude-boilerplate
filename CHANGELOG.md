@@ -7,6 +7,17 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **"Needs input" section in STATUS.md, overflow file, and an opt-in review
+  page.** Downstream, items waiting on the user's decision kept landing in In
+  Progress, where they read as active work. STATUS.md now has a fourth
+  section for them (Blockers is external events only); past four items they
+  move with full context to `_planning/REVIEW.md` and one pointer line stays.
+  `/review` (`.claude/scripts/review_page.py`) renders them as a static
+  click-through page — Approve / Needs change / Reject / Skip and notes per
+  item, state in localStorage, "Copy decisions" yields a markdown block to
+  paste back — opened from the host or served with `--serve`. A new
+  `Review page: on | off` baton line (default off; `/init` asks) controls
+  whether `update-status` regenerates it after every status edit.
 - **Commit message shape is now a hard rule in CLAUDE.md, and session links
   are an `/init` choice.** Seen downstream: titles continued into the body,
   bodies written as if mid-conversation with no scope summary, whimsical

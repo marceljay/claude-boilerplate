@@ -44,10 +44,10 @@ sandbox. See [Dev Container](#dev-container) below.
 ├── CLAUDE.md          # Always-on project instructions (kept deliberately short)
 ├── README.md          # ★ Guide to the harness — read this first
 ├── settings.json      # Permissions (allow/deny), hooks (PreToolUse, SessionStart, PreCompact, SubagentStop), status line
-├── commands/          # Slash commands: /init /cleanup /plans /pr /socratic …
+├── commands/          # Slash commands: /init /cleanup /plans /pr /review /socratic …
 ├── agents/            # Subagents: explore-via-sonnet (search), review-diff, implement-scoped, docs-updater
 ├── skills/            # Auto-invoked skills: project-state upkeep (update-status, log, status), TDD, systematic-debugging, writing-plans, brainstorming, using-superpowers
-├── scripts/           # usage-statusline.sh (rate limits + context fill in the status line), subagent_summary.py (tabulates the SubagentStop log)
+├── scripts/           # usage-statusline.sh (status line), review_page.py (/review page), subagent_summary.py (tabulates the SubagentStop log)
 └── hooks/             # PreToolUse: block_destructive.py (rm -rf/force-push variants), socket_scan.py (installs via Socket; opt-in), bounded_reads.py (no bare cat of big files) · SessionStart: first-run-check.sh, status-staleness-check.sh, plan-staleness-check.sh · PreCompact: save-context.sh · SubagentStop: log_subagent.py
 .devcontainer/         # Sandboxed Docker env: Dockerfile, firewall script + allowed-domains.txt, shell shortcuts, STACKS.md (see below)
 scripts/               # sync-harness.sh (install/refresh the harness in another repo), new-project.sh (detach a copy)
@@ -283,8 +283,8 @@ the network, the firewall allowlist is the first place to look.
 ## Conventions
 
 - **`CLAUDE.md`** holds only stable instructions. **`_planning/STATUS.md`** is the
-  single living state file — In Progress + Blockers (now) and a Backlog section
-  (future, the only queue); **`CHANGELOG.md`** is the past. Items move between
+  single living state file — In Progress + Needs input + Blockers (now) and a
+  Backlog section (future, the only queue); **`CHANGELOG.md`** is the past. Items move between
   them, never copied. The backlog lives inside STATUS.md on purpose: it keeps the
   queue next to "In Progress" so the file doesn't go stale. STATUS.md is gitignored
   by default (private working state); `/init` asks whether to make it public.

@@ -36,3 +36,7 @@ __pycache__/
 # Working status + backlog — private by default. /init asks per-project whether to
 # make it public; to commit it, remove this line (or `git add -f _planning/STATUS.md`).
 _planning/STATUS.md
+# Same visibility as STATUS.md: the overflow of items awaiting the user's
+# decision, and the click-through page /review renders from them.
+_planning/REVIEW.md
+_planning/review.html

@@ -7,7 +7,7 @@ description: Use when a work item starts, completes, or becomes blocked, and as 
 
 Update `_planning/STATUS.md` (gitignored, private by default) — the single living
 state file. It owns the
-**present** (In Progress, Blockers) and the **future** (Backlog, the only queue);
+**present** (In Progress, Needs input, Blockers) and the **future** (Backlog, the only queue);
 finished work moves out to `CHANGELOG.md`. An item moves between sections/files; it
 is never copied.
 
@@ -40,6 +40,10 @@ belongs rather than silently ignoring it.
 Last updated: YYYY-MM-DD
 
 ## In Progress
+
+_None_
+
+## Needs input
 
 _None_
 
@@ -85,8 +89,21 @@ _The only queue of future work, priority-ordered. Top High-Priority item = next 
    - When an item **completes**: remove it from In Progress and add the
      `CHANGELOG.md` entry (the `log` skill) **in the same edit**. STATUS.md has no
      "Recently Completed" section — the past lives in CHANGELOG.md.
-   - **Blockers** is for items stuck on input or external events; name what
-     unblocks them.
+   - **Needs input** is for anything waiting on the *user* — a decision between
+     options, a review of shipped work, a test only they can run. One bullet per
+     item: `- **Title** — what's needed, the options, how to test`. Never park
+     these in In Progress. **Past four items**, move them all to
+     `_planning/REVIEW.md` (one `## Title` per item, with `**Context:**`,
+     `**Options:**`, `**To test:**`, `**Decision:** _pending_`) and leave a single
+     `- See _planning/REVIEW.md (N items)` line here. When the user decides
+     (in chat, or by pasting the `## Review decisions` block from the page),
+     apply it in the same edit: the item leaves Needs input and REVIEW.md.
+   - **Blockers** is for items stuck on external events (a dependency, an
+     outage, a third party); name what unblocks them.
+   - If the project CLAUDE.md says `Review page: on`, re-run
+     `python3 .claude/scripts/review_page.py` after any edit that changes Needs
+     input or REVIEW.md, and mention the path once. If `off` (default), don't —
+     the user runs `/review` when they want the page.
    - **Backlog** edits (add/reprioritize/remove future work) happen here too.
    - **Always update the "Last updated" date** (YYYY-MM-DD) on any edit — this is
      the signal `/status` uses to detect staleness.

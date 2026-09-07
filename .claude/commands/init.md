@@ -133,7 +133,7 @@ Scaffold the standard file structure for a new project.
    ```
 
    **`_planning/STATUS.md`** — the single living state file: present (In Progress,
-   Blockers) **and** future (the Backlog queue). Past → `CHANGELOG.md`. Gitignored
+   Needs input, Blockers) **and** future (the Backlog queue). Past → `CHANGELOG.md`. Gitignored
    by default (see the visibility ask above):
 
    ```markdown
@@ -142,6 +142,10 @@ Scaffold the standard file structure for a new project.
    Last updated: YYYY-MM-DD
 
    ## In Progress
+
+   _None_
+
+   ## Needs input
 
    _None_
 
@@ -243,6 +247,16 @@ Scaffold the standard file structure for a new project.
    and is noise in `git log` for everyone else, so the default is **off**.
    Record the answer as `- Commit session links: off (this repo).` or
    `- Commit session links: on (this repo).` under Git Conventions.
+
+   Ask whether Claude should keep a **review page** up to date (skip if the
+   project CLAUDE.md already has a `- Review page:` line). Items waiting on the
+   user's decision live in STATUS.md's Needs input section (overflowing to
+   `_planning/REVIEW.md`); `/review` renders them as a click-through page with
+   Approve / Needs change / Reject per item. With `on`, the `update-status`
+   skill regenerates that page itself whenever Needs input changes — one extra
+   tool call per status edit; with `off` (default) only `/review` builds it.
+   Record as `- Review page: off (this repo).` or `- Review page: on (this repo).`
+   under Project State.
 
    Finally, **ask whether to enable Socket supply-chain scanning** — only if
    the project uses npm/pnpm/yarn, since those are the managers Socket's

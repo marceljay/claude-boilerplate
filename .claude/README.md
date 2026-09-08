@@ -46,6 +46,23 @@ needed occasionally (e.g. "how to do a release") belongs in a **slash command**
 (section 3), which only loads when invoked. This directly serves the
 "reduce usage" goal — a lean CLAUDE.md is cheaper on every interaction.
 
+**Two CLAUDE.md files, one rule of precedence.** Claude Code loads both the
+root `CLAUDE.md` and `.claude/CLAUDE.md`. In this harness they have different
+owners:
+
+- `.claude/CLAUDE.md` is the **harness**: synced verbatim from the boilerplate
+  by `sync-harness.sh`, never edited per project.
+- The root `CLAUDE.md` is the **project's**: its own commands and
+  architecture notes, plus a `## Harness settings` section holding the
+  recorded choices (`Harness:`, `STATUS.md:`, `Commit policy:`,
+  `Testing policy:`, `Commit session links:`, `Review page:`) and any
+  deviation from a harness rule — "STATUS.md is tracked at `./STATUS.md` so
+  contributors see it", "`.claude/` is gitignored here; it's personal
+  tooling". **Where the two disagree, the root file wins.** Claude is told
+  this in `.claude/CLAUDE.md` itself, so a deviation is a setting, not a
+  contradiction to raise. `/init` writes the section; a refresh sync moves
+  any lines that older copies still had inside `.claude/CLAUDE.md`.
+
 ---
 
 ## 2. `settings.json` — permissions and hooks

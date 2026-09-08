@@ -5,6 +5,8 @@
 # scaffold real ones for *your* project:
 #   - README.md   -> renamed to BOILERPLATE.md (keeps dev-container/firewall docs)
 #   - LICENSE     -> removed (add your project's own)
+#   - CLAUDE.md   -> reset to a stub with an empty "## Harness settings" section
+#                    (the boilerplate's own choices must not carry over; /init fills it)
 #   - CHANGELOG.md, _planning/STATUS.md, _planning/ -> reset to empty templates
 #
 # By default it also deletes .git and re-inits, so your project starts with
@@ -48,6 +50,19 @@ TODAY="$(date +%F)"
 
 [ -f README.md ] && mv README.md BOILERPLATE.md
 [ -f LICENSE ] && rm LICENSE
+cat > CLAUDE.md <<EOF
+# $(basename "$(pwd)")
+
+## Harness settings
+
+<!-- Per-project choices the synced .claude/CLAUDE.md defers to; where a
+     line here contradicts it, this file wins. Filled in by /init. -->
+
+## Current Status
+
+See \`_planning/STATUS.md\` for current work and \`CHANGELOG.md\` for completed
+milestones.
+EOF
 
 # Rename the dev container from the boilerplate default to this project's folder
 # name. The default name ("Claude Boilerplate Repo") is what the first-run hook

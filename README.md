@@ -282,7 +282,10 @@ the network, the firewall allowlist is the first place to look.
 
 ## Conventions
 
-- **`CLAUDE.md`** holds only stable instructions. **`_planning/STATUS.md`** is the
+- **Two CLAUDE.md files:** `.claude/CLAUDE.md` is the synced harness, the root
+  `CLAUDE.md` is yours — its `## Harness settings` section records the
+  per-project choices and any deviation from a harness rule, and wins on
+  conflict. **`_planning/STATUS.md`** is the
   single living state file — In Progress + Needs input + Blockers (now) and a
   Backlog section (future, the only queue); **`CHANGELOG.md`** is the past. Items move between
   them, never copied. The backlog lives inside STATUS.md on purpose: it keeps the

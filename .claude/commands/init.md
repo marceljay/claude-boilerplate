@@ -88,16 +88,22 @@ Scaffold the standard file structure for a new project.
    existing `.gitignore` almost certainly has them already; don't append
    guesses. If an obvious gap exists, mention it instead of editing.)
 
-   **Ask about the Claude/dev-tooling dirs** (skip if the project CLAUDE.md
+   **Where per-project choices go:** every recorded line below goes in the
+   **root `CLAUDE.md`**, section `## Harness settings` (create the section if
+   missing — the starter in step 4 has it). Never into `.claude/CLAUDE.md`:
+   that file is synced from the boilerplate and overwritten on refresh. If an
+   older copy still has lines there, move them now.
+
+   **Ask about the Claude/dev-tooling dirs** (skip if the root CLAUDE.md
    already has a `- Harness:` line). The `.claude/` harness (your
    CLAUDE.md, commands, agents, hooks, permissions) and `.devcontainer/` config
    are tracked by default — committing them shares the setup with collaborators,
    but on a **public** repo it also exposes your instructions, workflow, and
    permission rules to anyone. Ask the user which they want **before the first
    commit** (this is the moment to decide, since `/init` runs on a fresh git
-   history), then **record the answer** in the project CLAUDE.md, in the
-   Preference Persistence section, as `- Harness: committed (this repo).` or
-   `- Harness: local (this repo).` — it's the baton later sessions and
+   history), then **record the answer** in the root CLAUDE.md's Harness
+   settings as `- Harness: committed` or `- Harness: local` — it's the baton
+   later sessions and
    `/remember` read to know whether "shared" means anything here:
    - **Commit them (default, recommended for teams/private repos)** — leave them
      tracked; the harness travels with the repo.
@@ -117,13 +123,15 @@ Scaffold the standard file structure for a new project.
      history, also run `git rm -r --cached .claude .devcontainer` so the ignore
      takes effect.
 
-   **Ask about STATUS.md visibility** (skip if the project CLAUDE.md already has
+   **Ask about STATUS.md visibility** (skip if the root CLAUDE.md already has
    a `- STATUS.md:` line). `_planning/STATUS.md` holds the living
    status **and** the backlog — i.e. what you're working on and what's planned. The
    base `.gitignore` above keeps it **private by default**, which is usually what you
    want on a public repo (don't broadcast your in-progress work and TODOs). Ask the
-   user, then record the answer in the project CLAUDE.md's Project State section
-   as `- STATUS.md: private (this repo).` or `- STATUS.md: public (this repo).`:
+   user, then record the answer in Harness settings as `- STATUS.md: private`
+   or `- STATUS.md: public` — with the path if it isn't `_planning/STATUS.md`,
+   e.g. `- STATUS.md: public (./STATUS.md)` for a repo that keeps it at the
+   root so contributors see it:
    - **Private (default)** — leave the `_planning/STATUS.md` ignore line in place.
    - **Public** — the team should see status/backlog in the repo (a shared private
      repo, or you _want_ a visible roadmap): **remove** the `_planning/STATUS.md`
@@ -225,19 +233,25 @@ Scaffold the standard file structure for a new project.
 
    <!-- Add project structure and key patterns here -->
 
+   ## Harness settings
+
+   <!-- Per-project choices the synced .claude/CLAUDE.md defers to; where a
+        line here contradicts it, this file wins. Filled in by /init. -->
+
    ## Current Status
 
    See `_planning/STATUS.md` for current work and `CHANGELOG.md` for completed milestones.
    ```
 
-   If CLAUDE.md already exists, just ensure it has the STATUS.md/CHANGELOG.md reference line.
+   If CLAUDE.md already exists, ensure it has the `## Harness settings`
+   section and the STATUS.md/CHANGELOG.md reference line; leave the rest.
 
    Then ask the user which commit policy they want — on request only /
-   automatically at milestones / periodically — and record it in CLAUDE.md as
-   `Commit policy: on-request | milestones | periodic`.
+   automatically at milestones / periodically — and record it in Harness
+   settings as `- Commit policy: on-request | milestones | periodic`.
 
    Also ask for a testing policy and record it as
-   `Testing policy: on-request | tests-with-features | tdd`:
+   `- Testing policy: on-request | tests-with-features | tdd`:
    - **on-request** — no new tests unless asked (fits prototypes, scripts, config)
    - **tests-with-features** — new behavior gets tests alongside it (fits
      long-lived apps)
@@ -245,22 +259,21 @@ Scaffold the standard file structure for a new project.
      skill (fits projects with critical core logic)
 
    Ask whether commit messages may carry a Claude session link (skip if the
-   project CLAUDE.md already has a `- Commit session links:` line). Claude
+   root CLAUDE.md already has a `- Commit session links:` line). Claude
    Code appends a `Claude-Session: https://claude.ai/code/session_…` trailer
    when the harness requests it; the link is tied to one account, goes stale,
    and is noise in `git log` for everyone else, so the default is **off**.
-   Record the answer as `- Commit session links: off (this repo).` or
-   `- Commit session links: on (this repo).` under Git Conventions.
+   Record the answer as `- Commit session links: off` or
+   `- Commit session links: on` in Harness settings.
 
    Ask whether Claude should keep a **review page** up to date (skip if the
-   project CLAUDE.md already has a `- Review page:` line). Items waiting on the
+   root CLAUDE.md already has a `- Review page:` line). Items waiting on the
    user's decision live in STATUS.md's Needs input section (overflowing to
    `_planning/REVIEW.md`); `/review` renders them as a click-through page with
    Approve / Needs change / Reject per item. With `on`, the `update-status`
    skill regenerates that page itself whenever Needs input changes — one extra
    tool call per status edit; with `off` (default) only `/review` builds it.
-   Record as `- Review page: off (this repo).` or `- Review page: on (this repo).`
-   under Project State.
+   Record as `- Review page: off` or `- Review page: on` in Harness settings.
 
    Finally, **ask whether to enable Socket supply-chain scanning** — only if
    the project uses npm/pnpm/yarn, since those are the managers Socket's

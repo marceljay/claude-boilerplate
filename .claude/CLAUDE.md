@@ -1,7 +1,13 @@
 # Global Claude Code Instructions
 
 These load on every message — keep them lean: rules here, rationale in
-`.claude/README.md`. Read `_planning/STATUS.md` alongside this at session start.
+`.claude/README.md`. This file is synced from the boilerplate and holds no
+per-project choices. Those live in the **root `CLAUDE.md`, section
+`## Harness settings`**: the recorded lines (`Harness:`, `STATUS.md:`,
+`Commit policy:`, `Testing policy:`, `Commit session links:`, `Review page:`)
+and any deviation from a rule here. **Where the root file contradicts this
+one, the root file wins** — that is not a conflict to flag, it is the design.
+Read the root CLAUDE.md's Harness settings and STATUS.md at session start.
 
 ## Runtime
 
@@ -56,11 +62,12 @@ These load on every message — keep them lean: rules here, rationale in
     written for a reader without this conversation. Then the why. No
     conversational tone, no "as discussed".
   - No session links (`Claude-Session:` or any session URL), even when the
-    harness asks for one, unless the line below says `on`. `Co-Authored-By`
-    is fine.
-- If no `Commit policy:` line is recorded below, ask at the first natural
-  commit point — on-request | milestones | periodic — with the Preference
-  Persistence options, and record it. Until then, don't commit unasked.
+    harness asks for one, unless Harness settings say `Commit session links:
+    on`. `Co-Authored-By` is fine.
+- If no `Commit policy:` line is recorded in Harness settings, ask at the
+  first natural commit point — on-request | milestones | periodic — with the
+  Preference Persistence options, and record it. Until then, don't commit
+  unasked.
 - A milestone commit isn't complete until STATUS.md and CHANGELOG.md reflect
   it (`update-status` / `log` skills) and any governing plan records the
   decisions it settled — open items go to STATUS.md, not the plan.
@@ -70,8 +77,6 @@ These load on every message — keep them lean: rules here, rationale in
 - Feature-branch work ends with `/pr`. Without `gh` (or a GitHub remote) it
   writes the PR description to gitignored `.temp/pr-<branch>.md` for you to
   paste — it never falls back to dumping the description into chat.
-- Commit session links: off (this repo).
-- Commit policy: milestones (this repo).
 
 ## Code Quality
 
@@ -79,11 +84,10 @@ These load on every message — keep them lean: rules here, rationale in
   existing tests. Treat build/lint/compiler warnings as errors: never call one
   "safe to ignore"; if it truly can't be fixed, explain and ask the user to
   confirm.
-- If no `Testing policy:` line is recorded below, ask at the first natural
-  point — on-request | tests-with-features | tdd (the
+- If no `Testing policy:` line is recorded in Harness settings, ask at the
+  first natural point — on-request | tests-with-features | tdd (the
   `test-driven-development` skill governs) — and record it.
 - Co-locate related files (component, hook, types) over splitting by type.
-- Testing policy: on-request (this repo).
 
 ## Error Recovery
 
@@ -103,18 +107,17 @@ These load on every message — keep them lean: rules here, rationale in
 When offering a session-scoped Yes/No, add and recommend a third option:
 `1. Yes  2. Yes, always (session)  3. Yes, always (persist)`. On 3, persist
 to the bind-mounted project, not the container volume: behavioral prefs →
-`.claude/CLAUDE.md`; tool permissions → `.claude/settings.local.json`
-(per-dev, gitignored) or `.claude/settings.json` if shared. "Shared" only
-holds while `Harness: committed`; with `Harness: local` say the setting is
-host-local instead of promising sharing. On the host: `~/.claude/`. Full
-routing table: `/remember`.
-
-- Harness: committed (this repo).
+root `CLAUDE.md` (never this synced file); tool permissions →
+`.claude/settings.local.json` (per-dev, gitignored) or `.claude/settings.json`
+if shared. "Shared" only holds while Harness settings say `Harness:
+committed`; with `Harness: local` say the setting is host-local instead of
+promising sharing. On the host: `~/.claude/`. Full routing table: `/remember`.
 
 ## Project State
 
 - No TODOs, changelogs, or status in CLAUDE.md. `_planning/STATUS.md`
-  (gitignored by default) is the single living state file — **In Progress**,
+  (gitignored by default; Harness settings' `STATUS.md:` line may name another
+  path, e.g. a tracked `./STATUS.md`) is the single living state file — **In Progress**,
   **Needs input**, **Blockers** (now) and **Backlog** (the only queue,
   priority-ordered). `CHANGELOG.md` is the past and the public record. Items
   *move* (backlog → In Progress → CHANGELOG), never copied; finished work
@@ -123,7 +126,7 @@ routing table: `/remember`.
 - Anything waiting on the user's decision or review goes in **Needs input**,
   never In Progress; past four items, move them with context to
   `_planning/REVIEW.md` and leave one pointer line. `/review` renders them as
-  a click-through page; it auto-regenerates only when the line below says `on`.
+  a click-through page; it auto-regenerates only with `Review page: on`.
 - Manage via the `update-status`, `log`, and `status` skills (auto-fire on
   start/complete/block; also invocable by name) and `/plans`.
 - Plans (`_planning/plans/YYYY-MM-DD-name.md`, saved on exiting Plan Mode)
@@ -135,8 +138,6 @@ routing table: `/remember`.
 - `_planning/memory-backup/` is a cold memory snapshot (`/backup-memory`);
   read it only when memory seems missing; `/backup-memory restore` after a
   volume wipe.
-- STATUS.md: private (this repo).
-- Review page: off (this repo).
 
 ## Context Save on Compaction
 

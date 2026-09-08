@@ -15,8 +15,9 @@ written there applies only inside this one container and is **lost if the volume
 rebuilt**, and it doesn't carry to the user's other projects. So "global" is
 effectively meaningless here. Persist to the bind-mounted `/workspace` instead,
 which lives on the host and is version-controlled — **unless** `/init`'s
-"keep the harness local" option put `.claude/` in `.gitignore`. The project
-CLAUDE.md records which as a `- Harness: committed | local` line (fall back to
+"keep the harness local" option put `.claude/` in `.gitignore`. The root
+CLAUDE.md's `## Harness settings` records which as a `- Harness: committed |
+local` line (fall back to
 `git check-ignore -q .claude/CLAUDE.md` if the line is missing). With
 `Harness: local`, every target in the dev-container column is local to this
 machine, the "shared/committed" branch below does not exist, and you must say
@@ -25,7 +26,7 @@ so rather than promise sharing.
 | What                  | Dev-container target                                                                                                       | Host target (no container) |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
 | Tool permission       | `.claude/settings.local.json` (per-dev, gitignored) — or `.claude/settings.json` if the user wants it **shared/committed** | `~/.claude/settings.json`  |
-| Behavioral preference | project `.claude/CLAUDE.md`                                                                                                | `~/.claude/CLAUDE.md`      |
+| Behavioral preference | root `CLAUDE.md` (never the synced `.claude/CLAUDE.md`)                                                         | `~/.claude/CLAUDE.md`      |
 | Project fact (memory) | config-dir `memory/` + run `/backup-memory`                                                                                | config-dir `memory/`       |
 
 Detect once at the start and use the matching column for the rest of the steps.
@@ -49,8 +50,10 @@ Detect once at the start and use the matching column for the rest of the steps.
    - "don't auto-commit"
    - "use tabs not spaces"
    - Any preference about how Claude should work, communicate, or make decisions
-   - In a container this lands in the project `.claude/CLAUDE.md`, so it's shared
-     with everyone who clones the repo. If the user wants it personal-only, say so —
+   - In a container this lands in the root `CLAUDE.md` (a `## Harness
+     settings` line if it overrides a harness rule, otherwise its own section),
+     so it's shared with everyone who clones the repo. Never in
+     `.claude/CLAUDE.md` — that file is synced and overwritten. If the user wants it personal-only, say so —
      there's no per-developer CLAUDE.md, so the honest options are to keep it in
      `settings.local.json` (if expressible as a permission) or accept it's shared.
 
@@ -82,7 +85,7 @@ Detect once at the start and use the matching column for the rest of the steps.
 
 ## Classification Priority
 
-If unclear, default to a CLAUDE.md (project `.claude/CLAUDE.md` in a container).
+If unclear, default to a CLAUDE.md (the root `CLAUDE.md` in a container).
 Behavioral instructions are the most common case.
 
 ---

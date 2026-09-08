@@ -100,7 +100,7 @@ _The only queue of future work, priority-ordered. Top High-Priority item = next 
      apply it in the same edit: the item leaves Needs input and REVIEW.md.
    - **Blockers** is for items stuck on external events (a dependency, an
      outage, a third party); name what unblocks them.
-   - If the project CLAUDE.md says `Review page: on`, re-run
+   - If the root CLAUDE.md's Harness settings say `Review page: on`, re-run
      `python3 .claude/scripts/review_page.py` after any edit that changes Needs
      input or REVIEW.md, and mention the path once. If `off` (default), don't —
      the user runs `/review` when they want the page.

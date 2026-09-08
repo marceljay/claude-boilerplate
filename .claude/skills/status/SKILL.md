@@ -9,7 +9,7 @@ Read the current project state and summarize it concisely.
 
 1. Read `_planning/STATUS.md` (gitignored, private by default; if absent, fall back
    to a repo-root `STATUS.md` for projects that made it public — the project
-   CLAUDE.md's `- STATUS.md: private | public` line says which was chosen). If neither exists,
+   root CLAUDE.md's `- STATUS.md: private | public [path]` line says which). If neither exists,
    say so and offer to create one (see the `update-status` skill for the template).
    It holds **In Progress**, **Needs input**,
    **Blockers**, and the **Backlog** (the queue) — everything live in one file.

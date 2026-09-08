@@ -13,8 +13,8 @@
 # the harness, or a brand-new directory that is created if it doesn't exist):
 # after one confirmation it copies .claude/ and .devcontainer/
 # — and nothing else. Your .git, code, README, etc. are never touched. It
-# strips this repo's recorded per-project choice lines (commit/testing
-# policy, Harness:, STATUS.md:) from the copied CLAUDE.md so /init asks fresh. Then reopen the project in its container
+# copies no per-project choices: those live in the target's root CLAUDE.md
+# (## Harness settings), which this script never touches. Then reopen the project in its container
 # and run /init to gap-fill (.gitignore security entries, _planning/,
 # container rename, policies).
 #
@@ -32,7 +32,9 @@
 #     A target Dockerfile without the marker falls back to ask-first.
 #   - For files that usually carry PER-PROJECT edits — .devcontainer/
 #     allowed-domains.txt (firewall domains), devcontainer.json (container
-#     name, stack features), .claude/CLAUDE.md (commit/testing policy),
+#     name, stack features), .claude/CLAUDE.md (pure harness since
+#     2026-09-08 — per-project lines belong in the root CLAUDE.md, and a
+#     refresh moves any it finds there; answering y is normally right),
 #     .claude/settings.json (permissions), .npmrc (registry/auth config) —
 #     it shows the full diff and asks: y = overwrite, N = keep (default),
 #     u = keep AND write the boilerplate version next to it as <file>.upstream
@@ -321,6 +323,30 @@ if [ -f "$SRC/$DOCKERFILE" ]; then
     echo "          rename it over the target — future syncs then splice automatically."
     ask_first "$DOCKERFILE"
   fi
+fi
+
+# --- 2b. Per-project lines that predate the root-CLAUDE.md split ---------
+# Until 2026-09-08 /init recorded its choices inside .claude/CLAUDE.md, the
+# file this script overwrites. They now belong in the root CLAUDE.md under
+# "## Harness settings", which is never synced. Move them before asking about
+# .claude/CLAUDE.md, so "overwrite" can't lose them.
+BATON_RE='^- (Harness|STATUS\.md|Commit policy|Testing policy|Commit session links|Review page):'
+if [ -f "$TARGET/.claude/CLAUDE.md" ] && grep -Eq "$BATON_RE" "$TARGET/.claude/CLAUDE.md"; then
+  root_md="$TARGET/CLAUDE.md"
+  moved="$(grep -E "$BATON_RE" "$TARGET/.claude/CLAUDE.md" | sed -E 's/ \(this repo\)\.?$//')"
+  if [ ! -f "$root_md" ]; then
+    printf '# %s\n\n## Harness settings\n\n' "$(basename "$TARGET")" > "$root_md"
+  elif ! grep -q '^## Harness settings' "$root_md"; then
+    printf '\n## Harness settings\n\n' >> "$root_md"
+  fi
+  # Append only lines whose key the root file doesn't already have.
+  printf '%s\n' "$moved" | while IFS= read -r line; do
+    key="${line%%:*}"
+    grep -q "^$key:" "$root_md" || printf '%s\n' "$line" >> "$root_md"
+  done
+  sed -i.bak -E "/$BATON_RE/d" "$TARGET/.claude/CLAUDE.md" && rm -f "$TARGET/.claude/CLAUDE.md.bak"
+  echo "moved     per-project lines from .claude/CLAUDE.md to CLAUDE.md (## Harness settings):"
+  printf '%s\n' "$moved" | sed 's/^/            /'
 fi
 
 # --- 3. Ask-first files (commonly hold per-project edits) ------------------

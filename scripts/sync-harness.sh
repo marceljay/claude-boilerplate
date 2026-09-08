@@ -61,6 +61,49 @@ set -euo pipefail
 
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
 
+# --- Colour: only when stderr is a terminal and NO_COLOR is unset ----------
+# Prompts are bold yellow on their own block; diffs get the usual +/- colours;
+# status words are dimmed or highlighted by weight. Everything degrades to
+# plain text when piped or under NO_COLOR (https://no-color.org).
+if [ -t 2 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-dumb}" != "dumb" ]; then
+  C_BOLD=$'\033[1m' C_DIM=$'\033[2m' C_RED=$'\033[31m' C_GREEN=$'\033[32m'
+  C_YELLOW=$'\033[33m' C_CYAN=$'\033[36m' C_OFF=$'\033[0m'
+else
+  C_BOLD='' C_DIM='' C_RED='' C_GREEN='' C_YELLOW='' C_CYAN='' C_OFF=''
+fi
+
+# A unified diff with +/-/@@ coloured (headers = first two lines only, so a
+# removed line that happens to start with "--" isn't mistaken for one).
+# Never fails the script: diff exits 1 on differences by design.
+show_diff() {
+  diff -u "$1" "$2" | awk -v b="$C_BOLD" -v c="$C_CYAN" -v g="$C_GREEN" -v r="$C_RED" -v o="$C_OFF" '
+    NR <= 2 && /^(\+\+\+|---) / { print b $0 o; next }
+    /^@@/  { print c $0 o; next }
+    /^\+/  { print g $0 o; next }
+    /^-/   { print r $0 o; next }
+           { print }' || true
+}
+
+# Status line: "<word>  <rest>" with the word coloured by what it means.
+say() {
+  local word="$1"; shift
+  local c=""
+  case "$word" in
+    WARNING) c="$C_RED$C_BOLD" ;;
+    overwrote|spliced|moved|created|removed|copied) c="$C_YELLOW" ;;
+    "in sync"|kept) c="$C_DIM" ;;
+    differs|splicing|note) c="$C_CYAN" ;;
+  esac
+  printf '%s%-9s%s %s\n' "$c" "$word" "$C_OFF" "$*"
+}
+
+# Prompt block: blank line, a ruler, the question in bold yellow, so it can't
+# be mistaken for a diff line. $1 = question, $2 = choices hint.
+prompt_line() {
+  printf '\n%s────────────────────────────────────────────────────────────%s\n' "$C_DIM" "$C_OFF" >&2
+  printf '%s%s?%s %s%s%s %s%s%s ' "$C_YELLOW" "$C_BOLD" "$C_OFF" "$C_BOLD" "$1" "$C_OFF" "$C_DIM" "$2" "$C_OFF" >&2
+}
+
 REPLACE=0
 if [ "${1:-}" = "--replace" ]; then
   REPLACE=1
@@ -88,7 +131,7 @@ fi
 # Prompt helper: default No; piped/EOF input also means No.
 ask() {
   local reply=""
-  printf '%s [y/N] ' "$1"
+  prompt_line "$1" "[y/N]"
   read -r reply || reply=n
   [ -t 0 ] || echo >&2   # piped input: end the prompt line ourselves
   case "$reply" in
@@ -102,7 +145,7 @@ ask() {
 # Default (and piped/EOF input) is keep.
 ask3() {
   local reply=""
-  printf '%s [y=overwrite / N=keep / u=keep + write .upstream copy] ' "$1" >&2
+  prompt_line "$1" "[y = overwrite / N = keep / u = keep + write .upstream copy]"
   read -r reply || reply=n
   [ -t 0 ] || echo >&2   # piped input: end the prompt line ourselves
   case "$reply" in
@@ -230,7 +273,7 @@ for f in .claude/README.md .devcontainer/STACKS.md .devcontainer/init-firewall.s
   [ -f "$SRC/$f" ] || continue
   mkdir -p "$TARGET/$(dirname "$f")"
   cp -p "$SRC/$f" "$TARGET/$f"
-  echo "copied    $f"
+  say "copied" "$f"
 done
 
 # --- 2. Dockerfile: splice at the project-layers marker ---------------------
@@ -256,15 +299,15 @@ ask_first() {
     # Diff against what an overwrite would produce: the target's name and
     # flags already in place, so only real upstream changes show.
     local want; want=$(mktemp); devcontainer_upstream_with_target_fields "$want"
-    echo "differs   $f (your \"name\" and CLAUDE_SHORTCUT_FLAGS are kept on overwrite;"
+    say "differs" "$f (your \"name\" and CLAUDE_SHORTCUT_FLAGS are kept on overwrite;"
     echo "          whitespace-only differences are ignored — this diff has real changes)"
-    diff -u "$TARGET/$f" "$want" || true
+    show_diff "$TARGET/$f" "$want"
     rm -f "$want"
   else
-    echo "differs   $f (target may hold per-project edits)"
-    diff -u "$TARGET/$f" "$SRC/$f" || true
+    say "differs" "$f (target may hold per-project edits)"
+    show_diff "$TARGET/$f" "$SRC/$f"
   fi
-  case "$(ask3 "  $f:")" in
+  case "$(ask3 "Overwrite $f with the boilerplate version?")" in
     overwrite)
       [ "$f" = "$DOCKERFILE" ] && warn_if_base_image_changed "$TARGET/$f" "$SRC/$f"
       if [ "$f" = "$DEVCONTAINER" ]; then
@@ -277,20 +320,20 @@ ask_first() {
           local v; v=$([ "$k" = name ] && echo "$keep_name" || echo "$keep_flags")
           if [ -n "$v" ] && [ "$(json_line_value "$TARGET/$f" "$k")" != "$v" ]; then
             set_json_line_value "$TARGET/$f" "$k" "$v"
-            echo "overwrote $f (kept \"$k\": \"$v\")"
+            say "overwrote" "$f (kept \"$k\": \"$v\")"
           fi
         done
-        echo "overwrote $f"
+        say "overwrote" "$f"
       else
         cp -p "$SRC/$f" "$TARGET/$f"
-        echo "overwrote $f"
+        say "overwrote" "$f"
       fi ;;
     upstream)
       cp -p "$SRC/$f" "$TARGET/$f.upstream"
-      echo "kept      $f (target version); boilerplate copy written to $f.upstream"
+      say "kept" "$f (target version); boilerplate copy written to $f.upstream"
       echo "          — merge by hand, then delete the .upstream file" ;;
     *)
-      echo "kept      $f (target version)" ;;
+      say kept "$f (target version)" ;;
   esac
 }
 
@@ -299,26 +342,26 @@ if [ -f "$SRC/$DOCKERFILE" ]; then
   if [ ! -f "$TARGET/$DOCKERFILE" ]; then
     mkdir -p "$TARGET/.devcontainer"
     cp -p "$SRC/$DOCKERFILE" "$TARGET/$DOCKERFILE"
-    echo "copied    $DOCKERFILE (was missing in target)"
+    say "copied" "$DOCKERFILE (was missing in target)"
   elif cmp -s "$SRC/$DOCKERFILE" "$TARGET/$DOCKERFILE"; then
-    echo "in sync   $DOCKERFILE"
+    say "in sync" "$DOCKERFILE"
   elif has_marker "$SRC/$DOCKERFILE" && has_marker "$TARGET/$DOCKERFILE"; then
     spliced=$(mktemp)
     { dockerfile_head "$SRC/$DOCKERFILE"; dockerfile_tail "$TARGET/$DOCKERFILE"; } > "$spliced"
     if cmp -s "$spliced" "$TARGET/$DOCKERFILE"; then
-      echo "in sync   $DOCKERFILE (harness section; project layers untouched)"
+      say "in sync" "$DOCKERFILE (harness section; project layers untouched)"
     else
       echo
-      echo "splicing  $DOCKERFILE — harness section refreshed, project layers below the marker kept:"
-      diff -u "$TARGET/$DOCKERFILE" "$spliced" || true
+      say "splicing" "$DOCKERFILE — harness section refreshed, project layers below the marker kept:"
+      show_diff "$TARGET/$DOCKERFILE" "$spliced"
       warn_if_base_image_changed "$TARGET/$DOCKERFILE" "$spliced"
       cat "$spliced" > "$TARGET/$DOCKERFILE"
-      echo "spliced   $DOCKERFILE (review with git diff; rebuild the container to apply)"
+      say "spliced" "$DOCKERFILE (review with git diff; rebuild the container to apply)"
     fi
     rm -f "$spliced"
   else
     echo
-    echo "note      $DOCKERFILE: target has no '$DOCKERFILE_MARKER' marker line (at column 1),"
+    say "note" "$DOCKERFILE: target has no '$DOCKERFILE_MARKER' marker line (at column 1),"
     echo "          so it can't be spliced. Answer y if it has no project-specific layers; otherwise u,"
     echo "          then move your layers BELOW the marker in the .upstream copy and"
     echo "          rename it over the target — future syncs then splice automatically."
@@ -355,7 +398,7 @@ here contradicts `.claude/CLAUDE.md`, this file wins.
 if [ ! -f "$CUSTOM" ]; then
   mkdir -p "$TARGET/.claude"
   printf '%s' "$CUSTOM_STUB" > "$CUSTOM"
-  echo "created   .claude/CUSTOM.md (stub — /init fills it; never synced)"
+  say "created" ".claude/CUSTOM.md (stub — /init fills it; never synced)"
 fi
 BATON_RE='^- (Harness|STATUS\.md|Commit policy|Testing policy|Commit session links|Review page):'
 if [ -f "$TARGET/.claude/CLAUDE.md" ] && grep -Eq "$BATON_RE" "$TARGET/.claude/CLAUDE.md"; then
@@ -369,7 +412,7 @@ if [ -f "$TARGET/.claude/CLAUDE.md" ] && grep -Eq "$BATON_RE" "$TARGET/.claude/C
       && mv "$CUSTOM.tmp" "$CUSTOM"
   done
   sed -i.bak -E "/$BATON_RE/d" "$TARGET/.claude/CLAUDE.md" && rm -f "$TARGET/.claude/CLAUDE.md.bak"
-  echo "moved     per-project lines from .claude/CLAUDE.md to .claude/CUSTOM.md:"
+  say "moved" "per-project lines from .claude/CLAUDE.md to .claude/CUSTOM.md:"
   printf '%s\n' "$moved" | sed 's/^/            /'
 fi
 
@@ -381,11 +424,11 @@ for f in $ASK_FILES; do
   if [ ! -f "$TARGET/$f" ]; then
     mkdir -p "$TARGET/$(dirname "$f")"
     cp -p "$SRC/$f" "$TARGET/$f"
-    echo "copied    $f (was missing in target)"
+    say "copied" "$f (was missing in target)"
   elif cmp -s "$SRC/$f" "$TARGET/$f"; then
-    echo "in sync   $f"
+    say "in sync" "$f"
   elif [ "$f" = "$DEVCONTAINER" ] && devcontainer_in_sync_modulo_fields; then
-    echo "in sync   $f (name / CLAUDE_SHORTCUT_FLAGS are the target's own)"
+    say "in sync" "$f (name / CLAUDE_SHORTCUT_FLAGS are the target's own)"
   else
     ask_first "$f"
   fi
@@ -402,7 +445,7 @@ if [ -f "$TARGET/.claude/settings.json" ]; then
     grep -q "$(basename "$h")" "$TARGET/.claude/settings.json" || unwired="$unwired $(basename "$h")"
   done
   if [ -n "$unwired" ]; then
-    echo "WARNING   hook file(s) present but not wired in .claude/settings.json:$unwired"
+    say "WARNING" "hook file(s) present but not wired in .claude/settings.json:$unwired"
     echo "          copy their entries from $SRC/.claude/settings.json (\"hooks\") into yours, or they never run."
   fi
 fi
@@ -422,7 +465,7 @@ if [ "$ADOPT" = 1 ]; then
   if [ -f "$TARGET/$DEVCONTAINER" ] && [ "$(json_line_value "$TARGET/$DEVCONTAINER" name)" = "$DEFAULT_CONTAINER_NAME" ]; then
     default_name="${OLD_CONTAINER_NAME:-}"
     [ -n "$default_name" ] && [ "$default_name" != "$DEFAULT_CONTAINER_NAME" ] || default_name="$(basename "$TARGET")"
-    printf 'Dev container name [%s]: ' "$default_name"
+    prompt_line "Dev container name" "[$default_name]"
     read -r new_name || new_name=""
     [ -t 0 ] || echo
     [ -n "$new_name" ] || new_name="$default_name"

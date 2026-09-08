@@ -7,6 +7,13 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- **`sync-harness.sh` output is readable at a glance.** Prompts were a bare
+  `path: [y/N]` line right under a unified diff and got lost in it. Every
+  question now sits after a blank line and a dim ruler, as a bold `?`
+  question with the choices dimmed beside it; diffs colour `+`/`-`/`@@`;
+  status words are weighted (`WARNING` red, `overwrote`/`moved`/`created`
+  yellow, `in sync`/`kept` dim). All of it degrades to plain text when
+  piped, under `NO_COLOR`, or with `TERM=dumb`.
 - **Per-project choices move out of the synced `.claude/CLAUDE.md` into
   `.claude/CUSTOM.md`, which wins on conflict.** Two downstream repos deviate
   from the defaults — `.claude/` gitignored as personal tooling, STATUS.md

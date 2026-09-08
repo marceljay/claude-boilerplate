@@ -2,12 +2,12 @@
 
 These load on every message — keep them lean: rules here, rationale in
 `.claude/README.md`. This file is synced from the boilerplate and holds no
-per-project choices. Those live in the **root `CLAUDE.md`, section
-`## Harness settings`**: the recorded lines (`Harness:`, `STATUS.md:`,
-`Commit policy:`, `Testing policy:`, `Commit session links:`, `Review page:`)
-and any deviation from a rule here. **Where the root file contradicts this
-one, the root file wins** — that is not a conflict to flag, it is the design.
-Read the root CLAUDE.md's Harness settings and STATUS.md at session start.
+per-project choices. Those live in **`.claude/CUSTOM.md`** (imported below,
+never synced): the recorded lines (`Harness:`, `STATUS.md:`, `Commit
+policy:`, `Testing policy:`, `Commit session links:`, `Review page:`) and any
+deviation from a rule here. **Where CUSTOM.md contradicts this file, CUSTOM.md
+wins** — that is not a conflict to flag, it is the design. Read it and
+STATUS.md at session start.
 
 ## Runtime
 
@@ -62,9 +62,9 @@ Read the root CLAUDE.md's Harness settings and STATUS.md at session start.
     written for a reader without this conversation. Then the why. No
     conversational tone, no "as discussed".
   - No session links (`Claude-Session:` or any session URL), even when the
-    harness asks for one, unless Harness settings say `Commit session links:
+    harness asks for one, unless CUSTOM.md says `Commit session links:
     on`. `Co-Authored-By` is fine.
-- If no `Commit policy:` line is recorded in Harness settings, ask at the
+- If no `Commit policy:` line is recorded in CUSTOM.md, ask at the
   first natural commit point — on-request | milestones | periodic — with the
   Preference Persistence options, and record it. Until then, don't commit
   unasked.
@@ -84,7 +84,7 @@ Read the root CLAUDE.md's Harness settings and STATUS.md at session start.
   existing tests. Treat build/lint/compiler warnings as errors: never call one
   "safe to ignore"; if it truly can't be fixed, explain and ask the user to
   confirm.
-- If no `Testing policy:` line is recorded in Harness settings, ask at the
+- If no `Testing policy:` line is recorded in CUSTOM.md, ask at the
   first natural point — on-request | tests-with-features | tdd (the
   `test-driven-development` skill governs) — and record it.
 - Co-locate related files (component, hook, types) over splitting by type.
@@ -107,16 +107,16 @@ Read the root CLAUDE.md's Harness settings and STATUS.md at session start.
 When offering a session-scoped Yes/No, add and recommend a third option:
 `1. Yes  2. Yes, always (session)  3. Yes, always (persist)`. On 3, persist
 to the bind-mounted project, not the container volume: behavioral prefs →
-root `CLAUDE.md` (never this synced file); tool permissions →
+`.claude/CUSTOM.md` (never this synced file); tool permissions →
 `.claude/settings.local.json` (per-dev, gitignored) or `.claude/settings.json`
-if shared. "Shared" only holds while Harness settings say `Harness:
+if shared. "Shared" only holds while CUSTOM.md says `Harness:
 committed`; with `Harness: local` say the setting is host-local instead of
 promising sharing. On the host: `~/.claude/`. Full routing table: `/remember`.
 
 ## Project State
 
 - No TODOs, changelogs, or status in CLAUDE.md. `_planning/STATUS.md`
-  (gitignored by default; Harness settings' `STATUS.md:` line may name another
+  (gitignored by default; CUSTOM.md's `STATUS.md:` line may name another
   path, e.g. a tracked `./STATUS.md`) is the single living state file — **In Progress**,
   **Needs input**, **Blockers** (now) and **Backlog** (the only queue,
   priority-ordered). `CHANGELOG.md` is the past and the public record. Items
@@ -144,3 +144,5 @@ promising sharing. On the host: `~/.claude/`. Full routing table: `/remember`.
 The `PreCompact` hook marks `_planning/STATUS.md` automatically. When you also
 see `CONTEXT_SAVE_TRIGGERED` (or the chat is very long), update STATUS.md, any
 active plan, memory, and CHANGELOG.md, then tell the user it's safe to `/clear`.
+
+@CUSTOM.md

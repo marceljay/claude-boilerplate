@@ -5,8 +5,8 @@
 # scaffold real ones for *your* project:
 #   - README.md   -> renamed to BOILERPLATE.md (keeps dev-container/firewall docs)
 #   - LICENSE     -> removed (add your project's own)
-#   - CLAUDE.md   -> reset to a stub with an empty "## Harness settings" section
-#                    (the boilerplate's own choices must not carry over; /init fills it)
+#   - .claude/CUSTOM.md -> reset to the empty stub (the boilerplate's own
+#                    choices must not carry over; /init fills it)
 #   - CHANGELOG.md, _planning/STATUS.md, _planning/ -> reset to empty templates
 #
 # By default it also deletes .git and re-inits, so your project starts with
@@ -50,18 +50,26 @@ TODAY="$(date +%F)"
 
 [ -f README.md ] && mv README.md BOILERPLATE.md
 [ -f LICENSE ] && rm LICENSE
-cat > CLAUDE.md <<EOF
-# $(basename "$(pwd)")
+cat > .claude/CUSTOM.md <<'EOF'
+# Project customizations
+
+Per-project choices and deviations the synced `.claude/CLAUDE.md` defers to.
+`sync-harness.sh` never touches this file; `/init` fills it in. Where a line
+here contradicts `.claude/CLAUDE.md`, this file wins.
 
 ## Harness settings
 
-<!-- Per-project choices the synced .claude/CLAUDE.md defers to; where a
-     line here contradicts it, this file wins. Filled in by /init. -->
+<!-- - Harness: committed | local
+     - STATUS.md: private | public [path]
+     - Commit policy: on-request | milestones | periodic
+     - Testing policy: on-request | tests-with-features | tdd
+     - Commit session links: off | on
+     - Review page: off | on -->
 
-## Current Status
+## Deviations
 
-See \`_planning/STATUS.md\` for current work and \`CHANGELOG.md\` for completed
-milestones.
+<!-- One line each, e.g. "STATUS.md is tracked at ./STATUS.md so contributors
+     see it" or ".claude/ is gitignored here — personal tooling, not shared". -->
 EOF
 
 # Rename the dev container from the boilerplate default to this project's folder

@@ -13,8 +13,9 @@
 # the harness, or a brand-new directory that is created if it doesn't exist):
 # after one confirmation it copies .claude/ and .devcontainer/
 # — and nothing else. Your .git, code, README, etc. are never touched. It
-# copies no per-project choices: those live in the target's root CLAUDE.md
-# (## Harness settings), which this script never touches. Then reopen the project in its container
+# copies no per-project choices: those live in the target's .claude/CUSTOM.md
+# (## Harness settings), which this script creates as a stub if missing and
+# otherwise never touches. Then reopen the project in its container
 # and run /init to gap-fill (.gitignore security entries, _planning/,
 # container rename, policies).
 #
@@ -33,7 +34,7 @@
 #   - For files that usually carry PER-PROJECT edits — .devcontainer/
 #     allowed-domains.txt (firewall domains), devcontainer.json (container
 #     name, stack features), .claude/CLAUDE.md (pure harness since
-#     2026-09-08 — per-project lines belong in the root CLAUDE.md, and a
+#     2026-09-08 — per-project lines belong in .claude/CUSTOM.md, and a
 #     refresh moves any it finds there; answering y is normally right),
 #     .claude/settings.json (permissions), .npmrc (registry/auth config) —
 #     it shows the full diff and asks: y = overwrite, N = keep (default),
@@ -325,27 +326,50 @@ if [ -f "$SRC/$DOCKERFILE" ]; then
   fi
 fi
 
-# --- 2b. Per-project lines that predate the root-CLAUDE.md split ---------
-# Until 2026-09-08 /init recorded its choices inside .claude/CLAUDE.md, the
-# file this script overwrites. They now belong in the root CLAUDE.md under
-# "## Harness settings", which is never synced. Move them before asking about
-# .claude/CLAUDE.md, so "overwrite" can't lose them.
+# --- 2b. .claude/CUSTOM.md: the per-project file this script never syncs --
+# .claude/CLAUDE.md imports it (@CUSTOM.md), so it must exist; create the
+# stub when missing. Then move any per-project lines that older copies
+# (before 2026-09-08) still hold inside .claude/CLAUDE.md — the file this
+# script overwrites — so "overwrite" can't lose them.
+CUSTOM="$TARGET/.claude/CUSTOM.md"
+CUSTOM_STUB='# Project customizations
+
+Per-project choices and deviations the synced `.claude/CLAUDE.md` defers to.
+`sync-harness.sh` never touches this file; `/init` fills it in. Where a line
+here contradicts `.claude/CLAUDE.md`, this file wins.
+
+## Harness settings
+
+<!-- - Harness: committed | local
+     - STATUS.md: private | public [path]
+     - Commit policy: on-request | milestones | periodic
+     - Testing policy: on-request | tests-with-features | tdd
+     - Commit session links: off | on
+     - Review page: off | on -->
+
+## Deviations
+
+<!-- One line each, e.g. "STATUS.md is tracked at ./STATUS.md so contributors
+     see it" or ".claude/ is gitignored here — personal tooling, not shared". -->
+'
+if [ ! -f "$CUSTOM" ]; then
+  mkdir -p "$TARGET/.claude"
+  printf '%s' "$CUSTOM_STUB" > "$CUSTOM"
+  echo "created   .claude/CUSTOM.md (stub — /init fills it; never synced)"
+fi
 BATON_RE='^- (Harness|STATUS\.md|Commit policy|Testing policy|Commit session links|Review page):'
 if [ -f "$TARGET/.claude/CLAUDE.md" ] && grep -Eq "$BATON_RE" "$TARGET/.claude/CLAUDE.md"; then
-  root_md="$TARGET/CLAUDE.md"
   moved="$(grep -E "$BATON_RE" "$TARGET/.claude/CLAUDE.md" | sed -E 's/ \(this repo\)\.?$//')"
-  if [ ! -f "$root_md" ]; then
-    printf '# %s\n\n## Harness settings\n\n' "$(basename "$TARGET")" > "$root_md"
-  elif ! grep -q '^## Harness settings' "$root_md"; then
-    printf '\n## Harness settings\n\n' >> "$root_md"
-  fi
-  # Append only lines whose key the root file doesn't already have.
+  grep -q '^## Harness settings' "$CUSTOM" || printf '\n## Harness settings\n\n' >> "$CUSTOM"
+  # Insert each line (whose key CUSTOM.md lacks) right after the heading.
   printf '%s\n' "$moved" | while IFS= read -r line; do
     key="${line%%:*}"
-    grep -q "^$key:" "$root_md" || printf '%s\n' "$line" >> "$root_md"
+    grep -q "^$key:" "$CUSTOM" && continue
+    awk -v l="$line" '{print} /^## Harness settings$/ {getline; print; print l}' "$CUSTOM" > "$CUSTOM.tmp" \
+      && mv "$CUSTOM.tmp" "$CUSTOM"
   done
   sed -i.bak -E "/$BATON_RE/d" "$TARGET/.claude/CLAUDE.md" && rm -f "$TARGET/.claude/CLAUDE.md.bak"
-  echo "moved     per-project lines from .claude/CLAUDE.md to CLAUDE.md (## Harness settings):"
+  echo "moved     per-project lines from .claude/CLAUDE.md to .claude/CUSTOM.md:"
   printf '%s\n' "$moved" | sed 's/^/            /'
 fi
 

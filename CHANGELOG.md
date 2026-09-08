@@ -7,19 +7,19 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
-- **Per-project choices move out of the synced `.claude/CLAUDE.md` into the
-  root `CLAUDE.md` (`## Harness settings`), which wins on conflict.** Two
-  downstream repos deviate from the defaults — `.claude/` gitignored as
-  personal tooling, STATUS.md tracked at the root for contributors — and
-  Claude reported the deviation as a contradiction, because the recorded
-  lines lived inside the very file `sync-harness.sh` overwrites and that
-  file described the defaults as rules. Now `.claude/CLAUDE.md` is pure
-  harness and says so, opening with "the root file wins"; `/init` records
-  every choice line in the root file's Harness settings section (the
-  `STATUS.md:` line may carry a path); `/remember` routes behavioural
-  preferences there; a refresh sync moves any lines older copies still had
-  in `.claude/CLAUDE.md` before offering to overwrite it. This repo gains
-  its own root `CLAUDE.md`.
+- **Per-project choices move out of the synced `.claude/CLAUDE.md` into
+  `.claude/CUSTOM.md`, which wins on conflict.** Two downstream repos deviate
+  from the defaults — `.claude/` gitignored as personal tooling, STATUS.md
+  tracked at the root for contributors — and Claude reported the deviation
+  as a contradiction, because the recorded lines lived inside the very file
+  `sync-harness.sh` overwrites and that file described the defaults as
+  rules. Now `.claude/CLAUDE.md` is pure harness, opens with "CUSTOM.md
+  wins", and imports it with `@CUSTOM.md`; CUSTOM.md has `## Harness
+  settings` (the six recorded lines; `STATUS.md:` may carry a path) and
+  `## Deviations`. `/init` fills it, `/remember` routes behavioural
+  preferences there, a sync creates the stub when missing and moves any
+  lines older copies still had in `.claude/CLAUDE.md` before offering to
+  overwrite it, and `new-project.sh` resets it on detach.
 
 ### Added
 

@@ -41,7 +41,8 @@ sandbox. See [Dev Container](#dev-container) below.
 
 ```
 .claude/
-├── CLAUDE.md          # Always-on project instructions (kept deliberately short)
+├── CLAUDE.md          # Always-on harness instructions (synced; kept deliberately short)
+├── CUSTOM.md          # Your per-project choices + deviations (never synced; wins on conflict)
 ├── README.md          # ★ Guide to the harness — read this first
 ├── settings.json      # Permissions (allow/deny), hooks (PreToolUse, SessionStart, PreCompact, SubagentStop), status line
 ├── commands/          # Slash commands: /init /cleanup /plans /pr /review /socratic …
@@ -282,10 +283,9 @@ the network, the firewall allowlist is the first place to look.
 
 ## Conventions
 
-- **Two CLAUDE.md files:** `.claude/CLAUDE.md` is the synced harness, the root
-  `CLAUDE.md` is yours — its `## Harness settings` section records the
-  per-project choices and any deviation from a harness rule, and wins on
-  conflict. **`_planning/STATUS.md`** is the
+- **`.claude/CLAUDE.md` is the synced harness; `.claude/CUSTOM.md` is yours** —
+  it records the per-project choices and any deviation from a harness rule,
+  is imported by CLAUDE.md, never synced, and wins on conflict. **`_planning/STATUS.md`** is the
   single living state file — In Progress + Needs input + Blockers (now) and a
   Backlog section (future, the only queue); **`CHANGELOG.md`** is the past. Items move between
   them, never copied. The backlog lives inside STATUS.md on purpose: it keeps the

@@ -88,21 +88,24 @@ Scaffold the standard file structure for a new project.
    existing `.gitignore` almost certainly has them already; don't append
    guesses. If an obvious gap exists, mention it instead of editing.)
 
-   **Where per-project choices go:** every recorded line below goes in the
-   **root `CLAUDE.md`**, section `## Harness settings` (create the section if
-   missing — the starter in step 4 has it). Never into `.claude/CLAUDE.md`:
-   that file is synced from the boilerplate and overwritten on refresh. If an
-   older copy still has lines there, move them now.
+   **Where per-project choices go:** every recorded line below goes in
+   **`.claude/CUSTOM.md`**, under `## Harness settings`. If the file is
+   missing, create it from the stub in `scripts/sync-harness.sh`
+   (`CUSTOM_STUB`) — `.claude/CLAUDE.md` imports it with `@CUSTOM.md`, so it
+   must exist. Never record lines in `.claude/CLAUDE.md`: that file is synced
+   from the boilerplate and overwritten on refresh. If an older copy still
+   has lines there, move them now. Deviations from a harness rule go under
+   CUSTOM.md's `## Deviations`, one line each.
 
-   **Ask about the Claude/dev-tooling dirs** (skip if the root CLAUDE.md
+   **Ask about the Claude/dev-tooling dirs** (skip if CUSTOM.md
    already has a `- Harness:` line). The `.claude/` harness (your
    CLAUDE.md, commands, agents, hooks, permissions) and `.devcontainer/` config
    are tracked by default — committing them shares the setup with collaborators,
    but on a **public** repo it also exposes your instructions, workflow, and
    permission rules to anyone. Ask the user which they want **before the first
    commit** (this is the moment to decide, since `/init` runs on a fresh git
-   history), then **record the answer** in the root CLAUDE.md's Harness
-   settings as `- Harness: committed` or `- Harness: local` — it's the baton
+   history), then **record the answer** in CUSTOM.md's Harness settings as
+   `- Harness: committed` or `- Harness: local` — it's the baton
    later sessions and
    `/remember` read to know whether "shared" means anything here:
    - **Commit them (default, recommended for teams/private repos)** — leave them
@@ -123,7 +126,7 @@ Scaffold the standard file structure for a new project.
      history, also run `git rm -r --cached .claude .devcontainer` so the ignore
      takes effect.
 
-   **Ask about STATUS.md visibility** (skip if the root CLAUDE.md already has
+   **Ask about STATUS.md visibility** (skip if CUSTOM.md already has
    a `- STATUS.md:` line). `_planning/STATUS.md` holds the living
    status **and** the backlog — i.e. what you're working on and what's planned. The
    base `.gitignore` above keeps it **private by default**, which is usually what you
@@ -233,18 +236,14 @@ Scaffold the standard file structure for a new project.
 
    <!-- Add project structure and key patterns here -->
 
-   ## Harness settings
-
-   <!-- Per-project choices the synced .claude/CLAUDE.md defers to; where a
-        line here contradicts it, this file wins. Filled in by /init. -->
-
    ## Current Status
 
    See `_planning/STATUS.md` for current work and `CHANGELOG.md` for completed milestones.
    ```
 
-   If CLAUDE.md already exists, ensure it has the `## Harness settings`
-   section and the STATUS.md/CHANGELOG.md reference line; leave the rest.
+   If CLAUDE.md already exists, just ensure it has the STATUS.md/CHANGELOG.md
+   reference line. (Per-project harness choices do not go here — see step 2's
+   note on `.claude/CUSTOM.md`.)
 
    Then ask the user which commit policy they want — on request only /
    automatically at milestones / periodically — and record it in Harness
@@ -258,16 +257,16 @@ Scaffold the standard file structure for a new project.
    - **tdd** — failing test first; activates the `test-driven-development`
      skill (fits projects with critical core logic)
 
-   Ask whether commit messages may carry a Claude session link (skip if the
-   root CLAUDE.md already has a `- Commit session links:` line). Claude
+   Ask whether commit messages may carry a Claude session link (skip if
+   CUSTOM.md already has a `- Commit session links:` line). Claude
    Code appends a `Claude-Session: https://claude.ai/code/session_…` trailer
    when the harness requests it; the link is tied to one account, goes stale,
    and is noise in `git log` for everyone else, so the default is **off**.
    Record the answer as `- Commit session links: off` or
    `- Commit session links: on` in Harness settings.
 
-   Ask whether Claude should keep a **review page** up to date (skip if the
-   root CLAUDE.md already has a `- Review page:` line). Items waiting on the
+   Ask whether Claude should keep a **review page** up to date (skip if
+   CUSTOM.md already has a `- Review page:` line). Items waiting on the
    user's decision live in STATUS.md's Needs input section (overflowing to
    `_planning/REVIEW.md`); `/review` renders them as a click-through page with
    Approve / Needs change / Reject per item. With `on`, the `update-status`

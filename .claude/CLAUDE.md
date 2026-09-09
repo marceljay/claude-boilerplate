@@ -74,9 +74,10 @@ STATUS.md at session start.
 - Anything touching a version number (bump, tag, release heading, dependency
   upgrade) goes through the `release` skill: fetch first, released sections
   are frozen, tag on the release branch only.
-- Feature-branch work ends with `/pr`. Without `gh` (or a GitHub remote) it
-  writes the PR description to gitignored `.temp/pr-<branch>.md` for you to
-  paste — it never falls back to dumping the description into chat.
+- Feature-branch work ends with `/pr`. Every PR description lists the
+  branch's commits, one line each with short sha and verbatim title. Without
+  `gh` (or a GitHub remote) it writes the description to gitignored
+  `.temp/pr-<branch>.md` for you to paste — never into chat.
 
 ## Code Quality
 

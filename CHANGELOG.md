@@ -7,6 +7,11 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- **PR descriptions list the branch's commits.** The `/pr` template has a
+  mandatory Commits section: one line per commit, oldest first, short sha
+  and the commit title verbatim from `git log`. Applies to both the `gh`
+  path and the `.temp/` file fallback; CLAUDE.md carries the one-line rule
+  so it holds when a PR is asked for in prose.
 - **`sync-harness.sh` output is readable at a glance.** Prompts were a bare
   `path: [y/N]` line right under a unified diff and got lost in it. Every
   question now sits after a blank line and a dim ruler, as a bold `?`

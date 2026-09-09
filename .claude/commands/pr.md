@@ -27,6 +27,12 @@ Create a pull request with a standardized format.
 
 <bulleted list of specific changes, grouped by area>
 
+## Commits
+
+<one bullet per commit on the branch, oldest first, in the form
+`<short sha> <commit title>` — taken verbatim from
+`git log base..HEAD --reverse --format='- %h %s'`, never paraphrased>
+
 ## Test Plan
 
 <how to verify these changes work>
@@ -39,6 +45,9 @@ Create a pull request with a standardized format.
    ```
 
    Return the PR URL to the user.
+
+   The Commits section is mandatory in both paths: it is what lets a
+   reviewer map the description to the history without opening the branch.
 
 3b. **No `gh`, not authenticated, or not a GitHub remote:** write the
    description to `.temp/pr-<branch>.md` (gitignored; `<branch>` with `/`

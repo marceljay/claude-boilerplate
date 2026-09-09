@@ -10,6 +10,10 @@ Create a pull request with a standardized format.
      any of those fails, use the file fallback in step 3b — don't try to
      install `gh` or guess at another host's CLI.
    - Current branch name and base branch
+   - With `Changelog: fragments` (the default): does `changelog.d/` hold a
+     fragment from this branch (`git diff base...HEAD --name-only -- changelog.d`)?
+     If the branch changed anything user-visible and there is none, add it
+     first (the `log` skill) — never edit `CHANGELOG.md` on the branch.
    - All commits since diverging from base (`git log base..HEAD --oneline`)
    - Full diff summary (`git diff base...HEAD --stat`)
    - Check if branch is pushed to remote; push with `-u` if not

@@ -183,12 +183,20 @@ Scaffold the standard file structure for a new project.
    ## Low Priority / Ideas
    ```
 
+   **`changelog.d/`** — create the directory with a `README.md` copied from
+   the boilerplate's (`changelog.d/README.md`). Branches write one fragment
+   file each here; `CHANGELOG.md` is only edited on the release branch by
+   `changelog_fold.py`. Record `- Changelog: fragments` in CUSTOM.md's
+   Harness settings (skip if the line exists). Offer `inline` only for a
+   project that will never have two branches or agents at once.
+
    **`CHANGELOG.md`**:
 
    ```markdown
    # Changelog
 
    All notable changes to this project are documented here.
+   Entries arrive via `changelog.d/` fragments, folded in on the release branch.
 
    ## [Unreleased]
 

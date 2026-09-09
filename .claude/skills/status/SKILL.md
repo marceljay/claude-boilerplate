@@ -23,7 +23,8 @@ Read the current project state and summarize it concisely.
      `_planning/REVIEW.md`); offer `/review` if there are several
    - **Blockers** — anything stuck on external events; name what unblocks it
    - **Up Next** — the top of the `# Backlog` section, in priority order
-   - **Recently Completed** — from `CHANGELOG.md` `[Unreleased]` / recent git log
+   - **Recently Completed** — from `changelog.d/*.md` (pending fragments) and
+     `CHANGELOG.md` `[Unreleased]` / recent git log
 
 Keep it short and actionable. Don't read CLAUDE.md for status — that's not where it
 lives. "Up Next" comes from STATUS.md's own Backlog section; "Recently Completed"

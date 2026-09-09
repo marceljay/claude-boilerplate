@@ -46,15 +46,19 @@ new version, and you say so.
 
 In one commit, in this order:
 
-1. Confirm §1. If `[Unreleased]` is empty, there is nothing to cut — stop.
+1. Confirm §1. Run `python3 .claude/scripts/changelog_fold.py --check`: if
+   it lists no fragments and `[Unreleased]` is empty, there is nothing to cut
+   — stop.
 2. Pick the number (§4).
 3. Bump the version where the stack keeps it, and every copy of it:
    `package.json` **and both** `version` fields in `package-lock.json` (root
    and `packages[""]`); `Cargo.toml` and `Cargo.lock`; `pyproject.toml`;
    `go.mod` has none — Go versions live in the tag only. Verify by reading the
    files back, not by trusting the edit.
-4. Rename `[Unreleased]` to `[<version>] - YYYY-MM-DD` and open a fresh empty
-   `[Unreleased]` above it.
+4. `python3 .claude/scripts/changelog_fold.py --version <version>`: folds
+   pending `changelog.d/` fragments plus whatever is under `[Unreleased]` into
+   `## [<version>] - YYYY-MM-DD` and leaves a fresh empty `[Unreleased]`
+   above it. Read the result; it is the release notes.
 5. Run lint, build, and the full test suite. All three; report the numbers.
 6. Commit as `chore(release): <version>` (body per CLAUDE.md commit rules).
 

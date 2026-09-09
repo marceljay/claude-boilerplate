@@ -428,6 +428,14 @@ never copied.
   not pushed to a (possibly public) remote. `/init` asks per-project whether to
   make it public (commit it) instead.
 - **`CHANGELOG.md`** — _past_: the only completion record, and the public one.
+  **Branches never edit it.** Each change lands as one file in
+  `changelog.d/<slug>.<added|changed|fixed|removed>.md` (the `log` skill
+  writes it), and `.claude/scripts/changelog_fold.py` folds fragments into
+  `[Unreleased]` — or straight into a version section at a `release` cut —
+  on the release branch only. Reason: several agents on separate branches or
+  worktrees all inserting at the top of `[Unreleased]` is a merge conflict at
+  the same spot every time; distinct files can't conflict. `Changelog:
+  inline` in CUSTOM.md opts a single-branch project back into direct edits.
 - **`_planning/`** — also holds saved plans (`plans/`), design specs (`specs/`),
   and a cold memory snapshot (`memory-backup/`, written by `/backup-memory` as a
   failsafe against Docker volume loss; read only on demand). **A plan is not a

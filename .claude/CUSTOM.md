@@ -12,6 +12,7 @@ here contradicts `.claude/CLAUDE.md`, this file wins.
 - Testing policy: on-request
 - Commit session links: off
 - Review page: off
+- Changelog: fragments
 
 ## Deviations
 

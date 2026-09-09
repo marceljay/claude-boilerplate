@@ -388,7 +388,8 @@ here contradicts `.claude/CLAUDE.md`, this file wins.
      - Commit policy: on-request | milestones | periodic
      - Testing policy: on-request | tests-with-features | tdd
      - Commit session links: off | on
-     - Review page: off | on -->
+     - Review page: off | on
+     - Changelog: fragments | inline -->
 
 ## Deviations
 
@@ -400,7 +401,7 @@ if [ ! -f "$CUSTOM" ]; then
   printf '%s' "$CUSTOM_STUB" > "$CUSTOM"
   say "created" ".claude/CUSTOM.md (stub — /init fills it; never synced)"
 fi
-BATON_RE='^- (Harness|STATUS\.md|Commit policy|Testing policy|Commit session links|Review page):'
+BATON_RE='^- (Harness|STATUS\.md|Commit policy|Testing policy|Commit session links|Review page|Changelog):'
 if [ -f "$TARGET/.claude/CLAUDE.md" ] && grep -Eq "$BATON_RE" "$TARGET/.claude/CLAUDE.md"; then
   moved="$(grep -E "$BATON_RE" "$TARGET/.claude/CLAUDE.md" | sed -E 's/ \(this repo\)\.?$//')"
   grep -q '^## Harness settings' "$CUSTOM" || printf '\n## Harness settings\n\n' >> "$CUSTOM"
@@ -455,7 +456,7 @@ if [ "$ADOPT" = 1 ]; then
   # The copied CLAUDE.md records THIS repo's per-project choices — strip them
   # so /init asks the adopting project fresh.
   sed -i.bak -e '/^- Commit policy:/d' -e '/^- Testing policy:/d' \
-    -e '/^- Commit session links:/d' -e '/^- Review page:/d' \
+    -e '/^- Commit session links:/d' -e '/^- Review page:/d' -e '/^- Changelog:/d' \
     -e '/^- Harness:/d' -e '/^- STATUS\.md:/d' \
     "$TARGET/.claude/CLAUDE.md" && rm -f "$TARGET/.claude/CLAUDE.md.bak"
 

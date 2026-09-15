@@ -215,7 +215,8 @@ projects that have a dev server: a `Dev port:` recorded in `CUSTOM.md`, a
 `Makefile` `dev`/`run`/`serve` target, or a Vite/Next/Astro/Nuxt/SvelteKit
 config. It probes the recorded port first, then the usual dev ports (3000,
 5173, 8000, 5000, 4321, 8080), and prints `dev server up :<port>` or `dev
-server down`. It runs locally, needs `jq` (git and `ss` degrade to an omitted
+server down`. Inside the dev container the port is suffixed `(container)`,
+because the host-side forwarded port can differ and isn't readable here (§7). It runs locally, needs `jq` (git and `ss` degrade to an omitted
 segment), and never enters the model context. Reset times print in `$TZ`; set
 it in your gitignored `settings.local.json` (`"env": { "TZ": "Area/City" }`)
 or they show as UTC.
@@ -514,9 +515,15 @@ prune` / a Docker Desktop reset / a `devcontainerId` change wipes it. Memory
   `forwardPorts` pinned, so the editor **auto-forwards each container port to a
   free host port** — the host port may differ from the container port, and that
   dynamic assignment is exactly what lets several of these containers run in
-  parallel without colliding. Don't hardcode a host port, and don't try to open
-  a browser from inside the container — surface the URL and let the user open it
-  from the editor's **Ports** panel. (`/dev` follows this.)
+  parallel without colliding. The host port is **not readable from inside the
+  container** (no docker socket, and VS Code doesn't expose its forward table),
+  so Claude must never announce one — "it's up on 3000" was wrong whenever the
+  host had 3000 taken. The bridge is `$BROWSER`: VS Code sets it to its
+  `code --openExternal` helper, and `"$BROWSER" http://localhost:3000` from
+  inside the container resolves the forward and opens the real host URL in the
+  host browser. `/dev` does exactly that and reports the container port plus
+  "opened via VS Code"; the Ports panel shows the host side. `open`/`xdg-open`
+  still don't work here.
 - **Never add `appPort` or a `-p` runArg to `devcontainer.json`.** It fights
   the dynamic forwarding above, and Docker treats `"3000:3000"` and
   `"0.0.0.0:3000:3000"` as *distinct* mappings — list both (easy to do across

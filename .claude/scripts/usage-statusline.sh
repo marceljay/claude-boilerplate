@@ -20,7 +20,9 @@
 #   Django manage.py, a Makefile dev/run/serve target, or a Vite/Next/Astro/
 #   Nuxt/SvelteKit config). Checks the recorded port first, then the usual
 #   dev ports (3000 5173 8000 5000 4321 8080). Prints `dev server up :<port>`
-#   or `dev server down`; omitted for projects without a dev server.
+#   (suffixed `(container)` inside the dev container, where the host-side
+#   forwarded port can differ) or `dev server down`; omitted for projects
+#   without a dev server.
 #
 # Runs locally on every response and does NOT consume API tokens — status
 # lines never enter the model context. Needs `jq`; git and the port probe
@@ -110,9 +112,13 @@ if $has_dev_server; then
   listening=$(printf '%s\n' "$listening" | sed -E 's/.*[:.]([0-9]+)$/\1/' | sort -un)
 
   candidates=(${recorded:+"$recorded"} 3000 5173 8000 5000 4321 8080)
+  # Inside the dev container the host-side forwarded port can differ and is
+  # not readable here, so label the port as the container's.
+  where=''
+  [ -n "${REMOTE_CONTAINERS:-}${DEVCONTAINER:-}" ] && where=' (container)'
   dev='dev server down'
   for p in "${candidates[@]}"; do
-    if printf '%s\n' "$listening" | grep -qx "$p"; then dev="dev server up :$p"; break; fi
+    if printf '%s\n' "$listening" | grep -qx "$p"; then dev="dev server up :$p$where"; break; fi
   done
   segments+=("$dev")
 fi

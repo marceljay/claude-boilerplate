@@ -14,8 +14,10 @@ STATUS.md at session start.
 - You usually run inside the project's dev container (`/.dockerenv`,
   `$REMOTE_CONTAINERS`/`$DEVCONTAINER`): `/workspace` is bind-mounted,
   `~/.claude` is a Docker volume, there is **no host browser**. Servers bind
-  `0.0.0.0`; the forwarded host port may differ from the container port —
-  print the URL, never `open`/`xdg-open`. Details: `.claude/README.md` §7.
+  `0.0.0.0`; the forwarded host port may differ from the container port and
+  is not readable from inside — never announce a host port. Open URLs with
+  `"$BROWSER" http://localhost:<container port>` (VS Code resolves the
+  forward), never `open`/`xdg-open`. Details: `.claude/README.md` §7.
 - Parallel agents that edit concurrently use git worktrees (`isolation:
   "worktree"`, `EnterWorktree`, or `claude --worktree <name>`), always under
   `.claude/worktrees/` — never a `../sibling` dir. Details: §4.

@@ -64,22 +64,29 @@ recorded default port (see step 1a), falling back to stack detection.
      `uvicorn --host 0.0.0.0`, `manage.py runserver 0.0.0.0:8000`,
      `flask run --host 0.0.0.0`. Don't pin a host port or assume one is free —
      the editor auto-forwards the container port to whatever host port is open
-     (which may differ), so parallel containers don't collide.
+     (which may differ), so parallel containers don't collide. **You cannot
+     read that host port from inside the container**, so never state one.
    - **On the host:** open a new terminal window/tab running the dev command so
      it stays up independently (PowerShell: `Start-Process powershell
 -ArgumentList '-NoExit','-Command','cd \"PROJECT_PATH\"; DEV_COMMAND'`).
 
-4. Wait ~3 seconds, then surface the URL — **do not open a browser yourself**:
-   - **In the container:** there is no host browser, and the host port may not
-     match the container port. Tell the user the container port (e.g. `3000`)
-     and that the editor auto-forwards it — they open it from VS Code's **Ports**
-     panel (or the toast). Don't run `open`/`xdg-open`.
+4. Wait ~3 seconds, confirm the port is listening (`ss -tln | grep :<port>`),
+   then surface the URL:
+   - **In the container:** the host port is *not* knowable from inside — the
+     editor may have forwarded container port `3000` to host port `3001` — so
+     never tell the user "it's on 3000". Hand the URL to the editor instead:
+     `"$BROWSER" http://localhost:<container port>`. VS Code sets `$BROWSER`
+     to its `code --openExternal` helper, which resolves the forward (creating
+     it if needed) and opens the *real* host URL in the host browser. Report
+     it as "container port 3000, opened via VS Code; the host port is in the
+     Ports panel". If `$BROWSER` is unset, say the container port and point to
+     the Ports panel. Don't run `open`/`xdg-open` — there is no browser here.
    - **On the host:** you may open it — `open` (macOS) / `xdg-open` (Linux) /
      `Start-Process` (Windows) on `http://localhost:PORT`.
 
 5. Confirm to the user: server is running in the background / a new terminal,
-   how to reach it (forwarded port or `http://localhost:PORT`), and that this
-   chat stays available.
+   how to reach it (container port + "opened via VS Code" in the container,
+   `http://localhost:PORT` on the host), and that this chat stays available.
 
 Keep the chat unblocked. Never run the dev server in the foreground of this session.
 

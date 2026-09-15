@@ -33,7 +33,7 @@ recorded default port (see step 1a), falling back to stack detection.
       up (step 4) on an explicitly requested port that isn't the recorded
       default yet, persist it: add or update the one-liner `Dev port: <port>`
       in `.claude/CUSTOM.md` (same pattern as `Commit policy:`; the status
-      line reads it to report `dev up :<port>`), and tell
+      line reads it to report `dev server up :<port>`), and tell
       the user it's now the default for future `/dev` runs. Never record
       ports that came from detection or from the recorded default itself.
 

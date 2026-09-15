@@ -2,7 +2,7 @@
 # Claude Code status line: rate-limit usage, context fill, git position, dev server.
 #
 # Reads the status-line JSON on stdin and prints:
-#   5h 12% · resets 17:46 │ 7d 41% · resets Wed 12:26 │ ctx 37% │ main@e416bcc │ dev up :3000
+#   5h 12% · resets 17:46 │ 7d 41% · resets Wed 12:26 │ ctx 37% │ main@e416bcc │ dev server up :3000
 #
 # - 5h / 7d: account rate-limit windows with their reset times in local time
 #   ($TZ). Only present for Claude.ai Pro/Max sessions, and only after the
@@ -13,10 +13,12 @@
 #   worktree (`git worktree add`, `claude --worktree`) the worktree's directory
 #   name follows: `feat-x@3f2a1c0 wt:feat-x`. Detached HEAD shows `@sha` only.
 #   Omitted outside a git repository.
-# - dev: whether a dev server is listening. Checks the port recorded as
-#   `Dev port: <port>` in .claude/CUSTOM.md (or CLAUDE.md) first, then the
-#   usual dev ports (3000 5173 8000 5000 4321 8080). Prints `dev up :<port>`
-#   or `dev down`.
+# - dev server: whether one is listening, shown only for projects that have
+#   one (a recorded `Dev port:`, a package.json dev/start/serve script, a
+#   Django manage.py, a Makefile dev/run/serve target, or a Vite/Next/Astro/
+#   Nuxt/SvelteKit config). Checks the recorded port first, then the usual
+#   dev ports (3000 5173 8000 5000 4321 8080). Prints `dev server up :<port>`
+#   or `dev server down`; omitted for projects without a dev server.
 #
 # Runs locally on every response and does NOT consume API tokens — status
 # lines never enter the model context. Needs `jq`; git and the port probe
@@ -68,25 +70,43 @@ if sha=$(git -C "$dir" rev-parse --short HEAD 2>/dev/null); then
   segments+=("$seg")
 fi
 
-# --- dev server: recorded port first, then common dev ports ------------------
-listening=$(ss -tlnH 2>/dev/null | awk '{print $4}' \
-  || netstat -an 2>/dev/null | awk '/LISTEN/{print $4}' \
-  || lsof -nP -iTCP -sTCP:LISTEN 2>/dev/null | awk 'NR>1{print $9}')
-listening=$(printf '%s\n' "$listening" | sed -E 's/.*[:.]([0-9]+)$/\1/' | sort -un)
-
-candidates=()
+# --- dev server: only for projects that have one --------------------------
+# The segment appears when a `Dev port:` is recorded in .claude/CUSTOM.md (or
+# CLAUDE.md), or the project shows a dev-server signal: a package.json with a
+# dev/start/serve script, a Django manage.py, a Makefile dev/run/serve target,
+# or a Vite/Next/Astro/Nuxt/SvelteKit config. Libraries, CLIs, and plain
+# repos get no segment at all.
+recorded=''
 for f in "$dir/.claude/CUSTOM.md" "$dir/CLAUDE.md" "$dir/.claude/CLAUDE.md"; do
   [ -f "$f" ] || continue
-  p=$(grep -oE '^[-* ]*Dev port:[[:space:]]*[0-9]+' "$f" 2>/dev/null | grep -oE '[0-9]+$' | head -1)
-  [ -n "$p" ] && { candidates+=("$p"); break; }
+  recorded=$(grep -oE '^[-* ]*Dev port:[[:space:]]*[0-9]+' "$f" 2>/dev/null | grep -oE '[0-9]+$' | head -1)
+  [ -n "$recorded" ] && break
 done
-candidates+=(3000 5173 8000 5000 4321 8080)
 
-dev='dev down'
-for p in "${candidates[@]}"; do
-  if printf '%s\n' "$listening" | grep -qx "$p"; then dev="dev up :$p"; break; fi
+has_dev_server=false
+[ -n "$recorded" ] && has_dev_server=true
+[ -f "$dir/package.json" ] \
+  && jq -e '.scripts | has("dev") or has("start") or has("serve")' "$dir/package.json" >/dev/null 2>&1 \
+  && has_dev_server=true
+[ -f "$dir/manage.py" ] && has_dev_server=true
+[ -f "$dir/Makefile" ] && grep -qE '^(dev|run|serve):' "$dir/Makefile" 2>/dev/null && has_dev_server=true
+for c in vite.config next.config astro.config nuxt.config svelte.config; do
+  compgen -G "$dir/$c.*" >/dev/null 2>&1 && { has_dev_server=true; break; }
 done
-segments+=("$dev")
+
+if $has_dev_server; then
+  listening=$(ss -tlnH 2>/dev/null | awk '{print $4}' \
+    || netstat -an 2>/dev/null | awk '/LISTEN/{print $4}' \
+    || lsof -nP -iTCP -sTCP:LISTEN 2>/dev/null | awk 'NR>1{print $9}')
+  listening=$(printf '%s\n' "$listening" | sed -E 's/.*[:.]([0-9]+)$/\1/' | sort -un)
+
+  candidates=(${recorded:+"$recorded"} 3000 5173 8000 5000 4321 8080)
+  dev='dev server down'
+  for p in "${candidates[@]}"; do
+    if printf '%s\n' "$listening" | grep -qx "$p"; then dev="dev server up :$p"; break; fi
+  done
+  segments+=("$dev")
+fi
 
 # --- print ------------------------------------------------------------------
 out=''

@@ -193,7 +193,7 @@ A practical example you might add — auto-format every file Claude edits:
 line:
 
 ```
-5h 12% · resets 17:46 │ 7d 41% · resets Wed 12:26 │ ctx 37% │ main@e416bcc │ dev up :3000
+5h 12% · resets 17:46 │ 7d 41% · resets Wed 12:26 │ ctx 37% │ main@e416bcc │ dev server up :3000
 ```
 
 The two rate-limit windows come from Claude.ai Pro/Max sessions (absent until
@@ -201,10 +201,13 @@ the first response). `ctx` is how full the current context window is — the
 number that says when to `/clear` or `/compact`. The git segment is
 branch@short-sha of the checked-out commit; inside a linked worktree it adds the
 worktree's directory name (`feat-x@3f2a1c0 wt:feat-x`), and a detached HEAD
-shows `@sha` only. `dev` reports whether a dev server is listening: it probes
-the `Dev port:` recorded in `CUSTOM.md` first, then the usual dev ports
-(3000, 5173, 8000, 5000, 4321, 8080), and prints `dev up :<port>` or
-`dev down`. It runs locally, needs `jq` (git and `ss` degrade to an omitted
+shows `@sha` only. `dev server` reports whether one is listening, and appears only for
+projects that have a dev server: a `Dev port:` recorded in `CUSTOM.md`, a
+`package.json` with a `dev`/`start`/`serve` script, a Django `manage.py`, a
+`Makefile` `dev`/`run`/`serve` target, or a Vite/Next/Astro/Nuxt/SvelteKit
+config. It probes the recorded port first, then the usual dev ports (3000,
+5173, 8000, 5000, 4321, 8080), and prints `dev server up :<port>` or `dev
+server down`. It runs locally, needs `jq` (git and `ss` degrade to an omitted
 segment), and never enters the model context. Reset times print in `$TZ`; set
 it in your gitignored `settings.local.json` (`"env": { "TZ": "Area/City" }`)
 or they show as UTC.

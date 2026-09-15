@@ -157,7 +157,13 @@ in context for the rest of the session, and unbounded `cat` of a 65 KB
 STATUS.md or whole component files "for 20 lines" was the single largest
 avoidable cost measured in a downstream project — this makes CLAUDE.md's
 "read bounded" rule a guarantee rather than advice. `BOUNDED_READS=off`
-disables it; `BOUNDED_READS_MAX_LINES` / `_MAX_BYTES` tune it.
+disables it; `BOUNDED_READS_MAX_LINES` / `_MAX_BYTES` tune it. The fourth
+(`commit_msg_check.py`) enforces the 50/72 commit-message rule: it reads the
+message from `-m` arguments or a heredoc fed to `-F -` and rejects a title
+over 50 characters, a body that isn't separated by a blank line, or a body
+line over 72 (lines carrying a URL are exempt). Messages git would open in an
+editor or read from a file on disk aren't judged. Like the others it fails
+open on its own bugs, logging to `.claude/logs/hook_errors.log`.
 
 It also uses `SubagentStop` to log every subagent run — task, model,
 token usage, result summary — to `.claude/logs/subagents.jsonl`
@@ -199,7 +205,9 @@ line:
 The two rate-limit windows come from Claude.ai Pro/Max sessions (absent until
 the first response). `ctx` is how full the current context window is — the
 number that says when to `/clear` or `/compact`. The git segment is
-branch@short-sha of the checked-out commit; inside a linked worktree it adds the
+branch@short-sha of the checked-out commit, then commits ahead/behind the
+upstream as of the last fetch (`↑2 ↓1`, only when non-zero, nothing without an
+upstream — the line never fetches); inside a linked worktree it adds the
 worktree's directory name (`feat-x@3f2a1c0 wt:feat-x`), and a detached HEAD
 shows `@sha` only. `dev server` reports whether one is listening, and appears only for
 projects that have a dev server: a `Dev port:` recorded in `CUSTOM.md`, a

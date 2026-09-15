@@ -9,7 +9,9 @@
 #   first API response; before that those two segments are omitted.
 # - ctx: how full the current context window is — the number that says when
 #   to /clear or /compact.
-# - git: current branch and short sha of the checked-out commit. In a linked
+# - git: current branch and short sha of the checked-out commit, then commits
+#   ahead/behind the upstream as of the last fetch (`↑2 ↓1`, only when
+#   non-zero; nothing without an upstream). In a linked
 #   worktree (`git worktree add`, `claude --worktree`) the worktree's directory
 #   name follows: `feat-x@3f2a1c0 wt:feat-x`. Detached HEAD shows `@sha` only.
 #   Omitted outside a git repository.
@@ -63,6 +65,13 @@ if sha=$(git -C "$dir" rev-parse --short HEAD 2>/dev/null); then
   top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)
   [ "$branch" = "HEAD" ] && branch=''          # detached HEAD
   seg="${branch}@${sha}"
+  # Ahead/behind the upstream as of the last fetch (no network here). Shown
+  # only when non-zero; nothing when the branch has no upstream.
+  if ab=$(git -C "$dir" rev-list --left-right --count HEAD...@{upstream} 2>/dev/null); then
+    read -r ahead behind <<<"$ab"
+    [ "$ahead"  -gt 0 ] && seg+=" ↑$ahead"
+    [ "$behind" -gt 0 ] && seg+=" ↓$behind"
+  fi
   # A linked worktree has its own .git dir under <main>/.git/worktrees/<name>.
   if [ "$git_dir" != "$common_dir" ] && [[ "$git_dir" == */worktrees/* ]]; then
     seg+=" wt:$(basename "$top")"

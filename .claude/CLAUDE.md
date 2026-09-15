@@ -53,8 +53,11 @@ STATUS.md at session start.
 ## Git Conventions
 
 - Conventional commits (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`,
-  `test:`), title under 72 chars. Branches: `feat/…`, `fix/…`, `chore/…`.
+  `test:`). Branches: `feat/…`, `fix/…`, `chore/…`.
 - **Commit message shape — no exceptions:**
+  - **50/72 is a hard rule**: title at most 50 characters, one blank line,
+    body wrapped at 72. A hook (`commit_msg_check.py`) rejects a `git
+    commit` that breaks it; rewrite the message, never bypass the hook.
   - Title: neutral and technical, naming things by their real names (a
     landing page is "landing page", never "front door"). No metaphors.
   - The body NEVER continues the title's sentence; each reads alone.

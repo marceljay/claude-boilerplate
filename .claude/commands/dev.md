@@ -23,7 +23,7 @@ recorded default port (see step 1a), falling back to stack detection.
    - If you can't determine the command or port, ask the user.
 
    a. **Port precedence:** an explicit argument (`/dev 5173`) wins; else a
-      `Dev port: <port>` line recorded in the project CLAUDE.md; else the
+      `Dev port: <port>` line recorded in `.claude/CUSTOM.md`; else the
       stack detection above. Pass the chosen port via the dev command's own
       flag (`next dev -p`, `vite --port`, `uvicorn --port`,
       `manage.py runserver 0.0.0.0:<port>`, `flask run -p`; many servers also
@@ -32,7 +32,8 @@ recorded default port (see step 1a), falling back to stack detection.
    b. **First use of a port sets the default.** After the server is confirmed
       up (step 4) on an explicitly requested port that isn't the recorded
       default yet, persist it: add or update the one-liner `Dev port: <port>`
-      in the project CLAUDE.md (same pattern as `Commit policy:`), and tell
+      in `.claude/CUSTOM.md` (same pattern as `Commit policy:`; the status
+      line reads it to report `dev up :<port>`), and tell
       the user it's now the default for future `/dev` runs. Never record
       ports that came from detection or from the recorded default itself.
 

@@ -20,7 +20,9 @@ STATUS.md at session start.
   forward), never `open`/`xdg-open`. Details: `.claude/README.md` §7.
 - Parallel agents that edit concurrently use git worktrees (`isolation:
   "worktree"`, `EnterWorktree`, or `claude --worktree <name>`), always under
-  `.claude/worktrees/` — never a `../sibling` dir. Details: §4.
+  `.claude/worktrees/` — never a `../sibling` dir. A worktree reads
+  `.claude/` from its own root; the root `.worktreeinclude` copies the
+  harness in when `.claude/` is gitignored — keep it. Details: §4.
 
 ## Communication Style
 

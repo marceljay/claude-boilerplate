@@ -1,0 +1,27 @@
+# Gitignored files Claude Code copies into every worktree it creates
+# (`claude --worktree`, the EnterWorktree tool, subagent isolation:
+# "worktree"). gitignore syntax. Only files that are BOTH matched here AND
+# gitignored are copied; tracked files are already in the checkout. So with
+# `Harness: committed` these lines are mostly no-ops, and with
+# `Harness: local` (.claude/ gitignored) they are the only reason a worktree
+# has a CLAUDE.md, settings.json (permissions, hooks, status line), hooks,
+# skills and commands at all — a worktree reads them from its own root, with
+# no fallback to the main checkout. Details: .claude/README.md §4.
+#
+# Explicit allowlist on purpose: a blanket `.claude/` also copies
+# .claude/worktrees/ (nested checkouts) and .claude/logs/, and negation
+# patterns (`!.claude/logs/`) were ignored (verified 2026-09-16, CLI 2.1.260).
+.claude/CLAUDE.md
+.claude/CUSTOM.md
+.claude/README.md
+.claude/settings.json
+.claude/settings.local.json
+.claude/agents/
+.claude/commands/
+.claude/hooks/
+.claude/scripts/
+.claude/skills/
+
+# Per-project additions go below, e.g. `.env` / `.env.local`. Copies land
+# inside the worktree, which shares the parent's .gitignore, so they stay
+# untracked there too.

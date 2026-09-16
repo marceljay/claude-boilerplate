@@ -36,7 +36,9 @@
 #     name, stack features), .claude/CLAUDE.md (pure harness since
 #     2026-09-08 — per-project lines belong in .claude/CUSTOM.md, and a
 #     refresh moves any it finds there; answering y is normally right),
-#     .claude/settings.json (permissions), .npmrc (registry/auth config) —
+#     .claude/settings.json (permissions), .npmrc (registry/auth config),
+#     .worktreeinclude (gitignored files copied into each worktree; the
+#     harness allowlist plus any per-project `.env` lines) —
 #     it shows the full diff and asks: y = overwrite, N = keep (default),
 #     u = keep AND write the boilerplate version next to it as <file>.upstream
 #     for a hand merge (delete the .upstream copy when done). Overwriting
@@ -418,7 +420,7 @@ if [ -f "$TARGET/.claude/CLAUDE.md" ] && grep -Eq "$BATON_RE" "$TARGET/.claude/C
 fi
 
 # --- 3. Ask-first files (commonly hold per-project edits) ------------------
-ASK_FILES=".devcontainer/allowed-domains.txt .devcontainer/devcontainer.json .claude/CLAUDE.md .claude/settings.json .npmrc"
+ASK_FILES=".devcontainer/allowed-domains.txt .devcontainer/devcontainer.json .claude/CLAUDE.md .claude/settings.json .npmrc .worktreeinclude"
 
 for f in $ASK_FILES; do
   [ -f "$SRC/$f" ] || continue

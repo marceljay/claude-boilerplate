@@ -121,7 +121,11 @@ Scaffold the standard file structure for a new project.
      reaches a clone, another machine, or a teammate — CLAUDE.md preferences,
      `settings.json` permissions, hooks, and any harness fixes stay on this
      machine, and `/remember`'s "shared" targets are local too.
-     Note this also keeps them out of collaborators' clones. (`settings.local.json`
+     Note this also keeps them out of collaborators' clones. Keep the
+     root `.worktreeinclude` tracked (it names no secrets): it is what
+     copies the gitignored harness into each git worktree — without it
+     a worktree runs with no CLAUDE.md, hooks, status line, or
+     permissions (`.claude/README.md` §4). (`settings.local.json`
      is already ignored regardless.) If the dirs were already committed in a prior
      history, also run `git rm -r --cached .claude .devcontainer` so the ignore
      takes effect.

@@ -35,6 +35,7 @@ __pycache__/
 .worktrees/
 # Where Claude Code's own worktree features (`claude --worktree`, the
 # EnterWorktree tool, subagent isolation) create theirs. Not auto-ignored.
+# Gitignored files a worktree still needs are listed in .worktreeinclude.
 .claude/worktrees/
 
 # Working status + backlog — private by default. /init asks per-project whether to

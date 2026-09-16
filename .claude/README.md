@@ -386,11 +386,28 @@ invisible inside the container. Claude Code's default `.claude/worktrees/` is
 already inside; use it for manual ones too so there's one place to look. It is
 **not** auto-ignored by Claude Code, so `.gitignore` lists it (plus the older
 `.worktrees/`); because the ignore is shared through the one `.git`, worktrees
-don't recursively see each other either. Files that are gitignored but needed
-in every worktree (`.env`, local settings) can be listed in a
-`.worktreeinclude` file at the repo root, gitignore syntax, and Claude Code
-copies them in. (On the *host*, outside any container, a sibling dir is fine —
-the constraint is the mount, not git.)
+don't recursively see each other either. (On the *host*, outside any
+container, a sibling dir is fine — the constraint is the mount, not git.)
+
+**A worktree only has what git checks out.** Claude Code reads
+`.claude/settings.json` (permissions, hooks, status line), `CLAUDE.md`,
+hooks, skills and commands from the worktree's own root, with no fallback to
+the main checkout. So with `Harness: local` — `.claude/` gitignored, the
+usual choice for public repos — a fresh worktree has **no harness at all**:
+no instructions, no hooks, no status line, default permissions. The fix is
+the `.worktreeinclude` file at the repo root: gitignore syntax, and Claude
+Code copies every file that matches it *and* is gitignored into each
+worktree it creates (`--worktree`, `EnterWorktree`, subagent isolation;
+verified 2026-09-16 with CLI 2.1.260). The boilerplate ships one that
+allowlists the harness files explicitly. Don't shorten it to `.claude/`:
+that also copies `.claude/worktrees/` (nested checkouts) and
+`.claude/logs/`, and negation patterns (`!.claude/logs/`) were ignored.
+Per-project gitignored files a worktree needs (`.env`, `.env.local`) go at
+the bottom of the same file; the copies stay untracked there because the
+worktree shares the parent's `.gitignore`. With `Harness: committed` the
+harness lines are no-ops (tracked files are checked out anyway), so the file
+is harmless to keep. `sync-harness.sh` treats it as ask-first, like
+`.npmrc`.
 
 Two things worktrees do **not** share: installed dependencies and build output.
 Each worktree needs its own `npm install` / equivalent (with this repo's

@@ -548,6 +548,21 @@ prune` / a Docker Desktop reset / a `devcontainerId` change wipes it. Memory
   startup: `bind: address already in use` while `lsof -iTCP:3000` on the host
   shows nothing, because no external process holds the port. If you saw that
   error with an empty lsof, this is what happened.
+- **Updating Claude Code: `cc-update [version]`, never `claude update` or
+  a bare `npm install -g`.** The image installs Claude Code with npm, and the
+  repo's `.npmrc` (`ignore-scripts=true`) applies even to global installs run
+  from `/workspace` — so the wrapper updates but the platform-native binary
+  never gets linked, and the next `claude` fails with "native binary not
+  installed". Claude Code's own updater is therefore disabled in the
+  Dockerfile (`DISABLE_UPDATES=1`, so `claude update` refuses instead of
+  breaking); `cc-update` runs the same hardened install the Dockerfile uses
+  (from `$HOME`, with the postinstall explicitly allowed), verifies it, and
+  lasts until the next rebuild. A rebuild installs `CLAUDE_CODE_VERSION` from
+  `devcontainer.json` — `latest` by default, which is a per-rebuild snapshot;
+  pin an exact version there only when everyone must share one. The function
+  lives in `claude-harness.zsh`, which is baked into the image, so after
+  syncing it into an older copy either rebuild or `source
+  .devcontainer/claude-harness.zsh` once.
 - **A container that "won't start" has a second, unrelated cause:**
   `"waitFor": "postStartCommand"` means a failing `init-firewall.sh` (e.g. a
   typo'd domain that won't resolve) blocks the container from ever becoming

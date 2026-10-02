@@ -57,6 +57,43 @@ ccw() {
   claude --worktree "$name" ${=CLAUDE_SHORTCUT_FLAGS} "$@"
 }
 
+# cc-update [version]
+# Reinstall Claude Code inside this container — the one supported way to
+# update it between rebuilds. `claude update` and a bare `npm install -g`
+# both break here: the repo's .npmrc sets ignore-scripts=true, which npm
+# applies even to -g installs run from /workspace, so the wrapper updates but
+# the platform-native binary is never linked and the next `claude` dies with
+# "native binary not installed" (then ENOTEMPTY on reinstall). This passes
+# the same flags the Dockerfile's install uses, runs from $HOME so no project
+# .npmrc applies, retries once after clearing a half-installed package, and
+# verifies with `claude --version`. Lasts until the next rebuild, which
+# installs CLAUDE_CODE_VERSION from devcontainer.json (default: latest).
+cc-update() {
+  local ver="${1:-latest}" pkg='@anthropic-ai/claude-code' prefix before after
+  if [[ -n "$CLAUDECODE" ]]; then
+    echo "cc-update: run from a plain terminal, not inside a Claude session" >&2
+    return 1
+  fi
+  prefix="$(npm prefix -g)" || return 1
+  before="$(claude --version 2>/dev/null)" || before="(broken install)"
+  echo "cc-update: $before -> $pkg@$ver"
+  _cc_npm_install() {
+    ( cd "$HOME" && npm install -g "$pkg@$ver" \
+        --include=optional --allow-scripts="$pkg" --ignore-scripts=false )
+  }
+  if ! _cc_npm_install; then
+    echo "cc-update: install failed; clearing the package and retrying once" >&2
+    rm -rf "$prefix/lib/node_modules/@anthropic-ai/claude-code" \
+           "$prefix/lib/node_modules/@anthropic-ai/.claude-code-"*(N)
+    _cc_npm_install || { echo "cc-update: still failing — rebuild the container" >&2; return 1; }
+  fi
+  if ! after="$(claude --version 2>&1)"; then
+    echo "cc-update: installed but \`claude --version\` fails: $after" >&2
+    return 1
+  fi
+  echo "cc-update: now $after — until the next rebuild (pin via CLAUDE_CODE_VERSION in devcontainer.json)"
+}
+
 cc-help() {
   local f="${CLAUDE_SHORTCUT_FLAGS:-(none — set CLAUDE_SHORTCUT_FLAGS in devcontainer.json containerEnv)}"
   cat <<HELP
@@ -66,8 +103,10 @@ Claude Code shortcuts (this container only):
   ccr                 claude --resume             pick a session to resume
   ccw <name> [base]   claude --worktree <name>    session in a fresh worktree
                       (base prompted if omitted; \`ccw <name>\` later reopens it)
+  cc-update [ver]     reinstall Claude Code         update between rebuilds
+                      (the only way that works here; \`claude update\` is blocked)
   cc-help             this list
-Extra flags all of them pass (CLAUDE_SHORTCUT_FLAGS): $f
+Extra flags the session shortcuts pass (CLAUDE_SHORTCUT_FLAGS): $f
 Full commands are in shell history too: Ctrl-R "claude". Plain \`claude\` keeps prompts.
 Firewall re-run: sudo /usr/local/bin/init-firewall.sh
 HELP

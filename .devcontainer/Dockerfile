@@ -140,13 +140,19 @@ RUN printf '%s\n' \
   "POWERLEVEL9K_TIME_FORMAT='%D{%H:%M:%S}'" \
   'source /etc/zsh/claude-harness.zsh' >> /home/node/.zshrc
 
-# Updates happen on image rebuild, not mid-session. This matters doubly here:
-# a failed autoupdate leaves a half-installed binary, and even a SUCCESSFUL one
-# runs from /workspace where the repo's .npmrc (ignore-scripts=true) applies —
-# stripping the native binary the install below exists to link. Set BEFORE the
-# install layer: ENV only affects later instructions, and the build-time
-# `claude --version` check below is itself a claude invocation.
-ENV DISABLE_AUTOUPDATER=1
+# Updates happen on image rebuild or via `cc-update` (claude-harness.zsh),
+# never through Claude Code's own updater. A failed autoupdate leaves a
+# half-installed binary, and even a SUCCESSFUL one runs `npm install -g` from
+# /workspace where the repo's .npmrc (ignore-scripts=true) applies — stripping
+# the native binary the install below exists to link. DISABLE_AUTOUPDATER
+# only stops the background check; a manual `claude update` still ran and
+# broke the install the same way, so DISABLE_UPDATES blocks that too (it
+# makes `claude update` refuse; `cc-update` calls npm directly and is not
+# affected). Set BEFORE the install layer: ENV only affects later
+# instructions, and the build-time `claude --version` check below is itself
+# a claude invocation.
+ENV DISABLE_AUTOUPDATER=1 \
+    DISABLE_UPDATES=1
 
 # Install Claude Code.
 #
@@ -174,9 +180,10 @@ ENV DISABLE_AUTOUPDATER=1
 # mid-session surprise.
 #
 # `latest` is a per-rebuild snapshot, not a pin — each rebuild takes the newest
-# release and DISABLE_AUTOUPDATER freezes it until the next rebuild. To pin
-# exactly, put the version in devcontainer.json's build arg (it OVERRIDES this
-# default — changing only this line does nothing).
+# release, frozen until the next rebuild or a `cc-update`. To pin exactly, put
+# the version in devcontainer.json's build arg (it OVERRIDES this default —
+# changing only this line does nothing). The flags below are the same ones
+# cc-update passes; keep the two in step.
 ARG CLAUDE_CODE_VERSION=latest
 RUN npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" \
       --include=optional \

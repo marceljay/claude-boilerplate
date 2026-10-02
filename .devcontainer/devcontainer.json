@@ -7,6 +7,11 @@
       // below. Must be a real zoneinfo name — "Europe/Berlin", not "Etc/Berlin";
       // the Dockerfile fails the build on an invalid one (silent-UTC bug).
       "TZ": "${localEnv:TZ:Europe/Berlin}",
+      // Claude Code version baked into the image. "latest" = the newest
+      // release at each rebuild, frozen until the next one (its own updater
+      // is disabled: it breaks under the repo's .npmrc). Between rebuilds,
+      // `cc-update [version]` in a container terminal; pin here (e.g.
+      // "2.1.260") only when the team must share one exact version.
       "CLAUDE_CODE_VERSION": "latest",
       "GIT_DELTA_VERSION": "0.18.2",
       "ZSH_IN_DOCKER_VERSION": "1.2.0"

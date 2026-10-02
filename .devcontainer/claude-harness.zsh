@@ -91,7 +91,8 @@ cc-update() {
     echo "cc-update: installed but \`claude --version\` fails: $after" >&2
     return 1
   fi
-  echo "cc-update: now $after — until the next rebuild (pin via CLAUDE_CODE_VERSION in devcontainer.json)"
+  echo "cc-update: now $after"
+  echo "cc-update: a container rebuild reinstalls CLAUDE_CODE_VERSION from devcontainer.json (default latest, i.e. this version or newer)"
 }
 
 cc-help() {

@@ -17,7 +17,11 @@ STATUS.md at session start.
   `0.0.0.0`; the forwarded host port may differ from the container port and
   is not readable from inside — never announce a host port. Open URLs with
   `"$BROWSER" http://localhost:<container port>` (VS Code resolves the
-  forward), never `open`/`xdg-open`. Details: `.claude/README.md` §7.
+  forward), never `open`/`xdg-open`. No `$BROWSER` means the container was
+  started by `scripts/agent.zsh`: print the container port and `docker port
+  $AGENT_CONTAINER_NAME <port>` for the user; `.devcontainer/`, `.git/hooks`
+  and `.git/config` are read-only there (no `push -u`, `git config`, `git
+  init`). Details: `.claude/README.md` §7.
 - Parallel agents that edit concurrently use git worktrees (`isolation:
   "worktree"`, `EnterWorktree`, or `claude --worktree <name>`), always under
   `.claude/worktrees/` — never a `../sibling` dir. A worktree reads

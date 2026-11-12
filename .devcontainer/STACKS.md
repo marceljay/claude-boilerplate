@@ -22,7 +22,9 @@ Two independent layers must both be handled, and they fail differently:
    forever with no error.
 
 Both edits land only after a **container rebuild** ("Rebuild Container" in the
-editor): the firewall script and its domain list are baked into the image
+editor, or `agent-rebuild` from the host under `scripts/agent.zsh`, where
+`.devcontainer/` is read-only inside the container — make the edits on the
+host, or run `/init` in `agent --setup`): the firewall script and its domain list are baked into the image
 (`/usr/local/bin/init-firewall.sh`, `/etc/init-firewall/allowed-domains.txt`)
 and those copies are what run on start — editing the repo copy alone changes
 nothing.
@@ -44,7 +46,8 @@ wholesale at startup).
 
 If a download hangs mid-install later, suspect the firewall first: the
 allowlist resolves DNS once per container start, so big CDNs that rotate IPs
-can drift — restarting the container re-resolves them.
+can drift — `sudo /usr/local/bin/init-firewall.sh` on the live container (or a
+restart) re-resolves them.
 
 ## Python
 

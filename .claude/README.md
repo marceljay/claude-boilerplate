@@ -510,12 +510,30 @@ to load this week's TODO list on every message.
 Defines the sandboxed Docker environment Claude runs in: the image
 (`Dockerfile`), a network firewall (`init-firewall.sh` — logic only; the domain
 allowlist is the data file `allowed-domains.txt`), shell shortcuts
-(`claude-harness.zsh`: `cc`/`ccc`/`ccr`/`ccw`, `cc-help` lists them), and
-editor/mount config (`devcontainer.json`). You generally only touch this when changing the runtime
+(`claude-harness.zsh`: `cc`/`ccc`/`ccr`/`ccw`, `cc-help` lists them),
+editor/mount config (`devcontainer.json`), and `agent-ports` (ports the
+no-VS-Code path publishes). You generally only touch this when changing the runtime
 environment, not day-to-day. Project-specific Dockerfile layers go **below**
 the `# ==== PROJECT LAYERS ====` marker: `scripts/sync-harness.sh` replaces
 everything above it with the boilerplate's version on refresh and keeps what's
 below.
+
+**Two ways to start the container**, same image either way:
+
+- **`agent` from a host terminal** (`scripts/agent.zsh`, installed by
+  `scripts/sync-harness.sh --install-shell`; README "Run without VS Code").
+  Plain Docker: the project folder, two volumes, `NET_ADMIN`/`NET_RAW`, and
+  `.devcontainer/`, `.git/hooks/`, `.git/config` mounted **read-only**.
+  Claude runs inside `tmux`. No `$BROWSER`, no editor, no host sockets.
+- **VS Code "Reopen in Container"** (`devcontainer.json`). Convenient, less
+  isolated: the Dev Containers extension adds host channels (SSH agent,
+  keychain credential helper, `code` IPC, `$BROWSER` = `code
+  --openExternal`), copies `~/.gitconfig` in, and leaves `.devcontainer/`
+  and `.git` writable. README "Security model" lists what that means.
+
+Tell them apart from inside: `$AGENT_CONTAINER_NAME` is set only by
+`agent.zsh`; `$BROWSER` and `$REMOTE_CONTAINERS` only by VS Code. Both set
+`DEVCONTAINER=true`.
 
 **What "running in a container" actually means** (Claude is told this in
 `CLAUDE.md` too, since it trips people up):
@@ -528,19 +546,35 @@ prune` / a Docker Desktop reset / a `devcontainerId` change wipes it. Memory
   (§5), session history, and your Claude sign-in live there; `/backup-memory`
   is the failsafe for memory, and a wipe just means signing in again.
 - **No host browser, and ports are forwarded, not shared.** A dev server must
-  bind `0.0.0.0` (not `127.0.0.1`) to be reachable from the host. There's no
-  `forwardPorts` pinned, so the editor **auto-forwards each container port to a
-  free host port** — the host port may differ from the container port, and that
-  dynamic assignment is exactly what lets several of these containers run in
-  parallel without colliding. The host port is **not readable from inside the
-  container** (no docker socket, and VS Code doesn't expose its forward table),
-  so Claude must never announce one — "it's up on 3000" was wrong whenever the
-  host had 3000 taken. The bridge is `$BROWSER`: VS Code sets it to its
-  `code --openExternal` helper, and `"$BROWSER" http://localhost:3000` from
-  inside the container resolves the forward and opens the real host URL in the
-  host browser. `/dev` does exactly that and reports the container port plus
-  "opened via VS Code"; the Ports panel shows the host side. `open`/`xdg-open`
-  still don't work here.
+  bind `0.0.0.0` (not `127.0.0.1`) to be reachable from the host. The host
+  port may differ from the container port, and that is exactly what lets
+  several of these containers run in parallel without colliding. The host
+  port is **not readable from inside the container** (no docker socket), so
+  Claude must never announce one — "it's up on 3000" was wrong whenever the
+  host had 3000 taken. How the host side is found depends on the path:
+  - *VS Code:* no `forwardPorts` pinned, so the editor **auto-forwards each
+    container port to a free host port**. The bridge is `$BROWSER`: VS Code
+    sets it to its `code --openExternal` helper, and `"$BROWSER"
+    http://localhost:3000` from inside resolves the forward and opens the
+    real host URL in the host browser. `/dev` does exactly that and reports
+    the container port plus "opened via VS Code"; the Ports panel shows the
+    host side.
+  - *`agent.zsh`:* nothing forwards automatically. A port is published only
+    if `.devcontainer/agent-ports` lists it (edited on the host, applied by
+    `agent-recreate`), on `127.0.0.1` with an ephemeral host port. `$BROWSER`
+    is unset, so `/dev` prints the container port and
+    `docker port $AGENT_CONTAINER_NAME <port>` for the user to run on the
+    host (`agent-ports` does the same).
+  `open`/`xdg-open` don't work in either.
+- **Under `agent.zsh`, three paths are read-only:** `.devcontainer/`,
+  `.git/hooks/`, `.git/config`. Those are the files your *host* executes
+  (next rebuild, every git command). So: `git push origin HEAD` instead of
+  `push -u`, `git worktree add --no-track`, no `git remote add`/`git config`
+  writes, no `rm -rf .git`. `/pr` and `ccw` already comply; `/init` detects
+  a read-only `.devcontainer` and hands the edits to the user (or runs in
+  `agent --setup`). After the host changes `.git/config`, the container
+  sees the old content until `agent-recreate` (git renames a new file over
+  it; the mount keeps the old inode).
 - **Never add `appPort` or a `-p` runArg to `devcontainer.json`.** It fights
   the dynamic forwarding above, and Docker treats `"3000:3000"` and
   `"0.0.0.0:3000:3000"` as *distinct* mappings — list both (easy to do across
@@ -566,8 +600,14 @@ prune` / a Docker Desktop reset / a `devcontainerId` change wipes it. Memory
 - **A container that "won't start" has a second, unrelated cause:**
   `"waitFor": "postStartCommand"` means a failing `init-firewall.sh` (e.g. a
   typo'd domain that won't resolve) blocks the container from ever becoming
-  ready. Distinguish them by the log: port conflicts fail at `docker run`,
-  firewall failures fail after it, in the postStart output.
+  ready; `agent` stops the container when the script fails. Distinguish
+  them by the log: port conflicts fail at `docker run`, firewall failures
+  fail after it, in the postStart / `agent` output. Firewall rules are lost
+  on every container restart; VS Code re-runs the script on start, `agent`
+  checks the actual OUTPUT policy and re-applies when it isn't DROP. The
+  script may also be re-run by hand on a live container
+  (`sudo /usr/local/bin/init-firewall.sh`): it resolves first, swaps the
+  ipset, and replaces the filter table atomically.
 
 ---
 

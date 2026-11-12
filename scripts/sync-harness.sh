@@ -200,6 +200,24 @@ else
   AGENT_ZSH_SOURCE_LINE="[[ -r $AGENT_ZSH_DEST ]] && source $AGENT_ZSH_DEST"
 fi
 ZSHRC="${ZDOTDIR:-$HOME}/.zshrc"
+# For a bash login shell (common on Linux): thin bash functions that run the
+# zsh file in a zsh subprocess, so `agent` works from bash without a port.
+# AGENT_TZ is read from the environment, so `export AGENT_TZ=…` in .bashrc.
+BASHRC="$HOME/.bashrc"
+AGENT_BASH_SHIM_MARK='# agent.zsh shim (sync-harness.sh --install-shell)'
+agent_bash_shim() {
+  cat <<EOF
+$AGENT_BASH_SHIM_MARK
+_agent_zsh() { zsh -c 'source "\$1"; shift; "\$@"' zsh "$AGENT_ZSH_DEST" "\$@"; }
+agent() { _agent_zsh agent "\$@"; }
+agent-setup() { _agent_zsh agent-setup "\$@"; }
+agent-shell() { _agent_zsh agent-shell "\$@"; }
+agent-rebuild() { _agent_zsh agent-rebuild "\$@"; }
+agent-recreate() { _agent_zsh agent-recreate "\$@"; }
+agent-stop() { _agent_zsh agent-stop "\$@"; }
+agent-ports() { _agent_zsh agent-ports "\$@"; }
+EOF
+}
 
 # Install or update the host-side agent.zsh. Returns 0 unless something is
 # wrong with the environment (symlink, syntax error, no zsh); declining is 0.
@@ -264,8 +282,13 @@ install_shell() {
 }
 
 # ~/.zshrc gets exactly one line, appended, only on a yes, only if absent.
+# A bash login shell gets the shim block in ~/.bashrc instead, same rules.
 offer_zshrc_line() {
   local rc="$ZSHRC"
+  if [ "$(basename "${SHELL:-zsh}")" = bash ]; then
+    offer_bashrc_shim
+    return $?
+  fi
   if [ -f "$rc" ] && grep -qF -- "$AGENT_ZSH_SOURCE_LINE" "$rc"; then
     say "in sync" "$rc already sources agent.zsh"
     return 0
@@ -277,6 +300,21 @@ offer_zshrc_line() {
     say "copied" "appended to $rc — open a new shell (or \`source $rc\`)"
   else
     say "kept" "$rc untouched — add the line yourself to use \`agent\`"
+  fi
+}
+
+offer_bashrc_shim() {
+  if [ -f "$BASHRC" ] && grep -qF -- "$AGENT_BASH_SHIM_MARK" "$BASHRC"; then
+    say "in sync" "$BASHRC already has the agent shim"
+    return 0
+  fi
+  say "note" "your login shell is bash. agent.zsh is a zsh file; this block in $BASHRC runs it through zsh:"
+  agent_bash_shim | sed 's/^/          /'
+  if ask "Append that block to $BASHRC?"; then
+    { printf '\n'; agent_bash_shim; } >> "$BASHRC"
+    say "copied" "appended to $BASHRC — open a new shell (or \`source $BASHRC\`)"
+  else
+    say "kept" "$BASHRC untouched — add the block yourself to use \`agent\` from bash"
   fi
 }
 

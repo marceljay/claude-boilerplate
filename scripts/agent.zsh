@@ -1,7 +1,7 @@
 # agent.zsh: run Claude Code in a per-project Docker container — plain Docker
 # from the host, no devcontainer CLI, no VS Code attach.
 #
-# AGENT_ZSH_VERSION=1.1.0
+# AGENT_ZSH_VERSION=1.2.0
 #
 # Source this from ~/.zshrc (`scripts/sync-harness.sh --install-shell` copies
 # it to ~/.config/zsh/agent.zsh and prints the line). Keep the installed copy
@@ -59,8 +59,14 @@
 # time (agent.devcontainer-sha256 — `agent` warns when it no longer matches),
 # the container records which mode created it (agent.mode=normal|setup).
 #
-# Requires zsh 5.9 (macOS) or newer and `docker` on PATH. Sourcing defines
-# functions and the one variable below; nothing else.
+# Requires zsh 5.9 or newer (macOS ships it; on Linux install zsh — bash
+# users get a shim from `sync-harness.sh --install-shell`) and `docker` on
+# PATH. Sourcing defines functions and the one variable below; nothing else.
+#
+# Linux hosts: native Docker Engine shows the repo with the host user's uid,
+# so the image is built with USER_UID/USER_GID = your ids (Docker Desktop
+# maps ownership itself and keeps the defaults). The image is labelled with
+# the uid it was built for; `agent` warns when it no longer matches.
 
 typeset -g AGENT_TZ=${AGENT_TZ:-${TZ:-Europe/Berlin}}   # container time zone
 
@@ -173,17 +179,26 @@ _agent_port_args() {
   done < "$f"
 }
 
+# Host ids the container user should have: the real ones on Linux (native
+# Docker Engine keeps host ownership on bind mounts), the Dockerfile default
+# everywhere else (Docker Desktop maps ownership itself).
+_agent_host_uid() { emulate -L zsh; [[ $(uname -s) == Linux ]] && id -u || print 1000 }
+_agent_host_gid() { emulate -L zsh; [[ $(uname -s) == Linux ]] && id -g || print 1000 }
+
 # $1 = dir (may be empty), remaining args = extra `docker build` flags
 _agent_build() {
   emulate -L zsh
-  local dir=$(_agent_dir "$1") name=$(_agent_name "$1") hash
+  local dir=$(_agent_dir "$1") name=$(_agent_name "$1") hash uid gid
   shift
   hash=$(_agent_devcontainer_hash "$dir") || return 1
+  uid=$(_agent_host_uid) gid=$(_agent_host_gid)
   local -a vargs
   vargs=(${(f)"$(_agent_build_version_args "$dir")"})
   docker build "$@" -t "$name" \
     --build-arg TZ="$AGENT_TZ" "${vargs[@]}" \
+    --build-arg USER_UID="$uid" --build-arg USER_GID="$gid" \
     --label "agent.devcontainer-sha256=$hash" \
+    --label "agent.user-uid=$uid" \
     "$dir/.devcontainer"
 }
 
@@ -333,6 +348,12 @@ _agent_drift_warn() {
     print -u2 "agent: WARNING: image $name carries no .devcontainer hash (built outside agent?) — agent-rebuild labels it"
   elif [[ $built != $now ]]; then
     print -u2 "agent: WARNING: .devcontainer changed since the last build — review \`git diff -- .devcontainer\`, then agent-rebuild"
+  fi
+  # Linux only: an image built for another uid cannot write the bind mount.
+  local want=$(_agent_host_uid) have
+  if [[ $want != 1000 ]]; then
+    have=$(docker image inspect -f '{{index .Config.Labels "agent.user-uid"}}' "$name" 2>/dev/null)
+    [[ $have == $want ]] || print -u2 "agent: WARNING: image $name was built for uid ${have:-1000 (default)}, your uid is $want — the agent cannot write /workspace; agent-rebuild fixes it"
   fi
 }
 

@@ -49,6 +49,19 @@ RUN npm install -g npm@latest
 
 ARG USERNAME=node
 
+# Host uid/gid for the container user. Docker Desktop (macOS, Windows) maps
+# bind-mount ownership onto the container user whatever its uid, so the
+# defaults are fine there. Native Docker Engine on Linux does not: the repo
+# appears with the HOST user's uid, and a `node` user at 1000 cannot write it
+# when the host user is 1001. VS Code fixes this with updateRemoteUserUID;
+# scripts/agent.zsh passes the host's ids as these args on Linux. Renumbering
+# happens before anything is created as $USERNAME.
+ARG USER_UID=1000
+ARG USER_GID=1000
+RUN if [ "$USER_GID" != "$(id -g $USERNAME)" ]; then groupmod -g "$USER_GID" "$USERNAME"; fi && \
+  if [ "$USER_UID" != "$(id -u $USERNAME)" ]; then usermod -u "$USER_UID" -g "$USER_GID" "$USERNAME"; fi && \
+  chown -R "$USER_UID:$USER_GID" "/home/$USERNAME"
+
 # Scope ownership to the npm prefix only — not all of /usr/local/share, which
 # would take over man pages and other unrelated shared data.
 RUN mkdir -p /usr/local/share/npm-global && \

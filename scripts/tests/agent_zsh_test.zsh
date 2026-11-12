@@ -31,6 +31,7 @@ case "$sub" in
       [ -e "$S/image" ] || exit 1
       case "$2" in
         *agent.devcontainer-sha256*) cat "$S/image_hash" 2>/dev/null || echo '<no value>' ;;
+        *agent.user-uid*) cat "$S/image_uid" 2>/dev/null || echo '<no value>' ;;
       esac
     else
       [ -e "$S/image" ]
@@ -49,7 +50,7 @@ case "$sub" in
     fi ;;
   build)
     touch "$S/image"
-    for a in "$@"; do case "$a" in agent.devcontainer-sha256=*) echo "${a#*=}" > "$S/image_hash" ;; esac; done ;;
+    for a in "$@"; do case "$a" in agent.devcontainer-sha256=*) echo "${a#*=}" > "$S/image_hash" ;; agent.user-uid=*) echo "${a#*=}" > "$S/image_uid" ;; esac; done ;;
   run)
     [ -e "$S/image" ] || { echo "stub: no image" >&2; exit 125; }
     rm -f "$S/iptables_drop"
@@ -157,6 +158,12 @@ assert_eq "  exit 0" 0 $rc
 assert_has "  build labels the image with the .devcontainer hash" "$(logline build)" "agent.devcontainer-sha256=$(_agent_devcontainer_hash "$proj")"
 assert_has "  build passes CLAUDE_CODE_VERSION from devcontainer.json" "$(logline build)" "CLAUDE_CODE_VERSION=latest"
 assert_has "  build passes TZ" "$(logline build)" "TZ=$AGENT_TZ"
+if [[ $(uname -s) == Linux ]]; then
+  assert_has "  build passes the host uid on Linux" "$(logline build)" "USER_UID=$(id -u) --build-arg USER_GID=$(id -g)"
+  assert_has "  build labels the uid" "$(logline build)" "agent.user-uid=$(id -u)"
+else
+  assert_has "  build keeps uid 1000 off Linux" "$(logline build)" "USER_UID=1000"
+fi
 assert_not_has "  no drift warning right after a build" "$stderr" "WARNING"
 run_line=$(logline run)
 assert_has "  run: workspace bind" "$run_line" "--mount type=bind,src=$proj,dst=/workspace "
@@ -305,8 +312,15 @@ assert_has "drift: image without label → warning" "$stderr" "carries no .devco
 
 reset_state image container running iptables_drop has_tmux
 _agent_devcontainer_hash "$proj" > "$AGENT_STUB_STATE/image_hash"
+id -u > "$AGENT_STUB_STATE/image_uid"
 run_agent agent "$proj"
 assert_not_has "drift: matching label → no warning" "$stderr" "WARNING"
+if [[ $(uname -s) == Linux && $(id -u) != 1000 ]]; then
+  reset_state image container running iptables_drop has_tmux
+  _agent_devcontainer_hash "$proj" > "$AGENT_STUB_STATE/image_hash"
+  run_agent agent "$proj"
+  assert_has "uid: image without uid label on a non-1000 Linux host → warning" "$stderr" "built for uid"
+fi
 h1=$(_agent_devcontainer_hash "$proj")
 print '# touched' >> "$proj/.devcontainer/Dockerfile"
 h2=$(_agent_devcontainer_hash "$proj")

@@ -395,6 +395,11 @@ the network, the firewall allowlist is the first place to look.
 
 ### Security model
 
+The full threat model — fourteen scenarios with vector, gain, mitigation,
+residual risk and a check for each, plus the control matrix for both
+container paths — is in [`docs/SECURITY-MODEL.md`](docs/SECURITY-MODEL.md).
+The short version:
+
 The container is the boundary: Claude Code often runs in it with permission
 prompts skipped (`CLAUDE_SHORTCUT_FLAGS`), so what matters is which paths
 lead from the container back to your machine or out to the internet. Know

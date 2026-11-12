@@ -39,6 +39,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   jq \
   nano \
   vim \
+  tmux \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Upgrade npm as root BEFORE NPM_CONFIG_PREFIX is set. If this runs after the
@@ -207,6 +208,23 @@ RUN chmod +x /usr/local/bin/init-firewall.sh && \
   chmod 0644 /etc/init-firewall/allowed-domains.txt && \
   echo "$USERNAME ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh" > /etc/sudoers.d/node-firewall && \
   chmod 0440 /etc/sudoers.d/node-firewall
+
+# tmux config for the no-VS-Code path (scripts/agent.zsh attaches to a tmux
+# session inside the container, so a closed terminal tab doesn't end the
+# Claude session). System-wide and root-owned so the agent can't edit the
+# file. set-clipboard off: tmux would otherwise forward OSC 52 sequences,
+# letting a command in the container write the HOST clipboard.
+# allow-passthrough off: no relaying of raw escape sequences from a pane to
+# the host terminal (terminal emulators have had code-execution bugs in
+# exactly that path). Neither is a hard boundary — any pane can run
+# `tmux set` — they close the default channel, not the capability.
+RUN printf '%s\n' \
+  'set -g default-shell /bin/zsh' \
+  'set -g history-limit 50000' \
+  'set -g set-clipboard off' \
+  'set -g allow-passthrough off' \
+  'set -g mouse on' > /etc/tmux.conf && \
+  chmod 0644 /etc/tmux.conf
 USER $USERNAME
 
 # Everything ABOVE the marker line below is harness: scripts/sync-harness.sh

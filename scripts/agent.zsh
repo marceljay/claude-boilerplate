@@ -1,7 +1,7 @@
 # agent.zsh: run Claude Code in a per-project Docker container — plain Docker
 # from the host, no devcontainer CLI, no VS Code attach.
 #
-# AGENT_ZSH_VERSION=1.2.0
+# AGENT_ZSH_VERSION=1.3.0
 #
 # Source this from ~/.zshrc (`scripts/sync-harness.sh --install-shell` copies
 # it to ~/.config/zsh/agent.zsh and prints the line). Keep the installed copy
@@ -58,6 +58,15 @@
 # Labels: the image carries a sha256 of the .devcontainer directory at build
 # time (agent.devcontainer-sha256 — `agent` warns when it no longer matches),
 # the container records which mode created it (agent.mode=normal|setup).
+#
+# Host state outside the repo: ${XDG_CACHE_HOME:-~/.cache}/agent-zsh/<name>/
+# holds a copy of .devcontainer from the last build and, after `agent
+# --setup`, copies of .git/config and .git/hooks from before the setup
+# container existed. The review gate diffs against these, so it never has
+# to run git inside the project: the repo's own git config and hooks are
+# attacker-controlled by assumption, and `git status` would execute them
+# (core.fsmonitor). The only git call in this file is `git config --global`,
+# run from /.
 #
 # Requires zsh 5.9 or newer (macOS ships it; on Linux install zsh — bash
 # users get a shim from `sync-harness.sh --install-shell`) and `docker` on
@@ -179,6 +188,69 @@ _agent_port_args() {
   done < "$f"
 }
 
+# Per-project host state, outside anything the agent can write.
+_agent_state_dir() {
+  emulate -L zsh
+  print -r -- "${XDG_CACHE_HOME:-$HOME/.cache}/agent-zsh/$1"
+}
+
+# Copy of .devcontainer as it was at the last build (what the image ran).
+_agent_snapshot_devcontainer() {
+  emulate -L zsh
+  local dir=$1 state=$(_agent_state_dir "$2")
+  mkdir -p "$state" && rm -rf "$state/devcontainer" && cp -R "$dir/.devcontainer" "$state/devcontainer"
+}
+
+# Copies of .git/config and .git/hooks from BEFORE a setup container, where
+# both are writable. agent-rebuild diffs the live files against them.
+_agent_snapshot_git() {
+  emulate -L zsh
+  local dir=$1 state=$(_agent_state_dir "$2")
+  mkdir -p "$state" && rm -rf "$state/setup-git-config" "$state/setup-git-hooks"
+  [[ -f $dir/.git/config ]] && cp "$dir/.git/config" "$state/setup-git-config"
+  [[ -d $dir/.git/hooks ]] && cp -R "$dir/.git/hooks" "$state/setup-git-hooks"
+  return 0
+}
+
+# .git/commondir redirects git to another directory's config and hooks — a
+# way around the read-only overlays that needs only a writable .git. A
+# placeholder holding exactly "." (no newline) is harmless; anything else
+# means the host must not run git in this repo until it is removed. Read
+# with the shell, never with git.
+_agent_check_commondir() {
+  emulate -L zsh
+  local f=$1/.git/commondir
+  [[ -e $f ]] || return 0
+  [[ -f $f && "$(<"$f")" == "." ]] && return 0
+  print -u2 "agent: DANGER: $f exists and does not hold '.' — git on the host would read config and"
+  print -u2 "agent: hooks from the directory it names (core.fsmonitor there runs as you). Do not run git in"
+  print -u2 "agent: $1 until you have inspected and removed that file."
+  return 1
+}
+
+# Nested repositories (a .git dir or file below the top level). A submodule
+# entry in the index makes the host's `git status` read the nested repo's
+# config, including core.fsmonitor. Worktrees the harness creates and
+# node_modules are skipped. Prints one path per line.
+_agent_nested_repos() {
+  emulate -L zsh
+  # No -mindepth: it would skip the prune tests at depth 1 (node_modules, .git).
+  find "$1" \( -path "$1/.git" -o -path "$1/.claude/worktrees" -o -path "$1/.worktrees" -o -name node_modules \) -prune -o -name .git -print 2>/dev/null
+}
+
+_agent_warn_nested_repos() {
+  emulate -L zsh
+  local dir=$1 nested
+  nested=$(_agent_nested_repos "$dir")
+  [[ -z $nested ]] && return 0
+  print -u2 "agent: WARNING: nested git repositories under $dir:"
+  print -u2 -r -- "$nested" | sed 's/^/agent:   /' >&2
+  print -u2 "agent: a submodule entry for one of them makes the host's git read its config (core.fsmonitor)."
+  if ! grep -qE '^[[:space:]]*ignoreSubmodules[[:space:]]*=[[:space:]]*all' "$dir/.git/config" 2>/dev/null; then
+    print -u2 "agent: on the host, \`git config diff.ignoreSubmodules all\` stops status/diff/log from entering them."
+  fi
+}
+
 # Host ids the container user should have: the real ones on Linux (native
 # Docker Engine keeps host ownership on bind mounts), the Dockerfile default
 # everywhere else (Docker Desktop maps ownership itself).
@@ -199,7 +271,8 @@ _agent_build() {
     --build-arg USER_UID="$uid" --build-arg USER_GID="$gid" \
     --label "agent.devcontainer-sha256=$hash" \
     --label "agent.user-uid=$uid" \
-    "$dir/.devcontainer"
+    "$dir/.devcontainer" || return 1
+  _agent_snapshot_devcontainer "$dir" "$name"
 }
 
 # $1 = dir, $2 = mode: normal (default) | setup
@@ -231,8 +304,9 @@ _agent_create() {
 
   # No .gitconfig is copied in (that was the VS Code attach), so pass the
   # identity. Only when set on the host.
-  gn=$(git config --global user.name 2>/dev/null) || gn=
-  ge=$(git config --global user.email 2>/dev/null) || ge=
+  # From /, so git never discovers (and reads) the project's own repository.
+  gn=$(cd / && git config --global user.name 2>/dev/null) || gn=
+  ge=$(cd / && git config --global user.email 2>/dev/null) || ge=
   [[ -n $gn ]] && env_args+=(-e "GIT_AUTHOR_NAME=$gn" -e "GIT_COMMITTER_NAME=$gn")
   [[ -n $ge ]] && env_args+=(-e "GIT_AUTHOR_EMAIL=$ge" -e "GIT_COMMITTER_EMAIL=$ge")
 
@@ -297,27 +371,51 @@ _agent_changed_since_build() {
   [[ $built != $now ]]
 }
 
-# Show what changed under .devcontainer and ask. $3 = the action named in
-# the question. Returns 1 when declined.
+# What a rebuild or recreate would pick up that no human has reviewed:
+# .devcontainer versus the last build's copy, .git/config and .git/hooks
+# versus the pre-setup copies, nested repositories, a commondir redirect.
+# Nothing here runs git. $3 = the action named in the question. Returns 1
+# when declined or when the commondir check fails.
 _agent_review_gate() {
   emulate -L zsh
-  local dir=$1 name=$2 action=$3 changes reply
-  changes=$(cd "$dir" && git status --porcelain -- .devcontainer 2>/dev/null)
-  if [[ -z $changes ]] && ! _agent_changed_since_build "$dir" "$name"; then
-    return 0
+  local dir=$1 name=$2 action=$3 state=$(_agent_state_dir "$2") reply ask=0 out
+  _agent_check_commondir "$dir" || return 1
+
+  if _agent_changed_since_build "$dir" "$name"; then
+    ask=1
+    print -u2 "agent: .devcontainer differs from the image's last build — the $action uses whatever is in there."
+    if [[ -d $state/devcontainer ]]; then
+      print -u2 "agent: changes since that build (last build → now):"
+      diff -ru "$state/devcontainer" "$dir/.devcontainer" 2>&1 | sed 's/^/agent:   /' >&2
+    else
+      print -u2 "agent: (no build copy in $state — the image was built outside agent; compare by hand before answering)"
+    fi
   fi
-  print -u2 "agent: .devcontainer differs from the last build — the $action uses whatever is in there."
-  if [[ -n $changes ]]; then
-    print -u2 "agent: uncommitted changes (git status --porcelain -- .devcontainer):"
-    print -u2 -r -- "$changes"
-  else
-    print -u2 "agent: (tree is clean: the changes are committed; review \`git log -p -- .devcontainer\`)"
+
+  if [[ -f $state/setup-git-config || -d $state/setup-git-hooks ]]; then
+    out=""
+    [[ -f $state/setup-git-config ]] && out+=$(diff -u "$state/setup-git-config" "$dir/.git/config" 2>&1)
+    [[ -d $state/setup-git-hooks ]] && out+=$(diff -ru "$state/setup-git-hooks" "$dir/.git/hooks" 2>&1)
+    if [[ -n $out ]]; then
+      ask=1
+      print -u2 "agent: .git/config or .git/hooks changed while a setup container existed (before setup → now):"
+      print -u2 -r -- "$out" | sed 's/^/agent:   /' >&2
+      print -u2 "agent: the host's git runs what these name (core.fsmonitor, core.hooksPath, hooks)."
+    fi
   fi
+
+  out=$(_agent_nested_repos "$dir")
+  if [[ -n $out ]]; then
+    ask=1
+    _agent_warn_nested_repos "$dir"
+  fi
+
+  (( ask )) || return 0
   # read -r, not read -q: -q needs a terminal, and this must also work piped.
   read -r "reply?agent: reviewed — $action anyway? [y/N] " || reply=n
-  [[ $reply == [yY]* ]] && return 0
-  print -u2 "agent: aborted"
-  return 1
+  [[ $reply == [yY]* ]] || { print -u2 "agent: aborted"; return 1 }
+  rm -rf "$state/setup-git-config" "$state/setup-git-hooks"   # reviewed
+  return 0
 }
 
 # Firewall rules vanish whenever the container (re)starts, and a container
@@ -362,9 +460,11 @@ _agent_setup_banner() {
   print -u2 "agent: ================= SETUP MODE ================="
   print -u2 "agent: .devcontainer, .git/config and .git/hooks are WRITABLE from inside,"
   print -u2 "agent: and the cc/ccw shortcuts prompt for every permission."
-  print -u2 "agent: Use it for /init or scripts/new-project.sh only. Afterwards: review"
-  print -u2 "agent: \`git diff -- .devcontainer\`, then agent-rebuild. Plain \`agent\` will"
-  print -u2 "agent: refuse to attach to this container until you do."
+  print -u2 "agent: Use it for /init or scripts/new-project.sh only. agent-rebuild afterwards"
+  print -u2 "agent: shows every change to .devcontainer, .git/config and .git/hooks made"
+  print -u2 "agent: meanwhile and asks before building. Plain \`agent\` refuses to attach to"
+  print -u2 "agent: this container until then. Avoid running git in the repo on the host"
+  print -u2 "agent: before that review: its config and hooks are what the agent could edit."
   print -u2 "agent: =============================================="
 }
 
@@ -382,6 +482,7 @@ agent() {
 
   _agent_check "$1" "$mode" || return 1
   local dir=$(_agent_dir "$1") name=$(_agent_name "$1") current
+  _agent_check_commondir "$dir" || return 1
   [[ $mode == setup ]] && _agent_setup_banner
 
   # Build / create / start only what's missing, so manual steps are fine.
@@ -392,7 +493,7 @@ agent() {
     current=$(_agent_container_mode "$name")
     if [[ $mode == normal && $current == setup ]]; then
       print -u2 "agent: $name was created in setup mode (writable .devcontainer and .git/config, prompts on)."
-      print -u2 "agent: review \`git diff -- .devcontainer\` in $dir, then run agent-rebuild${1:+ $1}."
+      print -u2 "agent: run agent-rebuild${1:+ $1}: it shows what changed in .devcontainer, .git/config and .git/hooks and asks."
       print -u2 "agent: (agent --setup${1:+ $1} re-attaches to it meanwhile.)"
       return 1
     fi
@@ -403,9 +504,11 @@ agent() {
       fi
       print "agent: replacing the stopped normal-mode container $name with a setup-mode one (volumes are kept)"
       docker rm -f "$name" >/dev/null || return 1
+      _agent_snapshot_git "$dir" "$name"
       _agent_create "$dir" setup || return 1
     fi
   else
+    [[ $mode == setup ]] && _agent_snapshot_git "$dir" "$name"
     _agent_create "$dir" "$mode" || return 1
   fi
 
@@ -413,6 +516,7 @@ agent() {
 
   _agent_firewall "$name" || return 1
   _agent_drift_warn "$dir" "$name"
+  _agent_warn_nested_repos "$dir"
 
   # tmux if the image has it (sessions survive closing the tab), else plain zsh.
   if (( use_tmux )) && docker exec "$name" sh -c 'command -v tmux' >/dev/null 2>&1; then
@@ -430,7 +534,7 @@ agent-rebuild() {
   emulate -L zsh
   _agent_check "$1" || return 1
   local dir=$(_agent_dir "$1") name=$(_agent_name "$1")
-  print "agent: rebuilding $name from $dir/.devcontainer — review \`git diff -- .devcontainer\` first; the image runs whatever is in there."
+  print "agent: rebuilding $name from $dir/.devcontainer — the image runs whatever is in there."
   if docker container inspect "$name" >/dev/null 2>&1; then
     _agent_check_workspace "$dir" "$name" || return 1
   fi

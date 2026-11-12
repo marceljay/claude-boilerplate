@@ -455,8 +455,11 @@ these before trusting the sandbox:
   `initializeCommand` runs on the host), `.git/hooks/*` and `.git/config`
   (`core.hooksPath`, `core.fsmonitor`, filter drivers, `core.sshCommand`
   — run by every git command you type on the host). `agent.zsh` mounts
-  those three read-only; the VS Code path does not. Either way, review
-  `git diff -- .devcontainer` before a rebuild.
+  those three read-only, refuses to attach when a `.git/commondir` redirect
+  is present, warns about nested repositories, and never runs git in the
+  repo on the host itself; the VS Code path does none of that. Either way,
+  review changes to `.devcontainer` before a rebuild (`agent-rebuild` shows
+  them).
 - **Firewall limits.** GitHub is allowed by IP range, so an injected prompt
   can push to any GitHub repository with a token it brought along — the
   allowlist bounds hosts, not repositories. DNS reaches only the configured

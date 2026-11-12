@@ -359,21 +359,23 @@ _agent_check "$comma" setup 2>/dev/null && bad "_agent_check: comma in path → 
 print "rebuild / recreate / stop / ports"
 
 ( cd "$proj" && git add -A && git -c user.name=t -c user.email=t@t commit -q -m init )
+state="$tmp/home/.cache/agent-zsh/claude-my-proj"
 built_hash() { _agent_devcontainer_hash "$proj" > "$AGENT_STUB_STATE/image_hash" }
+reset_state has_tmux
+run_agent agent "$proj"
+[[ -d $state/devcontainer ]] && ok "build snapshots .devcontainer outside the repo" || bad "build snapshots .devcontainer outside the repo" "$state"
 reset_state image container running iptables_drop has_tmux; built_hash
 run_agent agent-rebuild "$proj"
 assert_eq "agent-rebuild, .devcontainer unchanged since build → build, rm, run (no prompt)" "build rm run" "$(actions)"
 assert_has "  --pull --no-cache" "$(logline build)" "--pull --no-cache"
-reset_state image container running iptables_drop has_tmux; built_hash
-out=$(agent-rebuild "$proj" 2>/dev/null)
-assert_has "  reminder names git diff -- .devcontainer" "$out" "git diff -- .devcontainer"
 
 print 'x' >> "$proj/.devcontainer/Dockerfile"
 reset_state image container running iptables_drop has_tmux
 out=$(print n | agent-rebuild "$proj" 2>&1); rc=$?
-assert_eq "agent-rebuild with uncommitted .devcontainer changes and 'n' → aborted" 1 $rc
+assert_eq "agent-rebuild with changed .devcontainer and 'n' → aborted" 1 $rc
 assert_eq "  nothing built" "" "$(actions)"
-assert_has "  lists the change" "$out" "Dockerfile"
+assert_has "  shows the diff against the last build" "$out" "+x"
+assert_has "  names the file" "$out" "Dockerfile"
 reset_state image container running iptables_drop has_tmux
 out=$(print y | agent-rebuild "$proj" 2>&1); rc=$?
 assert_eq "agent-rebuild with changes and 'y' → build, rm, run" "build rm run" "$(actions)"
@@ -382,10 +384,60 @@ reset_state image container running iptables_drop has_tmux
 print -r -- "$(printf 'b%.0s' {1..64})" > "$AGENT_STUB_STATE/image_hash"
 out=$(print n | agent-rebuild "$proj" 2>&1); rc=$?
 assert_eq "agent-rebuild: clean tree but hash differs from image → still asks; 'n' aborts" 1 $rc
-assert_has "  says the changes are committed" "$out" "committed"
 reset_state image container running iptables_drop has_tmux
 out=$(agent-rebuild "$proj" </dev/null 2>&1); rc=$?
 assert_eq "agent-rebuild: no label on image, EOF on the prompt → aborted (default No)" 1 $rc
+
+print "setup snapshot, commondir, nested repos (no git on the host)"
+
+reset_state image has_tmux
+run_agent agent --setup "$proj"
+[[ -f $state/setup-git-config && -d $state/setup-git-hooks ]] && ok "agent --setup snapshots .git/config and .git/hooks first" || bad "agent --setup snapshots .git/config and .git/hooks first"
+cp "$proj/.git/config" "$tmp/config.orig"
+print '[core]\n\tfsmonitor = "touch PLANTED; false"' >> "$proj/.git/config"
+print '#!/bin/sh\ntouch PLANTED' > "$proj/.git/hooks/pre-commit"
+reset_state image container running iptables_drop has_tmux; built_hash
+out=$(print n | agent-rebuild "$proj" 2>&1); rc=$?
+assert_eq "agent-rebuild after setup with a changed config → asks; 'n' aborts" 1 $rc
+assert_has "  shows the config change" "$out" "fsmonitor"
+assert_has "  shows the new hook" "$out" "pre-commit"
+[[ -f $proj/PLANTED ]] && bad "  the gate ran no git on the host" || ok "  the gate ran no git on the host"
+reset_state image container running iptables_drop has_tmux; built_hash
+out=$(print y | agent-rebuild "$proj" 2>&1); rc=$?
+assert_eq "  'y' → build, rm, run and the snapshot is cleared" "build rm run" "$(actions)"
+[[ -f $state/setup-git-config ]] && bad "  snapshot cleared after review" || ok "  snapshot cleared after review"
+[[ -f $proj/PLANTED ]] && bad "  still no git run on the host" || ok "  still no git run on the host"
+cp "$tmp/config.orig" "$proj/.git/config"; rm -f "$proj/.git/hooks/pre-commit"
+
+print '../.alt' > "$proj/.git/commondir"
+reset_state image container running iptables_drop has_tmux; built_hash
+run_agent agent "$proj"
+assert_eq "commondir redirect present → agent refuses to attach" 1 $rc
+assert_has "  names the file" "$stderr" ".git/commondir"
+assert_eq "  nothing run" "" "$(actions)"
+run_agent agent-rebuild "$proj"
+assert_eq "  agent-rebuild refuses too" 1 $rc
+printf '.' > "$proj/.git/commondir"
+reset_state image container running iptables_drop has_tmux; built_hash
+run_agent agent "$proj"
+assert_eq "commondir placeholder '.' → attaches" "tmux" "$(actions)"
+rm -f "$proj/.git/commondir"
+
+mkdir -p "$proj/vendor/lib" && ( cd "$proj/vendor/lib" && git init -q )
+mkdir -p "$proj/.claude/worktrees/wt/.git" "$proj/node_modules/pkg/.git"
+reset_state image container running iptables_drop has_tmux; built_hash
+run_agent agent "$proj"
+assert_has "nested repo → warning on attach" "$stderr" "vendor/lib/.git"
+assert_not_has "  harness worktrees are not reported" "$stderr" ".claude/worktrees"
+assert_not_has "  node_modules is not reported" "$stderr" "node_modules"
+assert_has "  hints at diff.ignoreSubmodules" "$stderr" "ignoreSubmodules"
+assert_eq "  still attaches" "tmux" "$(actions)"
+out=$(print n | agent-rebuild "$proj" 2>&1); rc=$?
+assert_eq "  agent-rebuild asks because of it" 1 $rc
+rm -rf "$proj/vendor" "$proj/.claude" "$proj/node_modules"
+
+n=$(grep -E '^[[:space:]]*[^#]*[[:space:]]git ' "$src" | grep -vE 'print|git config --global' | wc -l)
+assert_eq "no git invocation in agent.zsh except git config --global" 0 "$n"
 
 reset_state image container running iptables_drop has_tmux; built_hash
 run_agent agent-recreate "$proj"

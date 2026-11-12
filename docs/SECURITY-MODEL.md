@@ -2,7 +2,7 @@
 
 Threat model for the dev container this boilerplate ships: what a rogue or
 prompt-injected agent inside it could reach, what stops it today, and what
-does not. Last reviewed 2026-11-13, against commit `d20bdf4` and later.
+does not. Last reviewed 2026-11-13, against commit `fb50130` and later; the second external review of that commit added scenario 3's bypasses.
 
 The README's [Security model](../README.md#security-model) section is the
 short version. This document is the long one: every channel, every
@@ -178,19 +178,58 @@ mounts, and `.git` itself is a mount point so it cannot be renamed and
 replaced by a writable copy. `/pr` pushes without `-u`, `ccw` uses
 `--no-track`, so nothing in the harness needs to write them.
 
-**Residual.** VS Code path: fully writable. Both paths: other files the host
-executes from the repo are writable by design: `.vscode/tasks.json` with
-`runOn: folderOpen`, `.vscode/settings.json` keys that name binaries,
-`.envrc` for direnv, `Makefile`, `package.json` scripts, a committed
-`.githooks/` that a README tells the user to enable. VS Code's Workspace
-Trust and direnv's allow step are the only gates, and both are one click. A
-host-side `git config` write after the container started is invisible inside
-until `agent-recreate` (the mount holds the old inode).
+**Two ways around the overlays, both reproduced on git 2.39 and 2.43.**
+They need only what a normal-mode container already has: a writable `.git`
+directory and a writable working tree.
+
+1. **A `.git/commondir` file.** If it exists, git reads config and hooks
+   from the directory it names instead of `.git`. One file write redirects
+   the host's git to a config and hooks directory the agent controls; the
+   two read-only overlays protect files git no longer reads. `agent` and
+   `agent-rebuild` now refuse to proceed when `.git/commondir` exists with
+   anything but a single `.` and tell you not to run git in the repo until
+   it is removed. The file is read with the shell, never with git. That
+   detects the redirect; it does not prevent it (see the open items for the
+   read-only placeholder that would).
+2. **A submodule entry pointing at a nested repository.** `git init` a
+   subdirectory, set `core.fsmonitor` in *its* config (writable, it is not
+   under the overlays), `git add` the directory. The host's top-level
+   `git status` enters the nested repo and runs the command. `agent` warns
+   whenever a nested `.git` exists outside the harness worktrees and
+   `node_modules`, and the rebuild gate asks about it. On the host,
+   `git config diff.ignoreSubmodules all` stops `status`, `diff`, `log`,
+   `submodule status` and `stash list` from entering nested repos
+   (verified); other submodule-aware commands are untested. An untracked
+   nested repo is not entered by the top-level `git status` (verified).
+
+**The harness itself must not be the trigger.** Until this review,
+`agent-rebuild` ran `git status` in the repo on the host before showing
+anything, which would have executed a planted `core.fsmonitor`. Now
+`agent.zsh` runs no git inside the project: the build keeps a copy of
+`.devcontainer` outside the repo (`~/.cache/agent-zsh/<name>/`) and diffs
+against it; `agent --setup` first copies `.git/config` and `.git/hooks`
+there, and `agent-rebuild` diffs the live files against those copies and
+asks. The only git call left is `git config --global`, run from `/`.
+
+**Residual.** VS Code path: fully writable, and the editor runs git in the
+repo constantly. Both paths: other files the host executes from the repo
+are writable by design: `.vscode/tasks.json` with `runOn: folderOpen`,
+`.vscode/settings.json` keys that name binaries, `.envrc` for direnv,
+`Makefile`, `package.json` scripts, a committed `.githooks/` that a README
+tells the user to enable. VS Code's Workspace Trust and direnv's allow step
+are the only gates, and both are one click. A host-side `git config` write
+after the container started is invisible inside until `agent-recreate`
+(the mount holds the old inode). The submodule path is narrowed, not
+closed, until a decision on nested repositories (open items).
 
 **Verify.** Inside: `git config x.y z` fails, `mv .git .git.x` fails with
-"Device or resource busy". On the host: `git status` in the repo runs nothing
-unexpected (check
-`git config --show-origin --list | grep -E 'hooksPath|fsmonitor|sshCommand|filter'`).
+"Device or resource busy", `cat .git/commondir` fails (no such file) or
+prints `.`. On the host, **before running git in the repo**: `cat
+.git/commondir` is absent or `.`; `find . -name .git -not -path './.git'
+-not -path './.claude/worktrees/*'` lists only nested repos you expect;
+then `git config --show-origin --list | grep -E 'hooksPath|fsmonitor|sshCommand|filter'`
+shows nothing unexpected. `grep -c 'git status' ~/.config/zsh/agent.zsh`
+prints `0`.
 
 ### 4. `devcontainer.json`: `initializeCommand` runs on the host
 
@@ -489,7 +528,8 @@ channels at the bottom.
 | --- | --- | --- | --- |
 | `.devcontainer` edits reach the next build | read-only mount, hash drift warning, review gate on rebuild | writable, no warning | 1, 4 |
 | Firewall changed from inside | root only, sudo limited to the baked script | same | 2 |
-| `.git/config`, `.git/hooks` executed by host git | read-only, `.git` is a mount point | writable | 3 |
+| `.git/config`, `.git/hooks` executed by host git | read-only, `.git` is a mount point; `commondir` redirect refused, nested repos warned | writable | 3 |
+| Harness runs git in the repo on the host | never (diffs against copies kept outside the repo) | the editor does, constantly | 3 |
 | `initializeCommand` runs on the host | never read | runs at every reopen | 4 |
 | `runArgs`, `mounts`, `remoteEnv` from the repo | ignored; options fixed in `agent.zsh` | honoured | 4 |
 | SSH agent, keychain helper, `code` IPC | absent | present; `remoteEnv` only hides them | 5, 6 |
@@ -518,6 +558,9 @@ whatever the code says.
 - [ ] If `ip -6 route show default` prints a route, `curl -6 https://api.github.com` fails (IPv6 blocked)
 - [ ] `iptables -S` as `node` is denied; `sudo -l` lists only the firewall script (scenario 2)
 - [ ] `touch .devcontainer/x`, `git config x.y z`, `mv .git .git.x` all fail inside (scenarios 1, 3)
+- [ ] Inside a throwaway project: write `../x` to `.git/commondir`; on the host `agent` refuses with the DANGER line and nothing else runs; remove the file (scenario 3)
+- [ ] Inside: `git init vendor/x`; on the host `agent` prints the nested-repository warning and still attaches (scenario 3)
+- [ ] `agent --setup`, append a comment line to `.git/config` inside, exit; `agent-rebuild` shows that line in a diff and asks (scenario 3)
 - [ ] `env | grep -E 'SSH_AUTH_SOCK|VSCODE_IPC|REMOTE_CONTAINERS|GIT_ASKPASS|BROWSER'` prints nothing (scenario 5)
 - [ ] `docker inspect <container> --format '{{.HostConfig.Privileged}} {{.HostConfig.NetworkMode}}'` prints `false bridge`; its mounts are the project folder, `.git`, the three read-only overlays and two volumes (scenario 4)
 - [ ] `claude` sign-in and a normal session work without `sentry.io` and `statsig.com` on the allowlist
@@ -543,7 +586,11 @@ VS Code path. In rough order of value per effort:
 | Digest-pin `node:22-bookworm` and pin `CLAUDE_CODE_VERSION` | base-image and Claude Code supply chain (scenario 12) | a hash to bump on every refresh; `cc-update` still works between rebuilds | easy, not started |
 | `--security-opt no-new-privileges` and a user-namespace remap in `agent.zsh` | privilege escalation inside the container (scenario 2); on Linux hosts this is also host protection, since no VM sits in between | `no-new-privileges` breaks `sudo`, so the firewall would have to run from `agent.zsh` as `docker exec -u root` only (which it already can); userns remap changes bind-mount ownership on Linux hosts, usually harmless on Docker Desktop | investigate |
 | Fine-grained GitHub token scoped to this repository for `gh auth` inside the container | blast radius of a leaked token (scenario 13) | per-project token management | user practice, document in README |
+| Read-only `.git/commondir` placeholder holding `.` (created by `agent` if absent, mounted like `.git/config`) | the commondir redirect, scenario 3, by prevention instead of detection | tested with status, commit, worktree add/remove, remotes on git 2.39; the file must hold `.` with no newline on 2.39 (an empty file breaks git); needs the owner's git version checked | decision needed |
+| Nested repositories: an allowlist of expected ones in `.devcontainer/`, or "no nested repos under agent" | the submodule path, scenario 3, beyond a warning | projects that vendor or audit other repos need the list; `diff.ignoreSubmodules all` on the host is a one-line partial fix today | decision needed |
 | Read-only `.vscode/` overlay on the agent path | host-executed editor tasks (scenario 3) | breaks editing editor settings from inside; few projects need that | cheap, decide |
+| Read-only `.claude/` overlay (hooks, `settings.json`) on the agent path | the agent editing the hooks that screen its own commands | `/remember`, `update-config`, the status line and the `log`/`update-status` skills write there; would need a split between code and state | decision needed |
+| Fail closed on a first-start firewall failure on the VS Code path (exit trap applies a loopback-only DROP table) | a VS Code container whose first firewall run failed has no rules until someone notices | once in place a re-run cannot fetch GitHub's ranges, so recovery is a container restart; `agent` already stops the container instead | decision needed |
 | VS Code path: a documented pre-rebuild check (`git diff -- .devcontainer`, `grep initializeCommand`) or a host-side git hook that blocks a rebuild on unreviewed changes | scenarios 1, 4 on the VS Code path | process, not code; the hook needs a host-side install step | document now |
 
 Out of scope and accepted: the model's own access to repository contents and

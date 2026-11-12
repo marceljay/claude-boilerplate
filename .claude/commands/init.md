@@ -4,6 +4,28 @@ Scaffold the standard file structure for a new project.
 
 ## Steps
 
+**Before anything: can this session write `.devcontainer/`?** Test it
+(`touch .devcontainer/.init-probe && rm .devcontainer/.init-probe`). Under
+`scripts/agent.zsh` in normal mode, `.devcontainer`, `.git/config` and
+`.git/hooks` are read-only bind mounts: the detach script (step 0: `rm -rf
+.git`, `git init`), the container rename and the shortcut-flags edit (step
+3), and every STACKS.md recipe need them writable. Two ways through:
+
+- **Not writable → host-edit path.** Tell the user once: either exit and
+  run `agent --setup` on the host (a one-time container without the
+  overlays, prompts on), then `/init` again there; or stay here and apply
+  the edits by hand. On this path never attempt the write: for each
+  `.devcontainer/` change below, emit the exact edit for the user to apply
+  on the host (file, the line as it is, the line as it should be) — the
+  same pattern as the shortcut-flags fallback in step 3 — and skip the
+  detach offer in step 0 (say why; `scripts/new-project.sh` must run on the
+  host or in `agent --setup`). After they apply the edits:
+  `agent-rebuild`.
+- **Writable** (VS Code attach, or `agent --setup`) → proceed as written.
+  Under `agent --setup`, remind the user at the end: review
+  `git diff -- .devcontainer`, then `agent-rebuild`; plain `agent` refuses
+  to attach to the setup container until then.
+
 0. **Guard:** if a `.boilerplate-dev` file exists at the repo root, this is the
    boilerplate's own development repo — do NOT offer to detach and skip the
    container rename in step 3 (the default name is the first-run detection
@@ -329,10 +351,15 @@ Scaffold the standard file structure for a new project.
      work around it: give the user the exact one-line edit to make in
      `devcontainer.json` themselves.
    - **Keep prompts** — leave it empty; the shortcuts behave like `claude`.
-   Either way, note that `containerEnv` applies on the next **rebuild**;
-   until then `export CLAUDE_SHORTCUT_FLAGS=…` in `~/.zshrc` bridges it.
+   Either way, note that `containerEnv` applies on the next **rebuild**
+   (`agent-rebuild` under agent.zsh, which also reads the value for its own
+   `-e`); until then `export CLAUDE_SHORTCUT_FLAGS=…` in `~/.zshrc` bridges
+   it. The value must be empty or space-separated `--long-flags`; agent.zsh
+   ignores anything else with a warning.
 
-4. Initialize git if not already a repo (`git init`).
+4. Initialize git if not already a repo (`git init`). Not possible with the
+   read-only `.git/config` overlay — on the host-edit path, tell the user
+   to run it on the host.
 
 5. Report what was created, listing each file. Also point out the **bundled skills**
    in `.claude/skills/` (`test-driven-development`, `systematic-debugging`,

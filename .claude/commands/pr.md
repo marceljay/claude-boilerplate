@@ -16,7 +16,12 @@ Create a pull request with a standardized format.
      first (the `log` skill) — never edit `CHANGELOG.md` on the branch.
    - All commits since diverging from base (`git log base..HEAD --oneline`)
    - Full diff summary (`git diff base...HEAD --stat`)
-   - Check if branch is pushed to remote; push with `-u` if not
+   - Check if branch is pushed to remote; if not, push WITHOUT setting
+     upstream tracking: `git push origin HEAD`. `-u`/`--set-upstream` writes
+     `.git/config`, which is mounted read-only when the container runs under
+     `scripts/agent.zsh` (the push would succeed and then fail on the config
+     write). Tracking can be set on the host later (`git branch -u
+     origin/<branch>`) if wanted.
 
 2. Draft the PR:
    - **Title**: Derive from branch name or commits. Use conventional format: `feat: ...`, `fix: ...`, etc. Under 70 characters.
@@ -45,8 +50,11 @@ Create a pull request with a standardized format.
 3. Create the PR:
 
    ```
-   gh pr create --title "..." --body "..."
+   gh pr create --head <branch> --title "..." --body "..."
    ```
+
+   Pass `--head` explicitly: without upstream tracking `gh` cannot infer the
+   branch and would prompt.
 
    Return the PR URL to the user.
 

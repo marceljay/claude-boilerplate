@@ -6,10 +6,15 @@
 # CLAUDE_SHORTCUT_FLAGS — extra flags every shortcut passes to `claude`. Set
 # it per project in devcontainer.json ("containerEnv"), typically to the flag
 # that skips permission prompts: inside this container the sandbox is the
-# permission system (default-deny firewall, only /workspace mounted, no host
-# access), so per-tool prompts add friction without adding safety. Leave it
-# empty for a project where you want the prompts. Plain `claude` never gets
-# the flags either way, and none of this exists on the host.
+# permission system (default-deny firewall, only /workspace mounted), so
+# per-tool prompts add friction without adding safety. How much of a sandbox
+# depends on how the container was started: under scripts/agent.zsh the
+# only host paths are the project folder with .devcontainer, .git/config and
+# .git/hooks read-only; under a VS Code attach, VS Code adds host channels
+# (SSH agent, credential helper, `code` IPC, $BROWSER) — README "Security
+# model". Leave it empty for a project where you want the prompts. Plain
+# `claude` never gets the flags either way, and none of this exists on the
+# host.
 
 alias cc='claude ${=CLAUDE_SHORTCUT_FLAGS}'
 alias ccc='claude --continue ${=CLAUDE_SHORTCUT_FLAGS}'
@@ -51,7 +56,9 @@ ccw() {
       else base="$choice"; fi
     fi
     git rev-parse -q --verify "${base}^{commit}" >/dev/null || { echo "ccw: unknown ref '$base'" >&2; return 1; }
-    git worktree add "$dir" -b "worktree-$name" "$base" || return 1
+    # --no-track: a remote-tracking base would otherwise set upstream config,
+    # which is a write to .git/config — read-only under agent.zsh.
+    git worktree add "$dir" -b "worktree-$name" --no-track "$base" || return 1
     echo "Created $dir on branch worktree-$name from $base"
   fi
   claude --worktree "$name" ${=CLAUDE_SHORTCUT_FLAGS} "$@"
@@ -109,7 +116,12 @@ Claude Code shortcuts (this container only):
   cc-help             this list
 Extra flags the session shortcuts pass (CLAUDE_SHORTCUT_FLAGS): $f
 Full commands are in shell history too: Ctrl-R "claude". Plain \`claude\` keeps prompts.
-Firewall re-run: sudo /usr/local/bin/init-firewall.sh
+Firewall: sudo /usr/local/bin/init-firewall.sh re-applies it on this live container
+  (refreshes GitHub ranges and resolved IPs; the allowlist itself is baked into
+  the image — edits to allowed-domains.txt need a rebuild). Rules are lost on a
+  container restart; agent.zsh re-applies them, the VS Code path runs it on start.
+Ports (agent.zsh): \`docker port \${AGENT_CONTAINER_NAME:-<container>} <port>\` on the host
+  shows where a container port landed; publish ports via .devcontainer/agent-ports.
 HELP
 }
 

@@ -243,12 +243,24 @@ if ! dig +short +time=3 +tries=1 api.github.com A | grep -q .; then
 fi
 echo "Verification passed - DNS still resolves"
 
-# TCP 22 to a non-GitHub address (no nc in the image; bash's /dev/tcp will do).
-if timeout 5 bash -c 'exec 3<>/dev/tcp/1.1.1.1/22' 2>/dev/null; then
-    echo "ERROR: Firewall verification failed - TCP 22 to 1.1.1.1 is open"
+# TCP 22 to a non-GitHub host. Two checks, because a connect probe alone
+# cannot tell "rejected" from "open but nobody listening" (both fail; the
+# second by timeout). First the rules: no ACCEPT for port 22 may exist.
+if iptables -S OUTPUT | grep -qE -- '--dport 22 .*-j ACCEPT'; then
+    echo "ERROR: Firewall verification failed - OUTPUT has an ACCEPT rule for TCP 22"
     exit 1
 fi
-echo "Verification passed - TCP 22 to a non-GitHub host blocked"
+# Then behaviour, against a host that does listen on 22 and is not GitHub
+# (no nc in the image; bash's /dev/tcp will do). REJECT fails instantly;
+# a timeout means the host was unreachable for another reason, so only warn.
+if timeout 5 bash -c 'exec 3<>/dev/tcp/gitlab.com/22' 2>/dev/null; then
+    echo "ERROR: Firewall verification failed - TCP 22 to gitlab.com is open"
+    exit 1
+elif [ "$?" = 124 ]; then
+    echo "WARN: TCP 22 probe to gitlab.com timed out (expected an immediate reject); rule check passed"
+else
+    echo "Verification passed - TCP 22 to a non-GitHub host rejected"
+fi
 
 # DNS to a resolver that is NOT one of ours.
 # (IFS is newline/tab here, so compare element by element, not via ${arr[*]}.)

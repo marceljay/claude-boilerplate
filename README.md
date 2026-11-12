@@ -259,7 +259,8 @@ same image with plain Docker from a host terminal and nothing else: the
 project folder, two named volumes, two capabilities. Inside, Claude runs in
 `tmux`, so a closed terminal tab doesn't end the session.
 
-**Install** (host, once; macOS or Linux with zsh and Docker):
+**Install** (host, once; macOS or Linux, with Docker and zsh — bash users
+get a shim, see the Linux notes below):
 
 ```sh
 scripts/sync-harness.sh --install-shell
@@ -294,7 +295,7 @@ Europe/Berlin); set it in `~/.zshrc` before the `source` line.
 **What's different inside.** `.devcontainer/`, `.git/hooks/` and
 `.git/config` are **read-only** (and `.git` itself is a mount point, so it
 can't be renamed away and replaced by a writable copy): an agent can't
-change what the next rebuild runs, what git runs on your Mac
+change what the next rebuild runs, what git runs on your machine
 (`core.hooksPath`, `core.fsmonitor`, filter drivers), or where `git push`
 goes. Consequences: `/pr` pushes with `git
 push origin HEAD` (no `-u`), `ccw` creates worktrees with `--no-track`, and
@@ -321,7 +322,41 @@ port forwarding (use `agent-ports`), `$BROWSER`, the marketplace extensions,
 and `.gitconfig` beyond name and email. You can still "Reopen in Container"
 later — nothing here removes that path, it is just the less isolated one.
 
-**macOS notes.**
+**Host notes.** The harness runs on macOS and Linux hosts (and on Windows
+through WSL for the VS Code path). The boundary is the same; what sits
+around it differs.
+
+*Linux:*
+
+- **File ownership.** Native Docker Engine shows the repo inside the
+  container with your host uid, and the container user is uid 1000. `agent`
+  builds the image with your uid and gid (`USER_UID`/`USER_GID` build args)
+  and warns when an existing image was built for another uid; the VS Code
+  path does the same through `updateRemoteUserUID`. If `agent` says the
+  image was built for another uid, run `agent-rebuild`.
+- **No VM in between.** On macOS the container runs inside Docker Desktop's
+  VM; on Linux it shares your kernel. A privilege escalation inside the
+  container is a host compromise, so the `no-new-privileges` and
+  user-namespace items in `docs/SECURITY-MODEL.md` matter more here.
+- **The gateway is your machine.** The Docker bridge gateway
+  (`172.17.0.1`) is the host itself, so services listening on `0.0.0.0` on
+  the host are reachable there. Inbound from that network is allowed for
+  published ports; `# allow-host-network` would expose the host's own
+  listeners and is best left off on Linux.
+- **Bash as login shell.** `agent.zsh` is zsh. `--install-shell` detects a
+  bash `$SHELL` and offers a block for `~/.bashrc` that runs the functions
+  through `zsh -c`; zsh must be installed. `export AGENT_TZ=…` in `.bashrc`
+  if you want a time zone other than `$TZ`.
+- **`docker` group membership is root on the host.** Anyone (or anything)
+  that can talk to the Docker socket can start a privileged container. Keep
+  the socket off the container (it is) and your own account's membership in
+  mind.
+- Terminal and clipboard: GNOME Terminal, kitty, alacritty and others handle
+  OSC 52 differently; check your terminal's clipboard-write setting. The
+  secret-service credential helper is the keychain equivalent that a VS Code
+  attach would proxy.
+
+*macOS:*
 
 - Use **iTerm2 3.6.10 or later** (CVE-2026-41253 is fixed there). Don't use
   iTerm2's `tmux -CC` integration for agent sessions: that path has had

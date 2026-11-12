@@ -2,7 +2,7 @@
 
 Threat model for the dev container this boilerplate ships: what a rogue or
 prompt-injected agent inside it could reach, what stops it today, and what
-does not. Last reviewed 2026-11-13, against commit `70ad075` and later.
+does not. Last reviewed 2026-11-13, against commit `d20bdf4` and later.
 
 The README's [Security model](../README.md#security-model) section is the
 short version. This document is the long one: every channel, every
@@ -18,8 +18,8 @@ package description or a GitHub issue is enough to turn it. The question
 this document answers is what a hostile process inside the container can
 reach, and what stops it.
 
-**Trusted:** the macOS host and its user, Docker Desktop and the Linux
-kernel it runs, the image build inputs after a human has reviewed
+**Trusted:** the host (macOS or Linux) and its user, the Docker engine and
+the Linux kernel the container runs on, the image build inputs after a human has reviewed
 `git diff -- .devcontainer`, the host-side `agent.zsh` copy in
 `~/.config/zsh`, and the terminal application.
 
@@ -42,6 +42,20 @@ touched them, and anything fetched over the allowed egress.
 The rest of this document treats the `agent` path as the baseline and names
 where the VS Code path is weaker. Residual risks that neither path closes
 are listed as such.
+
+**Linux hosts.** The model is the same; four things sit differently around
+it, and they are called out again in the scenarios they affect.
+
+| On Linux | Consequence | Handled by |
+| --- | --- | --- |
+| No VM between the container and the kernel (Docker Desktop on macOS runs the container inside a VM) | a container escape or in-container root is a host compromise, not a VM compromise | nothing yet; `no-new-privileges` and a user-namespace remap are in the open items (scenario 2) |
+| Bind mounts keep host ownership | an image built for uid 1000 cannot write a repo owned by uid 1001 | `agent` builds with the host uid/gid and warns on mismatch; VS Code uses `updateRemoteUserUID` |
+| The bridge gateway is the host itself | `# allow-host-network` reaches every host service listening on `0.0.0.0`, not a VM | leave the directive off; inbound-only is the default (scenario 7) |
+| The Docker socket is root-equivalent on the host | anything in the `docker` group can start a privileged container | the socket is never mounted into the container; user-level hygiene outside this repo |
+
+Terminal and credential-helper notes differ by platform (iTerm2 and the
+keychain on macOS; GNOME Terminal, kitty, alacritty and the secret-service
+helper on Linux) but the vectors in scenarios 5, 6 and 8 are the same.
 
 ## Assets at risk
 
@@ -72,7 +86,7 @@ it executes with the agent's reach, and, for VS Code extensions, partly on
 the host.
 
 ```
- macOS host                                              Container (node user)
+ Host (macOS or Linux)                                   Container (node user)
  ┌──────────────────────────┐                          ┌──────────────────────────┐
  │ Terminal + tmux client   │── docker exec … tmux ───▶│ Claude Code + tools      │
  │ Docker Desktop           │◀── bind mount (rw) ─────▶│ /workspace (the repo)    │
@@ -142,7 +156,8 @@ re-applies them.
 **Residual.** Any local privilege escalation inside the container (kernel,
 sudo, setuid binary from a package) ends the firewall. The container runs as
 a plain user with the default seccomp profile but no user-namespace remapping
-and no `no-new-privileges`. A restart by hand (`docker start`) followed by
+and no `no-new-privileges`. On a Linux host the same escalation also reaches
+the host kernel directly; on macOS it stops at Docker Desktop's VM. A restart by hand (`docker start`) followed by
 `docker exec` outside `agent` gives a shell with no rules until `agent` runs.
 
 **Verify.** `iptables -S` as `node` fails with "Permission denied"; `sudo -l`
@@ -155,8 +170,8 @@ lists only the script.
 command the human later types on the host executes it, as the human, outside
 any sandbox.
 
-**Gain.** Code execution on the macOS host with the user's full rights,
-triggered by `git status`.
+**Gain.** Code execution on the host with the user's full rights, triggered
+by `git status`.
 
 **Mitigation.** Agent path: `.git/hooks` and `.git/config` are read-only
 mounts, and `.git` itself is a mount point so it cannot be renamed and
@@ -228,7 +243,7 @@ returning nothing.
 hides them from processes that honour the environment. The sockets still
 exist under `/tmp` and `/root/.vscode-server`, and the host still answers on
 them; a process can find them with `find / -type s`. Treat the VS Code path
-as "the agent can use my SSH agent and open URLs on my Mac".
+as "the agent can use my SSH agent and open URLs on my machine".
 
 **Verify.** On the agent path the `env` probe is empty and
 `find / -type s 2>/dev/null` lists only Docker's own and tmux's sockets.
@@ -271,7 +286,10 @@ exploit a browser bug.
 **Mitigation.** Agent path publishes only ports named in `agent-ports`, on
 `127.0.0.1`, with an ephemeral host port; the file is under the read-only
 mount, so the agent cannot add ports. Nothing is published by default.
-Inbound to the container is limited to the gateway network.
+Inbound to the container is limited to the gateway network. Outbound to that
+network is off unless `# allow-host-network` is set; on Linux the gateway is
+the host itself, so keep it off there unless the sibling containers really
+need it.
 
 **Residual.** The user opens the URL in their everyday browser with their
 everyday sessions. VS Code forwards any port the container opens, with a
@@ -287,7 +305,8 @@ did not write; the control is to treat the page as untrusted content.
 52 writes the host clipboard; title-setting sequences plus "report title"
 answer-backs inject text into the shell input; terminal emulators have had
 code-execution bugs in escape-sequence parsing (iTerm2 CVE-2026-41253;
-several in the `tmux -CC` control-mode path).
+several in the `tmux -CC` control-mode path; Linux terminals have had their
+own).
 
 **Gain.** Paste a prepared command into the user's clipboard, inject
 keystrokes, or exploit the terminal.
@@ -295,7 +314,8 @@ keystrokes, or exploit the terminal.
 **Mitigation.** `/etc/tmux.conf` sets `set-clipboard off` and
 `allow-passthrough off`, so tmux does not forward OSC 52 or raw passthrough
 sequences. README asks for iTerm2 3.6.10 or later, no `tmux -CC`, and
-"Terminal may report window title" off.
+"Terminal may report window title" off; on Linux, check the terminal's own
+OSC 52 and title-report settings.
 
 **Residual.** Any pane can run `tmux set -g set-clipboard on`; the config is
 a default, not an enforcement. `agent --no-tmux` and `docker exec` shells
@@ -521,7 +541,7 @@ VS Code path. In rough order of value per effort:
 | Egress proxy for GitHub and npm that restricts GitHub to this project's repositories and npm to reads | GitHub-wide exfiltration (scenario 9) | large: GitHub API, web and git share hosts, so a CONNECT allowlist is not enough; needs URL rewriting to a proxy that enforces repository names, or a fine-grained token as the only credential | proposed, design first |
 | Trim `.claude/settings.json` auto-allow (`curl`, `gh`, `node`, `npx`, `python`, `WebFetch`) | makes prompts meaningful on the VS Code path and in `agent --setup` | a prompt on most tool calls; pointless where `CLAUDE_SHORTCUT_FLAGS` skips prompts anyway | decision needed |
 | Digest-pin `node:22-bookworm` and pin `CLAUDE_CODE_VERSION` | base-image and Claude Code supply chain (scenario 12) | a hash to bump on every refresh; `cc-update` still works between rebuilds | easy, not started |
-| `--security-opt no-new-privileges` and a user-namespace remap in `agent.zsh` | privilege escalation inside the container (scenario 2) | `no-new-privileges` breaks `sudo`, so the firewall would have to run from `agent.zsh` as `docker exec -u root` only (which it already can); userns remap changes bind-mount ownership on Linux hosts, usually harmless on Docker Desktop | investigate |
+| `--security-opt no-new-privileges` and a user-namespace remap in `agent.zsh` | privilege escalation inside the container (scenario 2); on Linux hosts this is also host protection, since no VM sits in between | `no-new-privileges` breaks `sudo`, so the firewall would have to run from `agent.zsh` as `docker exec -u root` only (which it already can); userns remap changes bind-mount ownership on Linux hosts, usually harmless on Docker Desktop | investigate |
 | Fine-grained GitHub token scoped to this repository for `gh auth` inside the container | blast radius of a leaked token (scenario 13) | per-project token management | user practice, document in README |
 | Read-only `.vscode/` overlay on the agent path | host-executed editor tasks (scenario 3) | breaks editing editor settings from inside; few projects need that | cheap, decide |
 | VS Code path: a documented pre-rebuild check (`git diff -- .devcontainer`, `grep initializeCommand`) or a host-side git hook that blocks a rebuild on unreviewed changes | scenarios 1, 4 on the VS Code path | process, not code; the hook needs a host-side install step | document now |

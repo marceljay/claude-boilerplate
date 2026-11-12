@@ -62,8 +62,33 @@
     // permission prompts, which is reasonable in here: the container is the
     // sandbox. Empty = shortcuts prompt like plain `claude`. Per-project by
     // design (this file is ask-first in sync-harness.sh); /init asks once.
-    "CLAUDE_SHORTCUT_FLAGS": ""
+    "CLAUDE_SHORTCUT_FLAGS": "",
+    // Claude Code's error reports (Sentry) and usage metrics (Statsig) are
+    // off, and their hosts are no longer in allowed-domains.txt — both accept
+    // posts from anyone with their own project key, i.e. an exfiltration
+    // path. Side effect: DISABLE_TELEMETRY also stops feature-flag
+    // evaluation, so Remote Control is unavailable in here. agent.zsh sets
+    // the same two; keep them in step.
+    "DISABLE_ERROR_REPORTING": "1",
+    "DISABLE_TELEMETRY": "1"
   },
+  // HARDENED VS CODE ATTACH (off by default). The Dev Containers extension
+  // opens channels from the container back to the host: SSH agent forwarding
+  // (SSH_AUTH_SOCK), a `code` CLI socket (VSCODE_IPC_HOOK_CLI), a
+  // remote-containers IPC socket that can run extension commands on the host
+  // (REMOTE_CONTAINERS_IPC), a git credential helper backed by the host
+  // keychain (GIT_ASKPASS) and $BROWSER (`code --openExternal`: opens ANY
+  // URL in the host browser, past the firewall). Blanking the variables
+  // only HIDES them from processes in the container — the host still answers
+  // on the sockets. It also breaks /dev's browser opening. For real isolation
+  // use scripts/agent.zsh (README "Run without VS Code"). To try it anyway:
+  // "remoteEnv": {
+  //   "BROWSER": "",
+  //   "SSH_AUTH_SOCK": "",
+  //   "VSCODE_IPC_HOOK_CLI": "",
+  //   "REMOTE_CONTAINERS_IPC": "",
+  //   "GIT_ASKPASS": ""
+  // },
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
   // No `forwardPorts`: dev-server ports are auto-forwarded dynamically, so the

@@ -17,29 +17,43 @@
 #
 # Per-project additions belong here; the logic in init-firewall.sh is
 # harness code that scripts/sync-harness.sh mirrors from the boilerplate.
+#
+# One directive is recognised, as a comment line of its own:
+#   # allow-host-network
+# It opens OUTBOUND traffic to the Docker gateway's /24 (for sibling service
+# containers — databases, mocks — on the same bridge). Off by default: that
+# network is also where the host itself and your other containers answer.
+# Inbound from it is always allowed (published ports arrive that way).
 # Package managers usually need TWO hosts (index + download CDN); missing
 # the second makes installs hang mid-download with no error. Per-stack
 # domain lists: .devcontainer/STACKS.md.
 
-# --- Claude Code harness: API, login, and its error/telemetry endpoints ---
+# --- Claude Code harness: API and login ---
 api.anthropic.com
 # OAuth token exchange for `claude` login / `/login` (shares an IP with the
 # API today, so login "worked" without it — list it so a CDN change can't
 # silently break first-run sign-in).
 platform.claude.com
-sentry.io
-statsig.com
-
-# --- xAI / Grok API ---
-api.x.ai
+# No sentry.io / statsig.com: error reports and usage metrics are switched
+# off with DISABLE_ERROR_REPORTING=1 and DISABLE_TELEMETRY=1 (containerEnv in
+# devcontainer.json, and agent.zsh). Both hosts accept posts from anyone with
+# their own project key, so an open path to them is an exfiltration channel.
+# Side effect of DISABLE_TELEMETRY (per the Claude Code docs): feature-flag
+# evaluation is off too, so Remote Control is unavailable in the container.
 
 # --- Node/JS — the stack built into the image (npm install/publish) ---
 registry.npmjs.org
 
 # --- VS Code: extension marketplace + updates ---
+# Only needed on the VS Code "Reopen in Container" path (the extension host
+# inside the container fetches extensions). Harmless but idle under agent.zsh;
+# remove them if you never attach VS Code.
 marketplace.visualstudio.com
 vscode.blob.core.windows.net
 update.code.visualstudio.com
+
+# --- Optional: xAI / Grok API (not used by the boilerplate itself) ---
+# api.x.ai
 
 # --- Socket.dev supply-chain scanning (opt-in) ---
 # The CLI analyzes packages server-side, so it needs egress. Uncomment

@@ -58,10 +58,21 @@
 # commit/testing rules). Still never touches code, .git, or _planning/.
 # To overwrite only ONE file's conventions (e.g. just CLAUDE.md), plain
 # refresh mode already covers it: answer y at that file's diff prompt.
+#
+# INSTALL-SHELL (--install-shell, no target): copies scripts/agent.zsh — the
+# host-side "run Claude in a container without VS Code" functions — to
+# ~/.config/zsh/agent.zsh (XDG_CONFIG_HOME honoured) and offers the one
+# `source` line for ~/.zshrc. Also offered at the end of every sync. Host
+# only (skipped inside the container); refuses a symlinked destination and
+# never creates one — the installed copy must live where no agent can write
+# (README "Run without VS Code"). agent.zsh is never copied into targets.
 
 set -euo pipefail
 
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
+# The image sets DEVCONTAINER=true; captured here because the script reuses
+# the name DEVCONTAINER for the devcontainer.json path further down.
+IN_CONTAINER="${DEVCONTAINER:-}"
 
 # --- Colour: only when stderr is a terminal and NO_COLOR is unset ----------
 # Prompts are bold yellow on their own block; diffs get the usual +/- colours;
@@ -107,27 +118,40 @@ prompt_line() {
 }
 
 REPLACE=0
+INSTALL_SHELL_ONLY=0
 if [ "${1:-}" = "--replace" ]; then
   REPLACE=1
   shift
 fi
-if [ $# -ne 1 ]; then
-  echo "usage: $0 [--replace] <target-project-dir>" >&2
+if [ "${1:-}" = "--install-shell" ]; then
+  INSTALL_SHELL_ONLY=1
+  shift
+fi
+if [ "$INSTALL_SHELL_ONLY" = 1 ]; then
+  if [ $# -ne 0 ] || [ "$REPLACE" = 1 ]; then
+    echo "usage: $0 --install-shell   (no target; nothing else is synced)" >&2
+    exit 1
+  fi
+elif [ $# -ne 1 ]; then
+  echo "usage: $0 [--replace] <target-project-dir> | $0 --install-shell" >&2
   exit 1
 fi
-if [ -e "$1" ] && [ ! -d "$1" ]; then
-  echo "error: '$1' exists but is not a directory" >&2
-  exit 1
-fi
-if [ ! -d "$1" ]; then
-  echo "'$1' does not exist — creating it."
-  mkdir -p "$1"
-fi
-TARGET="$(cd "$1" && pwd)"
+TARGET=""
+if [ "$INSTALL_SHELL_ONLY" = 0 ]; then
+  if [ -e "$1" ] && [ ! -d "$1" ]; then
+    echo "error: '$1' exists but is not a directory" >&2
+    exit 1
+  fi
+  if [ ! -d "$1" ]; then
+    echo "'$1' does not exist — creating it."
+    mkdir -p "$1"
+  fi
+  TARGET="$(cd "$1" && pwd)"
 
-if [ "$TARGET" = "$SRC" ]; then
-  echo "error: target is this repo itself" >&2
-  exit 1
+  if [ "$TARGET" = "$SRC" ]; then
+    echo "error: target is this repo itself" >&2
+    exit 1
+  fi
 fi
 
 # Prompt helper: default No; piped/EOF input also means No.
@@ -156,6 +180,110 @@ ask3() {
     *) echo keep ;;
   esac
 }
+
+# --- agent.zsh → ~/.config/zsh/agent.zsh -----------------------------------
+# sha256 of a file, host-portable (macOS ships shasum, Linux sha256sum).
+file_sha256() {
+  if command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" | cut -d' ' -f1
+  elif command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1
+  else echo "(no shasum/sha256sum on PATH)"; fi
+}
+AGENT_ZSH_SRC="$SRC/scripts/agent.zsh"
+AGENT_ZSH_DEST_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/zsh"
+AGENT_ZSH_DEST="$AGENT_ZSH_DEST_DIR/agent.zsh"
+# The ~/.zshrc line. With the default location it uses the portable ~ form;
+# with a custom XDG_CONFIG_HOME the resolved path, so the line works no
+# matter where in .zshrc XDG_CONFIG_HOME gets set.
+if [ "$AGENT_ZSH_DEST_DIR" = "$HOME/.config/zsh" ]; then
+  AGENT_ZSH_SOURCE_LINE='[[ -r ~/.config/zsh/agent.zsh ]] && source ~/.config/zsh/agent.zsh'
+else
+  AGENT_ZSH_SOURCE_LINE="[[ -r $AGENT_ZSH_DEST ]] && source $AGENT_ZSH_DEST"
+fi
+ZSHRC="${ZDOTDIR:-$HOME}/.zshrc"
+
+# Install or update the host-side agent.zsh. Returns 0 unless something is
+# wrong with the environment (symlink, syntax error, no zsh); declining is 0.
+install_shell() {
+  local version new_sha ts
+  echo
+  if [ "$IN_CONTAINER" = "true" ]; then
+    say "note" "agent.zsh: skipped — this runs inside the dev container; run it on the host:"
+    echo "          scripts/sync-harness.sh --install-shell"
+    return 0
+  fi
+  if [ ! -f "$AGENT_ZSH_SRC" ]; then
+    say "WARNING" "scripts/agent.zsh missing in $SRC — nothing to install"
+    return 1
+  fi
+  if ! command -v zsh >/dev/null 2>&1; then
+    say "WARNING" "no zsh on PATH — agent.zsh is a zsh file; not offering the install"
+    return 1
+  fi
+  if ! zsh -n "$AGENT_ZSH_SRC"; then
+    say "WARNING" "scripts/agent.zsh fails \`zsh -n\` — not offering the install"
+    return 1
+  fi
+  # The file, its directory and the config root must all be real: a
+  # ~/.config/zsh that is a symlink into a dotfiles repo is exactly the
+  # agent-writable place the agent.zsh header warns about.
+  local link
+  for link in "$AGENT_ZSH_DEST" "$AGENT_ZSH_DEST_DIR" "$(dirname "$AGENT_ZSH_DEST_DIR")"; do
+    if [ -L "$link" ]; then
+      say "WARNING" "$link is a symlink — refusing. agent.zsh decides what the container"
+      echo "          sees, so it must be a plain file in a real directory outside any folder"
+      echo "          an agent can write to (a dotfiles repo you run Claude in counts)."
+      echo "          Replace the symlink with a real directory/file, then re-run --install-shell."
+      return 1
+    fi
+  done
+  version=$(grep -m1 -E '^# AGENT_ZSH_VERSION=' "$AGENT_ZSH_SRC" | cut -d= -f2)
+  if [ ! -e "$AGENT_ZSH_DEST" ]; then
+    say "note" "agent.zsh ${version:-?} is not installed yet. It would be copied to:"
+    echo "          $AGENT_ZSH_DEST   (mode 0644, a plain copy — not a symlink)"
+    echo "          It defines agent / agent-rebuild / agent-stop … (host-side zsh functions"
+    echo "          that run Claude Code in a per-project Docker container without VS Code)."
+    ask "Install agent.zsh there?" || { say "kept" "agent.zsh not installed"; return 0; }
+  elif cmp -s "$AGENT_ZSH_SRC" "$AGENT_ZSH_DEST"; then
+    say "in sync" "$AGENT_ZSH_DEST (agent.zsh ${version:-?})"
+    offer_zshrc_line
+    return 0
+  else
+    say "differs" "$AGENT_ZSH_DEST vs scripts/agent.zsh ${version:-?} (installed → boilerplate):"
+    show_diff "$AGENT_ZSH_DEST" "$AGENT_ZSH_SRC"
+    ask "Replace the installed agent.zsh with this version?" || { say "kept" "$AGENT_ZSH_DEST"; return 0; }
+    ts=$(date +%Y%m%d-%H%M%S)
+    cp -p "$AGENT_ZSH_DEST" "$AGENT_ZSH_DEST.bak-$ts"
+    say "copied" "backup → $AGENT_ZSH_DEST.bak-$ts"
+  fi
+  mkdir -p "$AGENT_ZSH_DEST_DIR"
+  install -m 0644 "$AGENT_ZSH_SRC" "$AGENT_ZSH_DEST"
+  new_sha=$(file_sha256 "$AGENT_ZSH_DEST")
+  say "copied" "$AGENT_ZSH_DEST"
+  echo "          AGENT_ZSH_VERSION=${version:-?}  sha256 $new_sha"
+  offer_zshrc_line
+}
+
+# ~/.zshrc gets exactly one line, appended, only on a yes, only if absent.
+offer_zshrc_line() {
+  local rc="$ZSHRC"
+  if [ -f "$rc" ] && grep -qF -- "$AGENT_ZSH_SOURCE_LINE" "$rc"; then
+    say "in sync" "$rc already sources agent.zsh"
+    return 0
+  fi
+  say "note" "$rc does not source it yet. The line to add:"
+  echo "          $AGENT_ZSH_SOURCE_LINE"
+  if ask "Append that line to $rc?"; then
+    printf '\n%s\n' "$AGENT_ZSH_SOURCE_LINE" >> "$rc"
+    say "copied" "appended to $rc — open a new shell (or \`source $rc\`)"
+  else
+    say "kept" "$rc untouched — add the line yourself to use \`agent\`"
+  fi
+}
+
+if [ "$INSTALL_SHELL_ONLY" = 1 ]; then
+  install_shell
+  exit $?
+fi
 
 # --- devcontainer.json field helpers ----------------------------------------
 # Read / set a string value on a `"key": "value"` line (first match). Plain
@@ -419,6 +547,22 @@ if [ -f "$TARGET/.claude/CLAUDE.md" ] && grep -Eq "$BATON_RE" "$TARGET/.claude/C
   printf '%s\n' "$moved" | sed 's/^/            /'
 fi
 
+# --- 2c. Per-project files copied only when missing, never overwritten ------
+# .devcontainer/agent-ports: the ports scripts/agent.zsh publishes for the
+# target's container. Pure per-project data (the boilerplate's copy is just
+# the documented empty template), so a target's list is never touched.
+COPY_IF_MISSING=".devcontainer/agent-ports"
+for f in $COPY_IF_MISSING; do
+  [ -f "$SRC/$f" ] || continue
+  if [ ! -f "$TARGET/$f" ]; then
+    mkdir -p "$TARGET/$(dirname "$f")"
+    cp -p "$SRC/$f" "$TARGET/$f"
+    say "copied" "$f (was missing in target; never overwritten afterwards)"
+  else
+    say "kept" "$f (per-project)"
+  fi
+done
+
 # --- 3. Ask-first files (commonly hold per-project edits) ------------------
 ASK_FILES=".devcontainer/allowed-domains.txt .devcontainer/devcontainer.json .claude/CLAUDE.md .claude/settings.json .npmrc .worktreeinclude"
 
@@ -488,3 +632,6 @@ else
   echo "Done. Not touched: settings.local.json, .claude/logs/, _planning/."
   echo "If .devcontainer/ files changed, rebuild the target's container to apply."
 fi
+
+# --- 5. Host-side agent.zsh (not part of the target; lives in ~/.config) ----
+install_shell || true

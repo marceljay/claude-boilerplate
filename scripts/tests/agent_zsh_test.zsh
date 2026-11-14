@@ -65,7 +65,7 @@ case "$sub" in
     [ -e "$S/running" ] || { echo "stub: container not running" >&2; exit 1; }
     case "$*" in
       *"iptables -S OUTPUT"*)
-        if [ -e "$S/iptables_drop" ]; then echo "-P OUTPUT DROP"; else echo "-P OUTPUT ACCEPT"; fi ;;
+        if [ -e "$S/iptables_drop" ]; then echo "-P OUTPUT DROP"; echo "-A OUTPUT -m set --match-set allowed-domains dst -j ACCEPT"; elif [ -e "$S/iptables_failclosed" ]; then echo "-P OUTPUT DROP"; else echo "-P OUTPUT ACCEPT"; fi ;;
       *init-firewall.sh*)
         if [ -e "$S/firewall_fail" ]; then echo "ERROR: stub firewall failure"; exit 1; fi
         touch "$S/iptables_drop"; echo "Firewall configuration complete" ;;
@@ -171,6 +171,11 @@ assert_has "  run: .git is a mount point (not renameable)" "$run_line" "--mount 
 assert_has "  run: .devcontainer read-only" "$run_line" "type=bind,src=$proj/.devcontainer,dst=/workspace/.devcontainer,readonly"
 assert_has "  run: .git/hooks read-only" "$run_line" "type=bind,src=$proj/.git/hooks,dst=/workspace/.git/hooks,readonly"
 assert_has "  run: .git/config read-only" "$run_line" "type=bind,src=$proj/.git/config,dst=/workspace/.git/config,readonly"
+assert_has "  run: .git/commondir placeholder read-only" "$run_line" "type=bind,src=$proj/.git/commondir,dst=/workspace/.git/commondir,readonly"
+assert_has "  run: .vscode read-only" "$run_line" "type=bind,src=$proj/.vscode,dst=/workspace/.vscode,readonly"
+[[ -f $proj/.git/commondir && "$(<"$proj/.git/commondir")" == "." ]] && ok "  commondir placeholder created with '.'" || bad "  commondir placeholder created with '.'"
+[[ $(wc -c < "$proj/.git/commondir") == 1 ]] && ok "  placeholder has no trailing newline" || bad "  placeholder has no trailing newline"
+[[ -d $proj/.vscode ]] && ok "  .vscode created on the host when missing" || bad "  .vscode created on the host when missing"
 assert_has "  run: config volume" "$run_line" "claude-my-proj-config:/home/node/.claude"
 assert_has "  run: history volume" "$run_line" "claude-my-proj-history:/commandhistory"
 assert_has "  run: mode label normal" "$run_line" "agent.mode=normal"
@@ -200,6 +205,10 @@ assert_eq "running with -P OUTPUT DROP → tmux only" "tmux" "$(actions)"
 reset_state image container running has_tmux
 run_agent agent "$proj"
 assert_eq "running without DROP policy → firewall, tmux" "firewall tmux" "$(actions)"
+
+reset_state image container running iptables_failclosed has_tmux
+run_agent agent "$proj"
+assert_eq "running with the fail-closed DROP table (no allowlist rule) → firewall re-applied" "firewall tmux" "$(actions)"
 
 reset_state image firewall_fail has_tmux
 run_agent agent "$proj"
@@ -427,14 +436,29 @@ mkdir -p "$proj/vendor/lib" && ( cd "$proj/vendor/lib" && git init -q )
 mkdir -p "$proj/.claude/worktrees/wt/.git" "$proj/node_modules/pkg/.git"
 reset_state image container running iptables_drop has_tmux; built_hash
 run_agent agent "$proj"
-assert_has "nested repo → warning on attach" "$stderr" "vendor/lib/.git"
+assert_eq "unlisted nested repo → agent refuses" 1 $rc
+assert_has "  names it" "$stderr" "vendor/lib"
 assert_not_has "  harness worktrees are not reported" "$stderr" ".claude/worktrees"
 assert_not_has "  node_modules is not reported" "$stderr" "node_modules"
+assert_has "  points at agent-nested-repos" "$stderr" "agent-nested-repos"
 assert_has "  hints at diff.ignoreSubmodules" "$stderr" "ignoreSubmodules"
-assert_eq "  still attaches" "tmux" "$(actions)"
-out=$(print n | agent-rebuild "$proj" 2>&1); rc=$?
-assert_eq "  agent-rebuild asks because of it" 1 $rc
-rm -rf "$proj/vendor" "$proj/.claude" "$proj/node_modules"
+assert_eq "  nothing run" "" "$(actions)"
+run_agent agent-rebuild "$proj"
+assert_eq "  agent-rebuild refuses too" 1 $rc
+printf '# vendored\nvendor/lib/\n' > "$proj/.devcontainer/agent-nested-repos"
+reset_state image container running iptables_drop has_tmux; built_hash
+run_agent agent "$proj"
+assert_eq "listed nested repo → attaches" "tmux" "$(actions)"
+printf 'vendor/*\n' > "$proj/.devcontainer/agent-nested-repos"
+reset_state image container running iptables_drop has_tmux; built_hash
+run_agent agent "$proj"
+assert_eq "glob pattern in the allowlist → attaches" "tmux" "$(actions)"
+printf 'other/thing\n' > "$proj/.devcontainer/agent-nested-repos"
+reset_state image container running iptables_drop has_tmux; built_hash
+run_agent agent "$proj"
+assert_eq "allowlist without it → refuses" 1 $rc
+rm -f "$proj/.devcontainer/agent-nested-repos"; rm -rf "$proj/vendor" "$proj/.claude" "$proj/node_modules"
+( cd "$proj" && git checkout -q -- .devcontainer 2>/dev/null )
 
 n=$(grep -E '^[[:space:]]*[^#]*[[:space:]]git ' "$src" | grep -vE 'print|git config --global' | wc -l)
 assert_eq "no git invocation in agent.zsh except git config --global" 0 "$n"

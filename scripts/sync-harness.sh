@@ -587,9 +587,11 @@ fi
 
 # --- 2c. Per-project files copied only when missing, never overwritten ------
 # .devcontainer/agent-ports: the ports scripts/agent.zsh publishes for the
-# target's container. Pure per-project data (the boilerplate's copy is just
-# the documented empty template), so a target's list is never touched.
-COPY_IF_MISSING=".devcontainer/agent-ports"
+# target's container; .devcontainer/agent-nested-repos: nested repositories
+# agent.zsh accepts under the project. Pure per-project data (the
+# boilerplate's copies are the documented empty templates), so a target's
+# lists are never touched.
+COPY_IF_MISSING=".devcontainer/agent-ports .devcontainer/agent-nested-repos"
 for f in $COPY_IF_MISSING; do
   [ -f "$SRC/$f" ] || continue
   if [ ! -f "$TARGET/$f" ]; then

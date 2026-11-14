@@ -1,7 +1,7 @@
 # agent.zsh: run Claude Code in a per-project Docker container — plain Docker
 # from the host, no devcontainer CLI, no VS Code attach.
 #
-# AGENT_ZSH_VERSION=1.3.0
+# AGENT_ZSH_VERSION=1.4.0
 #
 # Source this from ~/.zshrc (`scripts/sync-harness.sh --install-shell` copies
 # it to ~/.config/zsh/agent.zsh and prints the line). Keep the installed copy
@@ -35,11 +35,18 @@
 #
 # What the container gets, and nothing else:
 #   - the project folder at /workspace, read-write — with .devcontainer,
-#     .git/hooks and .git/config mounted read-only on top (normal mode), so
-#     an agent cannot change what the next rebuild runs, what git runs on the
-#     host, or where git pushes. .git itself is also a (read-write) mount so
-#     it cannot be renamed away and replaced by a writable copy — a parent
+#     .vscode, .git/hooks, .git/config and .git/commondir mounted read-only
+#     on top (normal mode), so an agent cannot change what the next rebuild
+#     runs, what the editor runs on open, what git runs on the host, or
+#     where git pushes. .git itself is also a (read-write) mount so it
+#     cannot be renamed away and replaced by a writable copy — a parent
 #     directory of a mount point can be renamed, a mount point cannot.
+#     .git/commondir is a placeholder holding "." that `agent` creates: with
+#     it read-only, git cannot be redirected to another config and hooks
+#     directory. .vscode is created empty when missing.
+#   - nested repositories must be listed in .devcontainer/agent-nested-repos
+#     (a submodule entry would make the host's git read their config);
+#     `agent` refuses to attach when an unlisted one exists.
 #     Caveat: git rewrites .git/config by renaming a new file over it, so
 #     after a host-side `git remote add`, `git config` or `push -u` the
 #     container still sees the OLD inode — `agent-recreate`.
@@ -105,9 +112,20 @@ _agent_check() {
     return 1
   fi
   [[ $2 == setup ]] && return 0
-  [[ -f $dir/.git/config && -d $dir/.git/hooks ]] && return 0
-  print -u2 "agent: $dir needs .git/config and .git/hooks (a git repository) for the read-only overlays"
-  return 1
+  if [[ ! -f $dir/.git/config || ! -d $dir/.git/hooks ]]; then
+    print -u2 "agent: $dir needs .git/config and .git/hooks (a git repository) for the read-only overlays"
+    return 1
+  fi
+  # The commondir placeholder: "." with no newline (git 2.39 rejects a
+  # trailing newline; an empty file breaks every git command). Created
+  # here, on the host, so the read-only mount has a source.
+  if [[ ! -e $dir/.git/commondir ]]; then
+    printf '.' > "$dir/.git/commondir" || { print -u2 "agent: cannot create $dir/.git/commondir"; return 1 }
+    print "agent: created $dir/.git/commondir placeholder (\".\"); it is mounted read-only"
+  fi
+  _agent_check_commondir "$dir" || return 1
+  [[ -d $dir/.vscode ]] || mkdir -p "$dir/.vscode" || return 1
+  return 0
 }
 
 # sha256 over the sorted file list + contents of .devcontainer. macOS ships
@@ -238,17 +256,43 @@ _agent_nested_repos() {
   find "$1" \( -path "$1/.git" -o -path "$1/.claude/worktrees" -o -path "$1/.worktrees" -o -name node_modules \) -prune -o -name .git -print 2>/dev/null
 }
 
-_agent_warn_nested_repos() {
+# Nested repositories not listed in .devcontainer/agent-nested-repos (one
+# path per line relative to the project root, naming the directory that
+# holds the .git; zsh glob patterns allowed, e.g. audits/*; # comments).
+# Prints the unlisted ones, one per line; returns 1 when there are any.
+_agent_unlisted_nested_repos() {
   emulate -L zsh
-  local dir=$1 nested
-  nested=$(_agent_nested_repos "$dir")
-  [[ -z $nested ]] && return 0
-  print -u2 "agent: WARNING: nested git repositories under $dir:"
-  print -u2 -r -- "$nested" | sed 's/^/agent:   /' >&2
-  print -u2 "agent: a submodule entry for one of them makes the host's git read its config (core.fsmonitor)."
-  if ! grep -qE '^[[:space:]]*ignoreSubmodules[[:space:]]*=[[:space:]]*all' "$dir/.git/config" 2>/dev/null; then
-    print -u2 "agent: on the host, \`git config diff.ignoreSubmodules all\` stops status/diff/log from entering them."
+  local dir=$1 f=$1/.devcontainer/agent-nested-repos line rel pat found=0
+  local -a allow
+  if [[ -f $f ]]; then
+    while IFS= read -r line || [[ -n $line ]]; do
+      line=${line%%#*}; line=${line## }; line=${line%% }; line=${line%/}
+      [[ -n $line ]] && allow+=("$line")
+    done < "$f"
   fi
+  for rel in ${(f)"$(_agent_nested_repos "$dir")"}; do
+    rel=${rel#$dir/}; rel=${rel%/.git}
+    local ok=0
+    for pat in "${allow[@]}"; do [[ $rel == ${~pat} ]] && { ok=1; break }; done
+    (( ok )) || { print -r -- "$rel"; found=1 }
+  done
+  return $(( found ))
+}
+
+# Refuses (returns 1) when an unlisted nested repository exists: a submodule
+# entry for it would make the host's git read its config (core.fsmonitor).
+_agent_check_nested_repos() {
+  emulate -L zsh
+  local dir=$1 unlisted
+  unlisted=$(_agent_unlisted_nested_repos "$dir") && return 0
+  print -u2 "agent: nested git repositories under $dir that .devcontainer/agent-nested-repos does not list:"
+  print -u2 -r -- "$unlisted" | sed 's/^/agent:   /' >&2
+  print -u2 "agent: a submodule entry for one of them makes the host's git read its config (core.fsmonitor)."
+  print -u2 "agent: list the ones you expect in .devcontainer/agent-nested-repos (on the host), or remove them."
+  if ! grep -qE '^[[:space:]]*ignoreSubmodules[[:space:]]*=[[:space:]]*all' "$dir/.git/config" 2>/dev/null; then
+    print -u2 "agent: also, on the host, \`git config diff.ignoreSubmodules all\` stops status/diff/log from entering them."
+  fi
+  return 1
 }
 
 # Host ids the container user should have: the real ones on Linux (native
@@ -294,8 +338,10 @@ _agent_create() {
     mounts=(
       --mount "type=bind,src=$dir/.git,dst=/workspace/.git"
       --mount "type=bind,src=$dir/.devcontainer,dst=/workspace/.devcontainer,readonly"
+      --mount "type=bind,src=$dir/.vscode,dst=/workspace/.vscode,readonly"
       --mount "type=bind,src=$dir/.git/hooks,dst=/workspace/.git/hooks,readonly"
       --mount "type=bind,src=$dir/.git/config,dst=/workspace/.git/config,readonly"
+      --mount "type=bind,src=$dir/.git/commondir,dst=/workspace/.git/commondir,readonly"
     )
   fi
 
@@ -404,11 +450,7 @@ _agent_review_gate() {
     fi
   fi
 
-  out=$(_agent_nested_repos "$dir")
-  if [[ -n $out ]]; then
-    ask=1
-    _agent_warn_nested_repos "$dir"
-  fi
+  _agent_check_nested_repos "$dir" || return 1
 
   (( ask )) || return 0
   # read -r, not read -q: -q needs a terminal, and this must also work piped.
@@ -424,7 +466,11 @@ _agent_review_gate() {
 _agent_firewall() {
   emulate -L zsh
   local name=$1 out
-  docker exec -u root "$name" iptables -S OUTPUT 2>/dev/null | grep -q -- '-P OUTPUT DROP' && return 0
+  # Both the DROP policy and the allowlist rule: a first start that failed
+  # leaves a loopback-only DROP table behind (init-firewall.sh's exit trap),
+  # which must count as "not applied".
+  out=$(docker exec -u root "$name" iptables -S OUTPUT 2>/dev/null)
+  [[ $out == *'-P OUTPUT DROP'* && $out == *'--match-set allowed-domains'* ]] && return 0
   print "agent: applying firewall in $name"
   if ! out=$(docker exec -u root "$name" /usr/local/bin/init-firewall.sh 2>&1); then
     tail -n 15 <<< "$out" >&2
@@ -483,6 +529,7 @@ agent() {
   _agent_check "$1" "$mode" || return 1
   local dir=$(_agent_dir "$1") name=$(_agent_name "$1") current
   _agent_check_commondir "$dir" || return 1
+  _agent_check_nested_repos "$dir" || return 1
   [[ $mode == setup ]] && _agent_setup_banner
 
   # Build / create / start only what's missing, so manual steps are fine.
@@ -516,7 +563,6 @@ agent() {
 
   _agent_firewall "$name" || return 1
   _agent_drift_warn "$dir" "$name"
-  _agent_warn_nested_repos "$dir"
 
   # tmux if the image has it (sessions survive closing the tab), else plain zsh.
   if (( use_tmux )) && docker exec "$name" sh -c 'command -v tmux' >/dev/null 2>&1; then

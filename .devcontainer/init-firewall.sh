@@ -21,6 +21,29 @@ IFS=$'\n\t'       # Stricter word splitting
 ALLOWED_DOMAINS_FILE=/etc/init-firewall/allowed-domains.txt
 ALLOW_HOST_NETWORK=0
 
+# Fail closed. On a FIRST start a failure before the rules are applied (no
+# GitHub meta, a typo'd domain) would otherwise leave a running container
+# with open egress: the VS Code path keeps the container up and only
+# reports the postStart error. On failure, if no DROP policy is in place
+# yet, apply a loopback-only DROP table. A re-run cannot then fetch
+# GitHub's ranges through it, so recovery is a container restart (agent.zsh
+# stops the container on failure anyway, and treats this table as "not
+# applied" because it lacks the allowlist rule). A re-run that fails keeps
+# the previous rules: the gather phase runs before anything is touched.
+fail_closed() {
+    local rc=$?
+    [ "$rc" -eq 0 ] && return 0
+    if ! iptables -S OUTPUT 2>/dev/null | grep -q -- '-P OUTPUT DROP'; then
+        printf '%s\n' '*filter' ':INPUT DROP [0:0]' ':FORWARD DROP [0:0]' ':OUTPUT DROP [0:0]' \
+            '-A INPUT -i lo -j ACCEPT' '-A OUTPUT -o lo -j ACCEPT' 'COMMIT' | iptables-restore
+        echo "ERROR: firewall setup failed (exit $rc); all egress is blocked until the container restarts"
+    else
+        echo "ERROR: firewall setup failed (exit $rc); the previous rules are still in place"
+    fi
+    exit "$rc"
+}
+trap fail_closed EXIT
+
 # ---------------------------------------------------------------------------
 # 1. Gather everything BEFORE touching a single rule
 # ---------------------------------------------------------------------------

@@ -237,6 +237,7 @@ container is a safer place for it to work than your host machine.
 | `allowed-domains.txt` | The firewall allowlist, one domain per line. The per-project file: add your stack's hosts here.                                                                                                             |
 | `claude-harness.zsh` | Shell shortcuts (`cc`, `ccc`, `ccr`, `ccw`, `cc-help`) and history seeding; the prompt shows a timestamp per command.                                                                                         |
 | `agent-ports`       | Container ports `scripts/agent.zsh` publishes on the host (loopback only, ephemeral host port). Per-project; empty by default. Ignored by the VS Code path, which auto-forwards.                               |
+| `agent-nested-repos` | Nested git repositories `scripts/agent.zsh` accepts under the project (paths or globs). Per-project; empty by default. An unlisted one stops `agent` from attaching.                                        |
 | `STACKS.md`         | Recipes for adding non-Node stacks (Python, Go, Rust, Java, Ruby): toolchain install + exact firewall domains + a verification step. The container ships Node-only until one is applied.                       |
 
 > **Rename the container for your project.** The `"name"` in `devcontainer.json`
@@ -292,12 +293,18 @@ existing container mounts the other folder. The
 container's time zone comes from `AGENT_TZ` (default `$TZ`, else
 Europe/Berlin); set it in `~/.zshrc` before the `source` line.
 
-**What's different inside.** `.devcontainer/`, `.git/hooks/` and
-`.git/config` are **read-only** (and `.git` itself is a mount point, so it
-can't be renamed away and replaced by a writable copy): an agent can't
-change what the next rebuild runs, what git runs on your machine
-(`core.hooksPath`, `core.fsmonitor`, filter drivers), or where `git push`
-goes. Consequences: `/pr` pushes with `git
+**What's different inside.** `.devcontainer/`, `.vscode/`, `.git/hooks/`,
+`.git/config` and `.git/commondir` are **read-only** (and `.git` itself is a
+mount point, so it can't be renamed away and replaced by a writable copy):
+an agent can't change what the next rebuild runs, what the editor runs on
+open, what git runs on your machine (`core.hooksPath`, `core.fsmonitor`,
+filter drivers), or where `git push` goes. `agent` creates the
+`.git/commondir` placeholder (a single `.`, which git treats as "no
+redirect") and an empty `.vscode/` when missing. Nested git repositories
+under the project must be listed in
+[`.devcontainer/agent-nested-repos`](.devcontainer/agent-nested-repos), or
+`agent` refuses to attach: a submodule entry would make your git read their
+config. Consequences: `/pr` pushes with `git
 push origin HEAD` (no `-u`), `ccw` creates worktrees with `--no-track`, and
 `/init` either runs in `agent --setup` or prints the `.devcontainer` edits
 for you to apply on the host. Git rewrites `.git/config` by renaming a new
@@ -398,7 +405,10 @@ commands Claude runs can't reach arbitrary hosts:
 - **Self-verifying:** `example.com` unreachable, `api.github.com` reachable,
   DNS still resolves, TCP 22 to a non-GitHub address blocked, DNS to a
   foreign resolver blocked, IPv6 egress blocked where IPv6 exists. Any
-  failure fails the start (VS Code waits for it; `agent` stops the container).
+  failure fails the start: `agent` stops the container; on the VS Code path
+  a first-start failure leaves a loopback-only DROP table in place (all
+  egress blocked until a restart), and a failed re-run keeps the previous
+  rules.
 
 **Shell.** Every prompt carries a timestamp on the right (the moment the
 previous command finished), handy for reading back a long session, and the
@@ -455,9 +465,11 @@ these before trusting the sandbox:
   `initializeCommand` runs on the host), `.git/hooks/*` and `.git/config`
   (`core.hooksPath`, `core.fsmonitor`, filter drivers, `core.sshCommand`
   — run by every git command you type on the host). `agent.zsh` mounts
-  those three read-only, refuses to attach when a `.git/commondir` redirect
-  is present, warns about nested repositories, and never runs git in the
-  repo on the host itself; the VS Code path does none of that. Either way,
+  those read-only together with `.vscode/` and a `.git/commondir`
+  placeholder (the file that could otherwise redirect git to a config and
+  hooks directory the agent controls), refuses to attach while an unlisted
+  nested repository exists, and never runs git in the repo on the host
+  itself; the VS Code path does none of that. Either way,
   review changes to `.devcontainer` before a rebuild (`agent-rebuild` shows
   them).
 - **Firewall limits.** GitHub is allowed by IP range, so an injected prompt

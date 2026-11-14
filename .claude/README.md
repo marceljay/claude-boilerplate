@@ -566,11 +566,15 @@ prune` / a Docker Desktop reset / a `devcontainerId` change wipes it. Memory
     `docker port $AGENT_CONTAINER_NAME <port>` for the user to run on the
     host (`agent-ports` does the same).
   `open`/`xdg-open` don't work in either.
-- **Under `agent.zsh`, three paths are read-only:** `.devcontainer/`,
-  `.git/hooks/`, `.git/config`. Those are the files your *host* executes
-  (next rebuild, every git command). So: `git push origin HEAD` instead of
-  `push -u`, `git worktree add --no-track`, no `git remote add`/`git config`
-  writes, no `rm -rf .git`. `/pr` and `ccw` already comply; `/init` detects
+- **Under `agent.zsh`, five paths are read-only:** `.devcontainer/`,
+  `.vscode/`, `.git/hooks/`, `.git/config`, `.git/commondir`. Those are the
+  files your *host* executes (next rebuild, editor open, every git
+  command). So: `git push origin HEAD` instead of `push -u`, `git worktree
+  add --no-track`, no `git remote add`/`git config` writes, no `rm -rf
+  .git`, no editor settings edits from inside. A nested git repository
+  under the project (vendored, an audit target) must be listed in
+  `.devcontainer/agent-nested-repos` on the host, or `agent` refuses to
+  attach. `/pr` and `ccw` already comply; `/init` detects
   a read-only `.devcontainer` and hands the edits to the user (or runs in
   `agent --setup`). After the host changes `.git/config`, the container
   sees the old content until `agent-recreate` (git renames a new file over

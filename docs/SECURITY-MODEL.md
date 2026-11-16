@@ -52,6 +52,17 @@ package description or a GitHub issue is enough to turn it. The question
 this document answers is what a hostile process inside the container can
 reach, and what stops it.
 
+**Who "the agent" is.** Throughout this document the attacker is called the
+agent: the Claude Code process running as the `node` user inside the
+container, together with every tool, script and package it runs. It is your
+own Claude Code, assumed to have been turned by a prompt injection in a file,
+a web page, a package or an issue, or to be running code a malicious package
+brought along. No separate attacker needs access to anything; whatever the
+agent can do, an injection can make it do. "The agent writes X" therefore
+means that process writes X from inside the container. You, the person at
+the keyboard, are "the user" or "the human" and are never the actor unless
+named.
+
 ### 1.1 Trusted and not trusted
 
 **Trusted:** the host (macOS or Linux) and its user, the Docker engine and
@@ -170,7 +181,10 @@ Each scenario names the vector, what an attacker gains, what stops it today,
 what remains, and how to check. "Sandbox path" means a container started by
 `scripts/agent-sandbox.zsh`; "VS Code path" means "Reopen in Container".
 Scenario numbers match the subsections: "scenario 3" is section 4.3, and the
-control matrix and the checklist refer to scenarios by that number.
+control matrix and the checklist refer to scenarios by that number. In every
+scenario the actor is the agent as defined in section 1: the Claude Code
+process inside the container, under prompt injection or running a malicious
+package, with no human in the loop.
 
 ### 4.1 Widening the firewall by editing the allowlist or the script
 
@@ -200,8 +214,8 @@ warning appears.
 
 ### 4.2 Disabling or bypassing the firewall from inside
 
-**Vector.** `iptables -F`, `ipset flush`, or a re-run of the script with a
-modified allowlist.
+**Vector.** The agent runs `iptables -F` or `ipset flush`, or re-runs the
+firewall script with a modified allowlist.
 
 **Gain.** Unrestricted egress for the rest of the session.
 
@@ -224,10 +238,11 @@ lists only the script.
 
 ### 4.3 `.git/config` and `.git/hooks`: making the host's git run attacker code
 
-**Vector.** Write `core.hooksPath`, `core.fsmonitor`, `core.sshCommand`, a
-`[filter]` driver, an `[include]`, or a `pre-commit` hook. Every `git`
-command the human later types on the host executes it, as the human, outside
-any sandbox.
+**Vector.** The agent writes `core.hooksPath`, `core.fsmonitor`,
+`core.sshCommand`, a `[filter]` driver or an `[include]` into
+`.git/config`, or drops a `pre-commit` hook into `.git/hooks`. Every `git`
+command you later type on the host executes it, as you, outside any
+sandbox.
 
 **Gain.** Code execution on the host with the user's full rights, triggered
 by `git status`.
@@ -372,7 +387,7 @@ shows `false bridge` and only the project mounts and two volumes.
 
 ### 4.5 VS Code sockets and `$BROWSER`
 
-**Vector.** On the VS Code path the container holds `SSH_AUTH_SOCK` (host
+**Vector.** On the VS Code path the agent's environment holds `SSH_AUTH_SOCK` (host
 agent forwarded), `VSCODE_IPC_HOOK_CLI` (the `code` CLI socket),
 `REMOTE_CONTAINERS_IPC` (extension-host IPC that can run extension commands
 on the host), `GIT_ASKPASS` (host keychain helper), and `$BROWSER` set to
@@ -399,7 +414,8 @@ as "the agent can use my SSH agent and open URLs on my machine".
 
 ### 4.6 Copied `.gitconfig` and credential helpers
 
-**Vector.** VS Code copies the host `~/.gitconfig` into the container. A
+**Vector.** On the VS Code path the extension copies the host `~/.gitconfig`
+into the container, where the agent can read it. A
 `credential.helper = osxkeychain` line does not work in Linux, but the
 extension installs its own helper that proxies to the host keychain.
 `git credential fill` then returns the user's GitHub token to anything in the
@@ -450,7 +466,7 @@ did not write; the control is to treat the page as untrusted content.
 
 ### 4.8 Terminal and clipboard escape sequences
 
-**Vector.** Output from the container is rendered by the host terminal. OSC
+**Vector.** Everything the agent prints is rendered by the host terminal. OSC
 52 writes the host clipboard; title-setting sequences plus "report title"
 answer-backs inject text into the shell input; terminal emulators have had
 code-execution bugs in escape-sequence parsing (iTerm2 CVE-2026-41253;
@@ -504,9 +520,10 @@ is narrowed, not closed).
 
 ### 4.10 Packages executed inside the container
 
-**Vector.** `npm install` of a malicious or typosquatted package; `npx`
-running arbitrary code; a `postinstall` script; a dependency's code at test
-time.
+**Vector.** The agent (or you) runs `npm install` of a malicious or
+typosquatted package, `npx` of arbitrary code, a `postinstall` script, or a
+dependency's code at test time. Here the agent may be the victim rather than
+the attacker: the package's code then has the agent's reach.
 
 **Gain.** The agent's reach, nothing more: the package runs as `node` inside
 the same boundary. It cannot do anything the agent itself could not.
@@ -527,8 +544,9 @@ container.
 
 ### 4.11 VS Code extensions
 
-**Vector.** `devcontainer.json` lists extensions that the Dev Containers
-extension installs automatically into the container's extension host. Some
+**Vector.** No agent action is needed: `devcontainer.json` lists extensions
+that the Dev Containers extension installs automatically into the
+container's extension host. Some
 extensions, and all UI extensions, run on the host. A malicious or
 compromised extension (marketplace takeover, maintainer account compromise)
 has at least the agent's reach plus the VS Code channels of scenario 5, and
@@ -552,7 +570,7 @@ listed; on the sandbox path the command does not exist.
 
 ### 4.12 Image build inputs
 
-**Vector.** The image pulls `node:22-bookworm` by tag, Debian packages,
+**Vector.** No agent action is needed: the image pulls `node:22-bookworm` by tag, Debian packages,
 `npm@latest`, `@anthropic-ai/claude-code@latest`, and two sha256-pinned
 downloads (git-delta, zsh-in-docker). A compromised upstream enters the image
 at rebuild.
@@ -578,7 +596,7 @@ in `devcontainer.json` if reproducibility matters.
 
 ### 4.13 Credentials stored in the config volume and the repo
 
-**Vector.** The `~/.claude` volume holds the OAuth token (and memory, which
+**Vector.** The agent can read the `~/.claude` volume, which holds the OAuth token (and memory, which
 can carry anything the agent chose to remember). `.claude/settings.local.json`
 may hold `ANTHROPIC_API_KEY` or `SOCKET_CLI_API_TOKEN`. `gh auth` stores a
 GitHub token. `.env` files hold project secrets.

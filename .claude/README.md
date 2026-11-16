@@ -528,8 +528,12 @@ below.
 - **VS Code "Reopen in Container"** (`devcontainer.json`). Convenient, less
   isolated: the Dev Containers extension adds host channels (SSH agent,
   keychain credential helper, `code` IPC, `$BROWSER` = `code
-  --openExternal`), copies `~/.gitconfig` in, and leaves `.devcontainer/`
-  and `.git` writable. README "Security model" lists what that means.
+  --openExternal`) and copies `~/.gitconfig` in. It must be enabled once
+  per host (`touch ~/.config/zsh/agent-allow-vscode` or
+  `AGENT_ALLOW_VSCODE=1`); `.devcontainer/initialize.sh` checks that on the
+  host before every start and the same read-only overlays apply, but none
+  of `agent`'s dynamic checks (nested repos, drift gate). README "Security
+  model" lists what that means.
 
 Tell them apart from inside: `$AGENT_CONTAINER_NAME` is set only by
 `agent.zsh`; `$BROWSER` and `$REMOTE_CONTAINERS` only by VS Code. Both set

@@ -5,9 +5,10 @@ Scaffold the standard file structure for a new project.
 ## Steps
 
 **Before anything: can this session write `.devcontainer/`?** Test it
-(`touch .devcontainer/.init-probe && rm .devcontainer/.init-probe`). Under
-`scripts/agent.zsh` in normal mode, `.devcontainer`, `.git/config` and
-`.git/hooks` are read-only bind mounts: the detach script (step 0: `rm -rf
+(`touch .devcontainer/.init-probe && rm .devcontainer/.init-probe`). In the
+normal `agent` container and in a VS Code "Reopen in Container" window,
+`.devcontainer`, `.git/config` and `.git/hooks` are read-only bind mounts:
+the detach script (step 0: `rm -rf
 .git`, `git init`), the container rename and the shortcut-flags edit (step
 3), and every STACKS.md recipe need them writable. Two ways through:
 
@@ -21,7 +22,8 @@ Scaffold the standard file structure for a new project.
   detach offer in step 0 (say why; `scripts/new-project.sh` must run on the
   host or in `agent --setup`). After they apply the edits:
   `agent-rebuild`.
-- **Writable** (VS Code attach, or `agent --setup`) → proceed as written.
+- **Writable** (`agent --setup`, or a container without the overlays) →
+  proceed as written.
   Under `agent --setup`, remind the user at the end: review
   `git diff -- .devcontainer`, then `agent-rebuild`; plain `agent` refuses
   to attach to the setup container until then.

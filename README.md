@@ -86,16 +86,18 @@ Two ways in, depending on whether your project already exists.
 1. **Copy this repo** as the seed for your new project (or use it as a template).
 2. **Open it in the dev container** — either `agent` from a host terminal
    ([Run without VS Code](#run-without-vs-code-recommended), the more
-   isolated path) or VS Code's "Reopen in Container". The first start builds
+   isolated path) or VS Code's "Reopen in Container" (enable it once per
+   host first: `touch ~/.config/zsh/agent-allow-vscode`). The first start builds
    the image — a few minutes; it installs Claude Code and the tools listed
    under [Dev Container](#dev-container). Or use your own env and skip the
    container-specific steps.
 3. **Start Claude** in the container terminal — `cc` (the shortcut; `cc-help`
    lists the others) or plain `claude`. The first run asks you to sign in
-   (see [Signing in](#signing-in)). Then run **`/init`** (under `agent.zsh`:
-   in a one-time `agent --setup` container, since `/init` edits
-   `.devcontainer/` and `.git`, which the normal container mounts
-   read-only). It offers to
+   (see [Signing in](#signing-in)). Then run **`/init`** — in a one-time
+   `agent --setup` container, since `/init` edits `.devcontainer/` and
+   `.git`, which both the `agent` container and the reopened one mount
+   read-only (inside those it prints the edits for you to apply on the
+   host instead). It offers to
    detach the boilerplate first (`scripts/new-project.sh` — renames this
    README to `BOILERPLATE.md`, deletes LICENSE, resets state files, drops the
    boilerplate's git history),
@@ -212,7 +214,8 @@ This repo ships a [**Dev Container**](https://containers.dev/) (`.devcontainer/`
 A dev container is a Docker-based development environment defined in code: anyone
 who opens the repo gets the _exact_ same OS, tools, and settings, with no
 "works on my machine" drift. VS Code ("Reopen in Container"), GitHub Codespaces,
-and the `devcontainer` CLI all understand it.
+and the `devcontainer` CLI all understand it. (Codespaces is untested with the
+read-only mounts and the host-side `initializeCommand` added in 2026-11.)
 
 Why it matters here: Claude Code runs shell commands, so a disposable, isolated
 container is a safer place for it to work than your host machine.
@@ -234,6 +237,7 @@ container is a safer place for it to work than your host machine.
 | `Dockerfile`        | Base image `node:22-bookworm` + dev tools (`git`, `gh`, `zsh`, `fzf`, `jq`, `delta`, `iptables`/`ipset`), downloads sha256-pinned. Installs Claude Code globally (autoupdater off — updates come with rebuilds) and runs as the non-root `node` user. Ends with a `# ==== PROJECT LAYERS ====` marker: your stack layers go below it and survive harness syncs. |
 | `devcontainer.json` | Editor setup (ESLint, Prettier, GitLens, format-on-save), zsh as default shell, persistent zsh history + `~/.claude` config via named volumes, the `NET_ADMIN`/`NET_RAW` capabilities the firewall needs, and `CLAUDE_SHORTCUT_FLAGS` for the shell shortcuts. |
 | `init-firewall.sh`  | A **default-deny network firewall**, run on container start. Pure logic; the domains come from the file below.                                                                                                 |
+| `initialize.sh`     | Host-side step of VS Code's "Reopen in Container" (`initializeCommand`): refuses unless reopen is enabled on this host, refuses a redirected `.git/commondir`, creates the sources for the read-only mounts. Never runs git. |
 | `allowed-domains.txt` | The firewall allowlist, one domain per line. The per-project file: add your stack's hosts here.                                                                                                             |
 | `claude-harness.zsh` | Shell shortcuts (`cc`, `ccc`, `ccr`, `ccw`, `cc-help`) and history seeding; the prompt shows a timestamp per command.                                                                                         |
 | `agent-ports`       | Container ports `scripts/agent.zsh` publishes on the host (loopback only, ephemeral host port). Per-project; empty by default. Ignored by the VS Code path, which auto-forwards.                               |
@@ -326,8 +330,17 @@ take effect at a rebuild, which is exactly when they must have been reviewed.
 **What you give up versus VS Code:** the editor attached to the container
 (use VS Code on the host folder instead; it is the same files), automatic
 port forwarding (use `agent-ports`), `$BROWSER`, the marketplace extensions,
-and `.gitconfig` beyond name and email. You can still "Reopen in Container"
-later — nothing here removes that path, it is just the less isolated one.
+and `.gitconfig` beyond name and email. "Reopen in Container" still works,
+once enabled per host (`touch ~/.config/zsh/agent-allow-vscode`, or
+`AGENT_ALLOW_VSCODE=1` where VS Code is launched from):
+`.devcontainer/initialize.sh` runs on the host before every start, checks
+the switch and the `.git/commondir` files, and `devcontainer.json` applies
+the same read-only overlays. It is still the less isolated path (host
+channels, no nested-repo check, no drift gate). For an editor inside the
+hardened container instead, start it with `agent` and use the Dev Containers
+command "Attach to Running Container"; attach ignores `devcontainer.json`
+customizations, so extensions and settings go into VS Code's
+attached-container configuration.
 
 **Host notes.** The harness runs on macOS and Linux hosts (and on Windows
 through WSL for the VS Code path). The boundary is the same; what sits
@@ -469,7 +482,10 @@ these before trusting the sandbox:
   placeholder (the file that could otherwise redirect git to a config and
   hooks directory the agent controls), refuses to attach while an unlisted
   nested repository exists, and never runs git in the repo on the host
-  itself; the VS Code path does none of that. Either way,
+  itself. The VS Code path gets the same read-only mounts from
+  `devcontainer.json` and a host-side opt-in and guard script
+  (`.devcontainer/initialize.sh`), but not the nested-repo check, the drift
+  gate or the git-free harness. Either way,
   review changes to `.devcontainer` before a rebuild (`agent-rebuild` shows
   them).
 - **Firewall limits.** GitHub is allowed by IP range, so an injected prompt

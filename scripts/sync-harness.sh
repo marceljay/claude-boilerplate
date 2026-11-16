@@ -437,7 +437,7 @@ done
 # init-firewall.sh is mirrored because it is pure logic now — the per-project
 # domain list lives in allowed-domains.txt (ask-first, below). cp -p keeps
 # its exec bit.
-for f in .claude/README.md .devcontainer/STACKS.md .devcontainer/init-firewall.sh .devcontainer/claude-harness.zsh; do
+for f in .claude/README.md .devcontainer/STACKS.md .devcontainer/init-firewall.sh .devcontainer/initialize.sh .devcontainer/claude-harness.zsh; do
   [ -f "$SRC/$f" ] || continue
   mkdir -p "$TARGET/$(dirname "$f")"
   cp -p "$SRC/$f" "$TARGET/$f"
@@ -620,6 +620,15 @@ for f in $ASK_FILES; do
     ask_first "$f"
   fi
 done
+
+# devcontainer.json is ask-first, so a kept target copy may predate the
+# host-side opt-in and the read-only mounts of the "Reopen in Container"
+# path. initialize.sh was copied above; without the wiring it never runs.
+if [ -f "$TARGET/$DEVCONTAINER" ] && ! grep -q 'initialize.sh' "$TARGET/$DEVCONTAINER"; then
+  say "WARNING" "$DEVCONTAINER has no initializeCommand for .devcontainer/initialize.sh"
+  echo "          copy the \"initializeCommand\" block and the six \"mounts\" bind lines from"
+  echo "          $SRC/$DEVCONTAINER, or VS Code reopen runs without the opt-in and the overlays."
+fi
 
 # --- 3b. Hook files that reached the target but aren't wired ---------------
 # settings.json is ask-first and usually kept, so a hook added upstream lands

@@ -21,6 +21,16 @@
     "--cap-add=NET_ADMIN",
     "--cap-add=NET_RAW"
   ],
+  // Runs on the HOST before every create and start. It refuses unless
+  // "Reopen in Container" is enabled on this host (AGENT_ALLOW_VSCODE=1 or
+  // ~/.config/zsh/agent-allow-vscode; `agent` from a terminal is the
+  // recommended path) and creates the sources for the read-only mounts
+  // below. Array form: no shell, paths with spaces are safe.
+  "initializeCommand": [
+    "sh",
+    "${localWorkspaceFolder}/.devcontainer/initialize.sh",
+    "${localWorkspaceFolder}"
+  ],
   "customizations": {
     "vscode": {
       "extensions": [
@@ -51,7 +61,19 @@
   "remoteUser": "node",
   "mounts": [
     "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
-    "source=claude-code-config-${devcontainerId},target=/home/node/.claude,type=volume"
+    "source=claude-code-config-${devcontainerId},target=/home/node/.claude,type=volume",
+    // The same read-only overlays scripts/agent.zsh applies: what the host
+    // executes (next rebuild, editor open, every git command) cannot be
+    // changed from inside. initialize.sh creates .git/commondir and .vscode
+    // when missing. Edit these files from a host editor or `agent --setup`.
+    // .git is a mount point of its own so it cannot be renamed away and
+    // replaced by a writable copy.
+    "source=${localWorkspaceFolder}/.git,target=${containerWorkspaceFolder}/.git,type=bind",
+    "source=${localWorkspaceFolder}/.devcontainer,target=${containerWorkspaceFolder}/.devcontainer,type=bind,readonly",
+    "source=${localWorkspaceFolder}/.vscode,target=${containerWorkspaceFolder}/.vscode,type=bind,readonly",
+    "source=${localWorkspaceFolder}/.git/config,target=${containerWorkspaceFolder}/.git/config,type=bind,readonly",
+    "source=${localWorkspaceFolder}/.git/hooks,target=${containerWorkspaceFolder}/.git/hooks,type=bind,readonly",
+    "source=${localWorkspaceFolder}/.git/commondir,target=${containerWorkspaceFolder}/.git/commondir,type=bind,readonly"
   ],
   "containerEnv": {
     "NODE_OPTIONS": "--max-old-space-size=4096",

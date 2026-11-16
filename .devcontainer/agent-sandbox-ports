@@ -6,7 +6,7 @@
 # the next agent-sandbox-recreate / agent-sandbox-rebuild. One invalid line rejects the file.
 #
 # This file is read on the HOST and sits under the read-only .devcontainer
-# overlay, so the agent can't publish ports for itself. Per-project:
+# mount, so the agent can't publish ports for itself. Per-project:
 # sync-harness.sh copies it only when missing. Ignored by the VS Code path,
 # which auto-forwards ports instead.
 #

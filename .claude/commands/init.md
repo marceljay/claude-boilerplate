@@ -14,7 +14,7 @@ the detach script (step 0: `rm -rf
 
 - **Not writable → host-edit path.** Tell the user once: either exit and
   run `agent-sandbox --setup` on the host (a one-time container without the
-  overlays, prompts on), then `/init` again there; or stay here and apply
+  read-only mounts, prompts on), then `/init` again there; or stay here and apply
   the edits by hand. On this path never attempt the write: for each
   `.devcontainer/` change below, emit the exact edit for the user to apply
   on the host (file, the line as it is, the line as it should be) — the
@@ -22,7 +22,7 @@ the detach script (step 0: `rm -rf
   detach offer in step 0 (say why; `scripts/new-project.sh` must run on the
   host or in `agent-sandbox --setup`). After they apply the edits:
   `agent-sandbox-rebuild`.
-- **Writable** (`agent-sandbox --setup`, or a container without the overlays) →
+- **Writable** (`agent-sandbox --setup`, or a container without the read-only mounts) →
   proceed as written.
   Under `agent-sandbox --setup`, remind the user at the end: review
   `git diff -- .devcontainer`, then `agent-sandbox-rebuild`; plain `agent-sandbox` refuses
@@ -360,7 +360,7 @@ the detach script (step 0: `rm -rf
    ignores anything else with a warning.
 
 4. Initialize git if not already a repo (`git init`). Not possible with the
-   read-only `.git/config` overlay — on the host-edit path, tell the user
+   read-only `.git/config` mount — on the host-edit path, tell the user
    to run it on the host.
 
 5. Report what was created, listing each file. Also point out the **bundled skills**

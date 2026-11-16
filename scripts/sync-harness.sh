@@ -668,7 +668,7 @@ done
 if [ -f "$TARGET/$DEVCONTAINER" ] && ! grep -q 'initialize.sh' "$TARGET/$DEVCONTAINER"; then
   say "WARNING" "$DEVCONTAINER has no initializeCommand for .devcontainer/initialize.sh"
   echo "          copy the \"initializeCommand\" block and the six \"mounts\" bind lines from"
-  echo "          $SRC/$DEVCONTAINER, or VS Code reopen runs without the opt-in and the overlays."
+  echo "          $SRC/$DEVCONTAINER, or VS Code reopen runs without the opt-in and the read-only mounts."
 fi
 
 # --- 3b. Hook files that reached the target but aren't wired ---------------

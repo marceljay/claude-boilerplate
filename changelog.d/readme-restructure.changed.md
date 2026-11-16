@@ -3,7 +3,7 @@
   paragraphs split by topic, and the sandbox-versus-reopen comparison
   rewritten as a list. Six Mermaid diagrams render on GitHub: the two
   getting-started paths, the host/container/firewall arrangement, the
-  `agent-sandbox` start sequence, the read-only overlays inside
+  `agent-sandbox` start sequence, the read-only mounts inside
   `/workspace`, the firewall's decision order, and the STATUS.md to
   CHANGELOG.md item flow. The security model's ASCII attack-surface map is
   now a Mermaid diagram too. Section links from other documents point at the

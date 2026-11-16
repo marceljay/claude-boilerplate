@@ -34,7 +34,7 @@ scenario, the residual risk, and how to check each control by hand.
 - [5. Control matrix: sandbox path versus VS Code reopen](#5-control-matrix-sandbox-path-versus-vs-code-reopen)
 - [6. Verification checklist after a rebuild](#6-verification-checklist-after-a-rebuild)
   - [6.1 Firewall](#61-firewall)
-  - [6.2 Read-only overlays and git](#62-read-only-overlays-and-git)
+  - [6.2 Read-only mounts and git](#62-read-only-mounts-and-git)
   - [6.3 VS Code reopen path](#63-vs-code-reopen-path)
   - [6.4 Sandbox lifecycle](#64-sandbox-lifecycle)
   - [6.5 Host and terminal](#65-host-and-terminal)
@@ -146,7 +146,7 @@ flowchart LR
         allowed["GitHub, all ranges, any repo, any port<br/>api.anthropic.com · platform.claude.com<br/>registry.npmjs.org · VS Code marketplace<br/>DNS resolvers (recursive)"]
     end
     term -->|"docker exec … tmux"| claude
-    docker <-->|"bind mount, read-write;<br/>overlays read-only"| ws
+    docker <-->|"bind mount, read-write;<br/>five paths mounted read-only on top"| ws
     vscode <-.->|"SSH agent, keychain,<br/>code IPC, $BROWSER (reopen only)"| claude
     secrets -.-> vscode
     dev -->|"published ports"| host
@@ -157,10 +157,12 @@ flowchart LR
     allowed -.->|"extensions run here too"| vscode
 ```
 
-Dotted lines: open only on the VS Code path. On both paths the bind mount
-carries read-only overlays for `.devcontainer`, `.vscode`, `.git/hooks`,
-`.git/config` and `.git/commondir`; only the `agent-sandbox` path adds the dynamic
-checks. GitHub and the resolvers are the residual exfiltration paths.
+Dotted lines: open only on the VS Code path. On both paths the project
+folder is bind-mounted read-write, and `.devcontainer`, `.vscode`,
+`.git/hooks`, `.git/config` and `.git/commondir` are bind-mounted again on
+top of it, read-only: the inner mount wins for its subtree, so a write
+there fails instead of landing anywhere (plain mounts, not OverlayFS). Only
+the `agent-sandbox` path adds the dynamic checks. GitHub and the resolvers are the residual exfiltration paths.
 
 ## 4. Threat scenarios
 
@@ -235,14 +237,14 @@ mounts, and `.git` itself is a mount point so it cannot be renamed and
 replaced by a writable copy. `/pr` pushes without `-u`, `ccw` uses
 `--no-track`, so nothing in the harness needs to write them.
 
-**Two ways around the overlays, both reproduced on git 2.39 and 2.43.**
+**Two ways around the read-only mounts, both reproduced on git 2.39 and 2.43.**
 They need only what a normal-mode container already has: a writable `.git`
 directory and a writable working tree.
 
 1. **A `.git/commondir` file.** If it exists, git reads config and hooks
    from the directory it names instead of `.git`. One file write redirects
    the host's git to a config and hooks directory the agent controls; the
-   two read-only overlays protect files git no longer reads. Closed on the
+   two read-only mounts protect files git no longer reads. Closed on the
    sandbox path (decided 2026-11-14): `agent-sandbox` creates `.git/commondir` on the
    host holding a single `.` (no newline; git 2.39 rejects one, and an
    empty file breaks git) and mounts it read-only beside `.git/config`, so
@@ -253,12 +255,12 @@ directory and a writable working tree.
    else, read with the shell, never with git.
 2. **A submodule entry pointing at a nested repository.** `git init` a
    subdirectory, set `core.fsmonitor` in *its* config (writable, it is not
-   under the overlays), `git add` the directory. The host's top-level
+   under the read-only mounts), `git add` the directory. The host's top-level
    `git status` enters the nested repo and runs the command. Sandbox path
    (decided 2026-11-14): `agent-sandbox` refuses to attach, and the gate refuses,
    while a nested `.git` exists that `.devcontainer/agent-sandbox-nested-repos`
    does not list (one path or glob per line, read on the host, under the
-   read-only overlay, so the agent cannot list its own). Harness worktrees
+   read-only mount, so the agent cannot list its own). Harness worktrees
    and `node_modules` are never checked. A listed repository is trusted:
    review it as you would any dependency. What keeps the host out of a
    nested repository: the read-only `.git/config` keeps a submodule
@@ -299,7 +301,7 @@ against it; `agent-sandbox --setup` first copies `.git/config` and `.git/hooks`
 there, and `agent-sandbox-rebuild` diffs the live files against those copies and
 asks. The only git call left is `git config --global`, run from `/`.
 
-**Residual.** VS Code path: the same five overlays and the `.git` mount
+**Residual.** VS Code path: the same five read-only mounts and the `.git` mount
 point come from `devcontainer.json`, and `.devcontainer/initialize.sh`
 refuses a redirected `.git/commondir` or worktree commondir before every
 start; but nothing checks nested repositories or mounts
@@ -672,7 +674,7 @@ place, whatever the code says.
 - [ ] `iptables -S` as `node` is denied; `sudo -l` lists only the firewall script (scenario 2)
 - [ ] `claude` sign-in and a normal session work without `sentry.io` and `statsig.com` on the allowlist
 
-### 6.2 Read-only overlays and git
+### 6.2 Read-only mounts and git
 
 - [ ] `touch .devcontainer/x`, `git config x.y z`, `mv .git .git.x` all fail inside (scenarios 1, 3)
 - [ ] Inside: `echo ../x > .git/commondir` fails (read-only), `cat .git/commondir` prints `.`, `touch .vscode/x` fails (scenario 3)
@@ -695,7 +697,7 @@ place, whatever the code says.
 - [ ] `agent-sandbox --setup`, `/init`, exit, plain `agent-sandbox` refuses; `agent-sandbox-rebuild` lists the `.devcontainer` changes and asks; afterwards `agent-sandbox` attaches
 - [ ] Edit a file under `.devcontainer` on the host, run `agent-sandbox`: the drift warning appears and it still attaches
 - [ ] With a port in `agent-sandbox-ports`, `agent-sandbox-recreate` then `agent-sandbox-ports` shows a `127.0.0.1:<port>` mapping and the dev server answers there (also confirms inbound arrives from the gateway network)
-- [ ] `docker inspect <container> --format '{{.HostConfig.Privileged}} {{.HostConfig.NetworkMode}}'` prints `false bridge`; its mounts are the project folder, `.git`, the three read-only overlays and two volumes (scenario 4)
+- [ ] `docker inspect <container> --format '{{.HostConfig.Privileged}} {{.HostConfig.NetworkMode}}'` prints `false bridge`; its mounts are the project folder, `.git`, the read-only mounts (`.devcontainer`, `.vscode`, `.git/config`, `.git/hooks`, `.git/commondir`, any `.git/modules/*/config`) and two volumes (scenario 4)
 - [ ] `env | grep -E 'SSH_AUTH_SOCK|VSCODE_IPC|REMOTE_CONTAINERS|GIT_ASKPASS|BROWSER'` prints nothing (scenario 5)
 
 ### 6.5 Host and terminal
@@ -721,7 +723,7 @@ In rough order of value per effort:
 | Digest-pin `node:22-bookworm` and pin `CLAUDE_CODE_VERSION` | base-image and Claude Code supply chain (scenario 12) | a hash to bump on every refresh; `cc-update` still works between rebuilds | easy, not started |
 | `--security-opt no-new-privileges` and a user-namespace remap in `agent-sandbox.zsh` | privilege escalation inside the container (scenario 2); on Linux hosts this is also host protection, since no VM sits in between | `no-new-privileges` breaks `sudo`, so the firewall would have to run from `agent-sandbox.zsh` as `docker exec -u root` only (which it already can); userns remap changes bind-mount ownership on Linux hosts, usually harmless on Docker Desktop | investigate |
 | Fine-grained GitHub token scoped to this repository for `gh auth` inside the container | blast radius of a leaked token (scenario 13) | per-project token management | user practice, document in README |
-| Read-only `.claude/` overlay (hooks, `settings.json`) on the sandbox path | the agent editing the hooks that screen its own commands | `/remember`, `update-config`, the status line and the `log`/`update-status` skills write there; would need a split between code and state | deferred (decided 2026-11-14) |
+| Read-only `.claude/` mount (hooks, `settings.json`) on the sandbox path | the agent editing the hooks that screen its own commands | `/remember`, `update-config`, the status line and the `log`/`update-status` skills write there; would need a split between code and state | deferred (decided 2026-11-14) |
 | Nested repositories in a Docker volume: an opt-in list (`.devcontainer/agent-sandbox-volumes`) of paths `agent-sandbox` mounts as named volumes, so an audit clone never exists on the host filesystem | the whole nested-repository class on the host (scenario 3): no host git, IDE or prompt can reach it, nothing to allowlist | code not browsable from a host editor; lives only as long as the volume; not available on the reopen path without a devcontainer.json edit | proposed 2026-11-16 |
 | VS Code path: attach to the `agent-sandbox` container instead of reopen (README instructions plus an attached-container configuration for the extensions) | the dynamic checks (nested repos, module configs, drift gate) on the editor path | attach ignores `devcontainer.json` customizations; `postCreateCommand` steps already live in the image | document, not started |
 | VS Code path: nested-repo and `.git/modules/**/config` checks in `initialize.sh` | scenario 3 on the reopen path | exact-path allowlist parsing in POSIX sh; mounts cannot be added dynamically, so module configs can only be refused, not mounted | not started |

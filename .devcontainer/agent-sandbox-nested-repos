@@ -5,12 +5,12 @@
 # Why: a submodule entry in the index makes the host's git read the nested
 # repository's config, including core.fsmonitor, which runs as you. The
 # nested config is writable from inside the container (it is not under the
-# read-only overlays), so `agent-sandbox` refuses to attach while an unlisted nested
+# read-only mounts), so `agent-sandbox` refuses to attach while an unlisted nested
 # repository exists. Worktrees under .claude/worktrees and .worktrees, and
 # node_modules, are never checked.
 #
 # This file is read on the HOST and sits under the read-only .devcontainer
-# overlay, so the agent cannot list its own repositories. Per-project:
+# mount, so the agent cannot list its own repositories. Per-project:
 # sync-harness.sh copies it only when missing. A listed repository is one
 # you trust: on the host, never run git, a git-aware prompt or an IDE inside
 # it (its config and hooks are writable from the container). `git config

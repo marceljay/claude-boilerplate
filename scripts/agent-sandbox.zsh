@@ -16,7 +16,7 @@
 #                                     to tmux inside (plain zsh if the image
 #                                     has no tmux, or with --no-tmux)
 #   agent-sandbox --setup [dir]       one-time SETUP container: no read-only
-#   agent-sandbox-setup [dir]         overlays, permission prompts forced on.
+#   agent-sandbox-setup [dir]         mounts, permission prompts forced on.
 #                                     For /init and the detach script. Plain
 #                                     `agent-sandbox` refuses to attach to it
 #                                     afterwards — review, then
@@ -25,7 +25,7 @@
 #                                     new container (review `git diff --
 #                                     .devcontainer` first)
 #   agent-sandbox-recreate [dir]      new container from the existing image
-#                                     (after env, port, overlay or .git/config
+#                                     (after env, port, read-only mount or .git/config
 #                                     changes), no build
 #   agent-sandbox-stop [dir]          stop the container (sign-in and history
 #                                     are kept)
@@ -108,7 +108,7 @@ _agent_sandbox_name() {
 # host (a bind of a nonexistent path appears as a new root-owned directory).
 # $2 = setup: only the Dockerfile is required. Setup mode mounts nothing
 # below the project folder, and the detach flow (scripts/new-project.sh)
-# deletes and re-inits .git — which the overlays make impossible anyway.
+# deletes and re-inits .git — which the read-only mounts make impossible anyway.
 _agent_sandbox_check() {
   emulate -L zsh
   local dir=$(_agent_sandbox_dir "$1")
@@ -122,7 +122,7 @@ _agent_sandbox_check() {
   fi
   [[ $2 == setup ]] && return 0
   if [[ ! -f $dir/.git/config || ! -d $dir/.git/hooks ]]; then
-    print -u2 "agent-sandbox: $dir needs .git/config and .git/hooks (a git repository) for the read-only overlays"
+    print -u2 "agent-sandbox: $dir needs .git/config and .git/hooks (a git repository) for the read-only mounts"
     return 1
   fi
   # The commondir placeholder: "." with no newline (git 2.39 rejects a
@@ -195,7 +195,7 @@ _agent_sandbox_build_version_args() {
 
 # .devcontainer/agent-sandbox-ports → `-p 127.0.0.1::<port>` pairs, one token per
 # line. One bad line rejects the whole file (and the create). The file sits
-# under the read-only overlay, so only the host side can change it.
+# under the read-only mount, so only the host side can change it.
 _agent_sandbox_port_args() {
   emulate -L zsh
   local dir=$(_agent_sandbox_dir "$1") f line n=0
@@ -240,7 +240,7 @@ _agent_sandbox_snapshot_git() {
 }
 
 # .git/commondir redirects git to another directory's config and hooks — a
-# way around the read-only overlays that needs only a writable .git. A
+# way around the read-only mounts that needs only a writable .git. A
 # placeholder holding exactly "." (no newline) is harmless; anything else
 # means the host must not run git in this repo until it is removed. Read
 # with the shell, never with git.
@@ -362,7 +362,7 @@ _agent_sandbox_create() {
     # --mount, not -v: a ":" in the path would split a -v spec. .git itself is
     # mounted (read-write) so it is a mount point: otherwise `mv .git .git.x;
     # cp -a .git.x .git` inside would hand the host a writable copy with the
-    # agent's hooks and config, and the two read-only overlays would sit in
+    # agent's hooks and config, and the two read-only mounts would sit in
     # the renamed directory, protecting nothing.
     mounts=(
       --mount "type=bind,src=$dir/.git,dst=/workspace/.git"

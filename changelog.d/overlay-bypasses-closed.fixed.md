@@ -1,4 +1,4 @@
-- **The two overlay bypasses are closed on the sandbox path, and a failed
+- **The two bypasses of the read-only mounts are closed on the sandbox path, and a failed
   first firewall start fails closed on the VS Code path.** `agent-sandbox` creates
   a `.git/commondir` placeholder holding `.` and mounts it read-only, so git
   cannot be redirected to another config and hooks directory from inside;
@@ -11,5 +11,5 @@
   start fails before any rule exists it applies a loopback-only DROP table
   (recovery is a container restart); a failed re-run keeps the previous
   rules, and `agent-sandbox` treats the fail-closed table as "not applied" and
-  stops the container. A read-only `.claude/` overlay was considered and
+  stops the container. A read-only `.claude/` mount was considered and
   deferred.

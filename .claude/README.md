@@ -531,7 +531,7 @@ below.
   --openExternal`) and copies `~/.gitconfig` in. It must be enabled once
   per host (`touch ~/.config/zsh/agent-sandbox-allow-vscode` or
   `AGENT_SANDBOX_ALLOW_VSCODE=1`); `.devcontainer/initialize.sh` checks that on the
-  host before every start and the same read-only overlays apply, but none
+  host before every start and the same read-only mounts apply, but none
   of `agent-sandbox`'s dynamic checks (nested repos, drift gate). README "Security
   model" lists what that means.
 

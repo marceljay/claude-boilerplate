@@ -62,7 +62,7 @@
   "mounts": [
     "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
     "source=claude-code-config-${devcontainerId},target=/home/node/.claude,type=volume",
-    // The same read-only overlays scripts/agent-sandbox.zsh applies: what the host
+    // The same read-only mounts scripts/agent-sandbox.zsh applies: what the host
     // executes (next rebuild, editor open, every git command) cannot be
     // changed from inside. initialize.sh creates .git/commondir and .vscode
     // when missing. Edit these files from a host editor or `agent-sandbox --setup`.

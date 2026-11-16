@@ -376,7 +376,7 @@ flowchart TD
     img -->|present| drift["Warn if .devcontainer<br/>changed since the build"]
     build --> cont{Container?}
     drift --> cont
-    cont -->|missing| run["docker run with the<br/>read-only overlays"]
+    cont -->|missing| run["docker run with the<br/>read-only mounts"]
     cont -->|stopped| st["docker start"]
     cont -->|running| pol
     run --> pol{OUTPUT policy DROP<br/>and allowlist loaded?}
@@ -391,7 +391,7 @@ flowchart TD
 | --- | --- |
 | `agent-sandbox` | Builds the image if missing, creates the container if missing, starts it if stopped, applies the firewall if the OUTPUT policy isn't DROP, attaches to tmux. Idempotent; `Ctrl-b d` detaches, the session keeps running. |
 | `agent-sandbox --no-tmux` / `agent-sandbox-shell` | Same, but a plain zsh (closing the tab ends what runs in it). |
-| `agent-sandbox --setup` / `agent-sandbox-setup` | One-time container for `/init` and `scripts/new-project.sh`: no read-only overlays, permission prompts on. Plain `agent-sandbox` refuses to attach to it until you `agent-sandbox-rebuild`. |
+| `agent-sandbox --setup` / `agent-sandbox-setup` | One-time container for `/init` and `scripts/new-project.sh`: no read-only mounts, permission prompts on. Plain `agent-sandbox` refuses to attach to it until you `agent-sandbox-rebuild`. |
 | `agent-sandbox-rebuild` | `docker build --pull --no-cache` (fresh base image, newest Claude Code), new container. When `.devcontainer` differs from what the current image was built from (uncommitted or committed), it lists the changes and asks first. |
 | `agent-sandbox-recreate` | New container from the existing image — after changing `agent-sandbox-ports`, the shortcut flags, or `.git/config` on the host. Same review prompt as `agent-sandbox-rebuild`. |
 | `agent-sandbox-stop` | Stops the container; sign-in, memory and history live in volumes and survive. |
@@ -424,8 +424,13 @@ flowchart LR
 ```
 
 **Five places are read-only:** `.devcontainer/`, `.vscode/`, `.git/hooks/`,
-`.git/config` and `.git/commondir`. `.git` itself is a mount point, so it
-cannot be renamed away and replaced by a writable copy. Together this means
+`.git/config` and `.git/commondir`. The mechanism is plain bind mounts:
+Docker mounts the project folder read-write at `/workspace`, then mounts
+those five paths from the same folder again on top of it, read-only. The
+inner mount wins for its subtree, so a write there is rejected, not
+diverted anywhere (this is not OverlayFS). `.git` itself is a mount point
+too, so it cannot be renamed away and replaced by a writable copy. Together
+this means
 an agent cannot change what the next rebuild runs, what the editor runs on
 open, what git runs on your machine (`core.hooksPath`, `core.fsmonitor`,
 filter drivers), or where `git push` goes. `agent-sandbox` creates the
@@ -494,7 +499,7 @@ and settings go into VS Code's attached-container configuration.
 in the environment VS Code is launched from). `.devcontainer/initialize.sh`
 runs on the host before every start, checks the switch and the
 `.git/commondir` files, and `devcontainer.json` applies the same read-only
-overlays. It remains the less isolated path: host channels stay open, and
+mounts. It remains the less isolated path: host channels stay open, and
 there is no nested-repository check and no drift gate.
 
 ### 3.6 Host notes: Linux and macOS

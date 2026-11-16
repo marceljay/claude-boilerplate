@@ -9,7 +9,7 @@
   firewall is re-applied whenever the OUTPUT policy isn't DROP (checked, not
   assumed); the image is labelled with a hash of `.devcontainer/` and `agent-sandbox`
   warns on drift. `agent-sandbox --setup` creates a one-time container without the
-  overlays and with prompts on, for `/init` and the detach script; plain
+  read-only mounts and with prompts on, for `/init` and the detach script; plain
   `agent-sandbox` refuses to attach to it until `agent-sandbox-rebuild`; `agent-sandbox-rebuild` and
   `agent-sandbox-recreate` list `.devcontainer` changes since the last build and ask
   first, and `agent-sandbox` refuses a same-named container that mounts another

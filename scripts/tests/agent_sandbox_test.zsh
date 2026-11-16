@@ -257,7 +257,7 @@ run_agent agent-sandbox --setup "$proj"
 assert_eq "agent-sandbox --setup, no container → run (setup), firewall, tmux" "run firewall tmux" "$(actions)"
 run_line=$(logline run)
 assert_has "  setup label" "$run_line" "agent-sandbox.mode=setup"
-assert_not_has "  no read-only overlays" "$run_line" "readonly"
+assert_not_has "  no read-only mounts" "$run_line" "readonly"
 assert_not_has "  no .git mount either" "$run_line" "dst=/workspace/.git"
 assert_has "  flags forced empty" "$run_line" "CLAUDE_SHORTCUT_FLAGS= "
 assert_has "  firewall still applied" "$(actions)" "firewall"

@@ -6,3 +6,6 @@
   matrix, 6 verification checklist grouped into firewall, read-only mounts and
   git, VS Code reopen path, sandbox lifecycle, host and terminal, and 7
   open items with the accepted residuals as their own subsection.
+  Each scenario's vector, gain, mitigation, residual and verify fields are
+  bullets, and the attack surface diagram is a compact top-down layout
+  with numbered channels explained in a table below it.

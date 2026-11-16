@@ -138,42 +138,53 @@ it executes with the agent's reach, and, for VS Code extensions, partly on
 the host.
 
 ```mermaid
-flowchart LR
-    subgraph host["Host (macOS or Linux)"]
-        term["Terminal + tmux client"]
-        docker["Docker Desktop or Engine"]
-        vscode["VS Code (optional)"]
-        secrets["Keychain, SSH agent, browser"]
-        hostgit["Host git, direnv, editor tasks<br/>(execute repository files)"]
+%%{init: {"themeVariables": {"fontSize": "18px"}}}%%
+flowchart TB
+    subgraph host["Host"]
+        term["Terminal"]
+        vscode["VS Code<br/>(reopen path)"]
+        hostgit["Host git,<br/>direnv, tasks"]
     end
     subgraph container["Container (node user)"]
-        claude["Claude Code + tools"]
-        ws["/workspace (the repo)"]
-        fw["Firewall (root via sudo)"]
-        vol["~/.claude volume (token)"]
-        dev["Dev servers, tmux"]
+        claude["Claude Code"]
+        ws["/workspace"]
+        dev["Dev servers"]
     end
-    subgraph net["Internet, as the firewall sees it"]
-        allowed["GitHub, all ranges, any repo, any port<br/>api.anthropic.com · platform.claude.com<br/>registry.npmjs.org · VS Code marketplace<br/>DNS resolvers (recursive)"]
-    end
-    term -->|"docker exec … tmux"| claude
-    docker <-->|"bind mount, read-write;<br/>five paths mounted read-only on top"| ws
-    vscode <-.->|"SSH agent, keychain,<br/>code IPC, $BROWSER (reopen only)"| claude
-    secrets -.-> vscode
-    dev -->|"published ports"| host
-    dev -->|"escape sequences"| term
-    ws -->|"files the host executes"| hostgit
-    claude -->|"egress: ipset allowlist,<br/>REJECT the rest"| fw --> allowed
-    allowed -->|"supply chain: base image, apt,<br/>npm, extensions"| claude
-    allowed -.->|"extensions run here too"| vscode
+    fw["Firewall"]
+    allowed["Allowlisted<br/>internet"]
+
+    term -->|"1 · docker exec"| claude
+    hostgit <-->|"2 · bind mount"| ws
+    dev -->|"3 · ports"| host
+    dev -->|"4 · escapes"| term
+    vscode <-.->|"5 · sockets"| claude
+    claude --> fw -->|"egress"| allowed
+    allowed -->|"supply chain"| claude
 ```
 
-Dotted lines: open only on the VS Code path. On both paths the project
-folder is bind-mounted read-write, and `.devcontainer`, `.vscode`,
-`.git/hooks`, `.git/config` and `.git/commondir` are bind-mounted again on
-top of it, read-only: the inner mount wins for its subtree, so a write
-there fails instead of landing anywhere (plain mounts, not OverlayFS). Only
-the `agent-sandbox` path adds the dynamic checks. GitHub and the resolvers are the residual exfiltration paths.
+Solid lines are open on both paths; dotted lines only on the VS Code path.
+
+| # | Channel | What crosses it |
+| --- | --- | --- |
+| 1 | `docker exec … tmux` | the terminal session into the container |
+| 2 | Bind mount of the project folder | read-write, so files the host later executes (git config and hooks, `.envrc`, editor tasks) are written here; five paths are mounted read-only on top |
+| 3 | Published ports | dev servers reachable from the host browser |
+| 4 | Escape sequences | everything printed is rendered by the host terminal |
+| 5 | VS Code sockets | SSH agent, keychain, `code` IPC, `$BROWSER` (VS Code path only) |
+| – | Egress | through the firewall's ipset allowlist, everything else rejected |
+| – | Supply chain | base image, apt, npm and VS Code extensions arrive from the allowed hosts; extensions also run on the host |
+
+The allowlist covers GitHub (all ranges, any repository, any port),
+`api.anthropic.com`, `platform.claude.com`, `registry.npmjs.org`, the VS
+Code marketplace, and the configured recursive DNS resolvers. GitHub and the
+resolvers are the residual exfiltration paths.
+
+On both paths the project folder is bind-mounted read-write, and
+`.devcontainer`, `.vscode`, `.git/hooks`, `.git/config` and
+`.git/commondir` are bind-mounted again on top of it, read-only: the inner
+mount wins for its subtree, so a write there fails instead of landing
+anywhere (plain mounts, not OverlayFS). Only the `agent-sandbox` path adds
+the dynamic checks.
 
 ## 4. Threat scenarios
 
@@ -188,463 +199,463 @@ package, with no human in the loop.
 
 ### 4.1 Widening the firewall by editing the allowlist or the script
 
-**Vector.** The agent edits `.devcontainer/allowed-domains.txt` or
-`init-firewall.sh` to add an exfiltration host, then waits for a rebuild.
+- **Vector:** The agent edits `.devcontainer/allowed-domains.txt` or
+  `init-firewall.sh` to add an exfiltration host, then waits for a rebuild.
 
-**Gain.** Permanent egress to a host of its choice from the next image on.
+- **Gain:** Permanent egress to a host of its choice from the next image on.
 
-**Mitigation.** The running firewall reads only the copies baked into the
-image (`/etc/init-firewall/allowed-domains.txt`,
-`/usr/local/bin/init-firewall.sh`), so an edit changes nothing until a human
-rebuilds. On the sandbox path `.devcontainer` is a read-only mount, so the edit
-is impossible; the image carries a sha256 label of `.devcontainer` and
-`agent-sandbox` warns on drift; `agent-sandbox-rebuild` and `agent-sandbox-recreate` list the changes
-and ask.
+- **Mitigation:** The running firewall reads only the copies baked into the
+  image (`/etc/init-firewall/allowed-domains.txt`,
+  `/usr/local/bin/init-firewall.sh`), so an edit changes nothing until a human
+  rebuilds. On the sandbox path `.devcontainer` is a read-only mount, so the edit
+  is impossible; the image carries a sha256 label of `.devcontainer` and
+  `agent-sandbox` warns on drift; `agent-sandbox-rebuild` and `agent-sandbox-recreate` list the changes
+  and ask.
 
-**Residual.** On the VS Code path the directory is read-only inside too
-(since 2026-11-16), but "Rebuild Container" asks nothing and there is no
-drift warning: `git diff -- .devcontainer` on the host is the review. In
-`agent-sandbox --setup` it is writable by design. A
-committed edit leaves `git status` clean, so the hash gate, not git, is the
-real check. Humans skimming a diff miss single-line changes to a domain list.
+- **Residual:** On the VS Code path the directory is read-only inside too
+  (since 2026-11-16), but "Rebuild Container" asks nothing and there is no
+  drift warning: `git diff -- .devcontainer` on the host is the review. In
+  `agent-sandbox --setup` it is writable by design. A
+  committed edit leaves `git status` clean, so the hash gate, not git, is the
+  real check. Humans skimming a diff miss single-line changes to a domain list.
 
-**Verify.** `touch .devcontainer/x` inside the container fails with
-"Read-only file system"; edit a file on the host and run `agent-sandbox`: the
-warning appears.
+- **Verify:** `touch .devcontainer/x` inside the container fails with
+  "Read-only file system"; edit a file on the host and run `agent-sandbox`: the
+  warning appears.
 
 ### 4.2 Disabling or bypassing the firewall from inside
 
-**Vector.** The agent runs `iptables -F` or `ipset flush`, or re-runs the
-firewall script with a modified allowlist.
+- **Vector:** The agent runs `iptables -F` or `ipset flush`, or re-runs the
+  firewall script with a modified allowlist.
 
-**Gain.** Unrestricted egress for the rest of the session.
+- **Gain:** Unrestricted egress for the rest of the session.
 
-**Mitigation.** Rule changes need root. The `node` user has `sudo` for
-exactly one command, `/usr/local/bin/init-firewall.sh`, root-owned and 0755,
-which reads only baked files. The capabilities `NET_ADMIN`/`NET_RAW` belong
-to the container, not the user; without root they grant nothing. Rules are
-lost on restart, but `agent-sandbox` checks the OUTPUT policy before every attach and
-re-applies them.
+- **Mitigation:** Rule changes need root. The `node` user has `sudo` for
+  exactly one command, `/usr/local/bin/init-firewall.sh`, root-owned and 0755,
+  which reads only baked files. The capabilities `NET_ADMIN`/`NET_RAW` belong
+  to the container, not the user; without root they grant nothing. Rules are
+  lost on restart, but `agent-sandbox` checks the OUTPUT policy before every attach and
+  re-applies them.
 
-**Residual.** Any local privilege escalation inside the container (kernel,
-sudo, setuid binary from a package) ends the firewall. The container runs as
-a plain user with the default seccomp profile but no user-namespace remapping
-and no `no-new-privileges`. On a Linux host the same escalation also reaches
-the host kernel directly; on macOS it stops at Docker Desktop's VM. A restart by hand (`docker start`) followed by
-`docker exec` outside `agent-sandbox` gives a shell with no rules until `agent-sandbox` runs.
+- **Residual:** Any local privilege escalation inside the container (kernel,
+  sudo, setuid binary from a package) ends the firewall. The container runs as
+  a plain user with the default seccomp profile but no user-namespace remapping
+  and no `no-new-privileges`. On a Linux host the same escalation also reaches
+  the host kernel directly; on macOS it stops at Docker Desktop's VM. A restart by hand (`docker start`) followed by
+  `docker exec` outside `agent-sandbox` gives a shell with no rules until `agent-sandbox` runs.
 
-**Verify.** `iptables -S` as `node` fails with "Permission denied"; `sudo -l`
-lists only the script.
+- **Verify:** `iptables -S` as `node` fails with "Permission denied"; `sudo -l`
+  lists only the script.
 
 ### 4.3 `.git/config` and `.git/hooks`: making the host's git run attacker code
 
-**Vector.** The agent writes `core.hooksPath`, `core.fsmonitor`,
-`core.sshCommand`, a `[filter]` driver or an `[include]` into
-`.git/config`, or drops a `pre-commit` hook into `.git/hooks`. Every `git`
-command you later type on the host executes it, as you, outside any
-sandbox.
+- **Vector:** The agent writes `core.hooksPath`, `core.fsmonitor`,
+  `core.sshCommand`, a `[filter]` driver or an `[include]` into
+  `.git/config`, or drops a `pre-commit` hook into `.git/hooks`. Every `git`
+  command you later type on the host executes it, as you, outside any
+  sandbox.
 
-**Gain.** Code execution on the host with the user's full rights, triggered
-by `git status`.
+- **Gain:** Code execution on the host with the user's full rights, triggered
+  by `git status`.
 
-**Mitigation.** Sandbox path: `.git/hooks` and `.git/config` are read-only
-mounts, and `.git` itself is a mount point so it cannot be renamed and
-replaced by a writable copy. `/pr` pushes without `-u`, `ccw` uses
-`--no-track`, so nothing in the harness needs to write them.
+- **Mitigation:** Sandbox path: `.git/hooks` and `.git/config` are read-only
+  mounts, and `.git` itself is a mount point so it cannot be renamed and
+  replaced by a writable copy. `/pr` pushes without `-u`, `ccw` uses
+  `--no-track`, so nothing in the harness needs to write them.
 
-**Two ways around the read-only mounts, both reproduced on git 2.39 and 2.43.**
-They need only what a normal-mode container already has: a writable `.git`
-directory and a writable working tree.
+  **Two ways around the read-only mounts, both reproduced on git 2.39 and 2.43.**
+  They need only what a normal-mode container already has: a writable `.git`
+  directory and a writable working tree.
 
-1. **A `.git/commondir` file.** If it exists, git reads config and hooks
-   from the directory it names instead of `.git`. One file write redirects
-   the host's git to a config and hooks directory the agent controls; the
-   two read-only mounts protect files git no longer reads. Closed on the
-   sandbox path (decided 2026-11-14): `agent-sandbox` creates `.git/commondir` on the
-   host holding a single `.` (no newline; git 2.39 rejects one, and an
-   empty file breaks git) and mounts it read-only beside `.git/config`, so
-   the file cannot be created or changed from inside. With that content git
-   behaves exactly as without the file (verified for status, commit,
-   worktree add and remove, remotes on git 2.39; the second review tested
-   2.43). `agent-sandbox` and the gate still refuse when the file holds anything
-   else, read with the shell, never with git.
-2. **A submodule entry pointing at a nested repository.** `git init` a
-   subdirectory, set `core.fsmonitor` in *its* config (writable, it is not
-   under the read-only mounts), `git add` the directory. The host's top-level
-   `git status` enters the nested repo and runs the command. Sandbox path
-   (decided 2026-11-14): `agent-sandbox` refuses to attach, and the gate refuses,
-   while a nested `.git` exists that `.devcontainer/agent-sandbox-nested-repos`
-   does not list (one path or glob per line, read on the host, under the
-   read-only mount, so the agent cannot list its own). Harness worktrees
-   and `node_modules` are never checked. A listed repository is trusted:
-   review it as you would any dependency. What keeps the host out of a
-   nested repository: the read-only `.git/config` keeps a submodule
-   *inactive*, so `fetch`, `pull` and `push` told to recurse skip it; an
-   untracked nested repo is not entered by the top-level `git status`
-   (verified); and your own discipline, since any git process whose working
-   directory is inside it reads its config. `git config
-   diff.ignoreSubmodules all` on the host removes the accidental trigger
-   (plain `status`, `diff`, `log`, `commit`, `stash`, `checkout`, `add`,
-   `gc`, `fsck` and the `--recurse-submodules` forms of `fetch`, `grep`,
-   `ls-files` and `push` then spawn no git in a nested repository, verified
-   on git 2.39), but it is a reporting setting, not a boundary:
-   `--ignore-submodules=none`, `git submodule foreach`, an IDE's repository
-   detection when the project is opened on the host, GitLens, or a
-   git-aware shell prompt after `cd` into the directory all run its config.
-   Prefer exact paths over globs in the allowlist: a glob also admits a
-   repository the agent creates under it. For code you do not trust, keep
-   the clone off the host altogether (a Docker volume mounted into the
-   container, proposed below).
-3. **Two more agent-writable files git reads on the host, found while
-   answering "is `core.fsmonitor` covered":** a *registered* submodule's
-   config lives in `.git/modules/<name>/config` (writable; the host's
-   `git status` reads it: verified), and a *linked worktree* (`ccw`,
-   `claude --worktree`) has its own `.git/worktrees/<name>/commondir`
-   (writable; git run *inside* that worktree on the host follows it:
-   verified; the top-level `git status` and `git worktree list` do not).
-   Sandbox path: every existing `.git/modules/**/config` is mounted read-only
-   (a submodule added inside is covered from the next `agent-sandbox-recreate`),
-   and `agent-sandbox` refuses to attach when any `.git/worktrees/*/commondir` holds
-   anything but `../..`.
+  1. **A `.git/commondir` file.** If it exists, git reads config and hooks
+     from the directory it names instead of `.git`. One file write redirects
+     the host's git to a config and hooks directory the agent controls; the
+     two read-only mounts protect files git no longer reads. Closed on the
+     sandbox path (decided 2026-11-14): `agent-sandbox` creates `.git/commondir` on the
+     host holding a single `.` (no newline; git 2.39 rejects one, and an
+     empty file breaks git) and mounts it read-only beside `.git/config`, so
+     the file cannot be created or changed from inside. With that content git
+     behaves exactly as without the file (verified for status, commit,
+     worktree add and remove, remotes on git 2.39; the second review tested
+     2.43). `agent-sandbox` and the gate still refuse when the file holds anything
+     else, read with the shell, never with git.
+  2. **A submodule entry pointing at a nested repository.** `git init` a
+     subdirectory, set `core.fsmonitor` in *its* config (writable, it is not
+     under the read-only mounts), `git add` the directory. The host's top-level
+     `git status` enters the nested repo and runs the command. Sandbox path
+     (decided 2026-11-14): `agent-sandbox` refuses to attach, and the gate refuses,
+     while a nested `.git` exists that `.devcontainer/agent-sandbox-nested-repos`
+     does not list (one path or glob per line, read on the host, under the
+     read-only mount, so the agent cannot list its own). Harness worktrees
+     and `node_modules` are never checked. A listed repository is trusted:
+     review it as you would any dependency. What keeps the host out of a
+     nested repository: the read-only `.git/config` keeps a submodule
+     *inactive*, so `fetch`, `pull` and `push` told to recurse skip it; an
+     untracked nested repo is not entered by the top-level `git status`
+     (verified); and your own discipline, since any git process whose working
+     directory is inside it reads its config. `git config
+     diff.ignoreSubmodules all` on the host removes the accidental trigger
+     (plain `status`, `diff`, `log`, `commit`, `stash`, `checkout`, `add`,
+     `gc`, `fsck` and the `--recurse-submodules` forms of `fetch`, `grep`,
+     `ls-files` and `push` then spawn no git in a nested repository, verified
+     on git 2.39), but it is a reporting setting, not a boundary:
+     `--ignore-submodules=none`, `git submodule foreach`, an IDE's repository
+     detection when the project is opened on the host, GitLens, or a
+     git-aware shell prompt after `cd` into the directory all run its config.
+     Prefer exact paths over globs in the allowlist: a glob also admits a
+     repository the agent creates under it. For code you do not trust, keep
+     the clone off the host altogether (a Docker volume mounted into the
+     container, proposed below).
+  3. **Two more agent-writable files git reads on the host, found while
+     answering "is `core.fsmonitor` covered":** a *registered* submodule's
+     config lives in `.git/modules/<name>/config` (writable; the host's
+     `git status` reads it: verified), and a *linked worktree* (`ccw`,
+     `claude --worktree`) has its own `.git/worktrees/<name>/commondir`
+     (writable; git run *inside* that worktree on the host follows it:
+     verified; the top-level `git status` and `git worktree list` do not).
+     Sandbox path: every existing `.git/modules/**/config` is mounted read-only
+     (a submodule added inside is covered from the next `agent-sandbox-recreate`),
+     and `agent-sandbox` refuses to attach when any `.git/worktrees/*/commondir` holds
+     anything but `../..`.
 
-**The harness itself must not be the trigger.** Until this review,
-`agent-sandbox-rebuild` ran `git status` in the repo on the host before showing
-anything, which would have executed a planted `core.fsmonitor`. Now
-`agent-sandbox.zsh` runs no git inside the project: the build keeps a copy of
-`.devcontainer` outside the repo (`~/.cache/agent-sandbox/<name>/`) and diffs
-against it; `agent-sandbox --setup` first copies `.git/config` and `.git/hooks`
-there, and `agent-sandbox-rebuild` diffs the live files against those copies and
-asks. The only git call left is `git config --global`, run from `/`.
+  **The harness itself must not be the trigger.** Until this review,
+  `agent-sandbox-rebuild` ran `git status` in the repo on the host before showing
+  anything, which would have executed a planted `core.fsmonitor`. Now
+  `agent-sandbox.zsh` runs no git inside the project: the build keeps a copy of
+  `.devcontainer` outside the repo (`~/.cache/agent-sandbox/<name>/`) and diffs
+  against it; `agent-sandbox --setup` first copies `.git/config` and `.git/hooks`
+  there, and `agent-sandbox-rebuild` diffs the live files against those copies and
+  asks. The only git call left is `git config --global`, run from `/`.
 
-**Residual.** VS Code path: the same five read-only mounts and the `.git` mount
-point come from `devcontainer.json`, and `.devcontainer/initialize.sh`
-refuses a redirected `.git/commondir` or worktree commondir before every
-start; but nothing checks nested repositories or mounts
-`.git/modules/**/config` there, and the editor runs git in the repo
-constantly. `.vscode/` is read-only on both paths (created empty on the host
-when missing), so `tasks.json` with `runOn: folderOpen` and
-`settings.json` keys that name binaries are out of reach. Still writable by
-design on both paths: `.envrc` for direnv,
-`Makefile`, `package.json` scripts, a committed `.githooks/` that a README
-tells the user to enable. VS Code's Workspace Trust and direnv's allow step
-are the only gates, and both are one click. A host-side `git config` write
-after the container started is invisible inside until `agent-sandbox-recreate`
-(the mount holds the old inode). A nested repository you listed is trusted
-by you, not checked by the harness.
+- **Residual:** VS Code path: the same five read-only mounts and the `.git` mount
+  point come from `devcontainer.json`, and `.devcontainer/initialize.sh`
+  refuses a redirected `.git/commondir` or worktree commondir before every
+  start; but nothing checks nested repositories or mounts
+  `.git/modules/**/config` there, and the editor runs git in the repo
+  constantly. `.vscode/` is read-only on both paths (created empty on the host
+  when missing), so `tasks.json` with `runOn: folderOpen` and
+  `settings.json` keys that name binaries are out of reach. Still writable by
+  design on both paths: `.envrc` for direnv,
+  `Makefile`, `package.json` scripts, a committed `.githooks/` that a README
+  tells the user to enable. VS Code's Workspace Trust and direnv's allow step
+  are the only gates, and both are one click. A host-side `git config` write
+  after the container started is invisible inside until `agent-sandbox-recreate`
+  (the mount holds the old inode). A nested repository you listed is trusted
+  by you, not checked by the harness.
 
-**Verify.** Inside: `git config x.y z` fails, `mv .git .git.x` fails with
-"Device or resource busy", `echo ../x > .git/commondir` fails, `cat
-.git/commondir` prints `.`, `touch .vscode/x` fails, and with a registered
-submodule `echo x >> .git/modules/<name>/config` fails. On the host,
-**before running git in the repo**: `cat .git/commondir` prints `.`; `cat
-.git/worktrees/*/commondir` prints only `../..`; `find . -name .git -not
--path './.git' -not -path './.claude/worktrees/*'` lists only what
-`.devcontainer/agent-sandbox-nested-repos` names; `git config --get
-diff.ignoreSubmodules` prints `all` if any are listed (accident guard, not
-a control); then `git config
---show-origin --list | grep -E 'hooksPath|fsmonitor|sshCommand|filter'`
-shows nothing unexpected. `grep -c 'git status' ~/.config/zsh/agent-sandbox.zsh`
-prints `0`.
+- **Verify:** Inside: `git config x.y z` fails, `mv .git .git.x` fails with
+  "Device or resource busy", `echo ../x > .git/commondir` fails, `cat
+  .git/commondir` prints `.`, `touch .vscode/x` fails, and with a registered
+  submodule `echo x >> .git/modules/<name>/config` fails. On the host,
+  **before running git in the repo**: `cat .git/commondir` prints `.`; `cat
+  .git/worktrees/*/commondir` prints only `../..`; `find . -name .git -not
+  -path './.git' -not -path './.claude/worktrees/*'` lists only what
+  `.devcontainer/agent-sandbox-nested-repos` names; `git config --get
+  diff.ignoreSubmodules` prints `all` if any are listed (accident guard, not
+  a control); then `git config
+  --show-origin --list | grep -E 'hooksPath|fsmonitor|sshCommand|filter'`
+  shows nothing unexpected. `grep -c 'git status' ~/.config/zsh/agent-sandbox.zsh`
+  prints `0`.
 
 ### 4.4 `devcontainer.json`: `initializeCommand` runs on the host
 
-**Vector.** The Dev Containers extension runs `initializeCommand` on the host
-before the container starts, and `onCreateCommand`, `postCreateCommand`,
-`postStartCommand` inside it. An agent that can write `devcontainer.json`
-adds a host command that runs at the next reopen. `runArgs` can add
-`--privileged`, a Docker socket mount, or `--network host`; `mounts` can
-bind `~/.ssh`; `remoteEnv` can inject variables.
+- **Vector:** The Dev Containers extension runs `initializeCommand` on the host
+  before the container starts, and `onCreateCommand`, `postCreateCommand`,
+  `postStartCommand` inside it. An agent that can write `devcontainer.json`
+  adds a host command that runs at the next reopen. `runArgs` can add
+  `--privileged`, a Docker socket mount, or `--network host`; `mounts` can
+  bind `~/.ssh`; `remoteEnv` can inject variables.
 
-**Gain.** Host code execution, or a container with no boundary at all, both
-from one JSON edit.
+- **Gain:** Host code execution, or a container with no boundary at all, both
+  from one JSON edit.
 
-**Mitigation.** Sandbox path: `agent-sandbox.zsh` never reads `devcontainer.json`
-except two single-line values (`CLAUDE_SHORTCUT_FLAGS`, validated against
-`^(--[a-z0-9-]+( |$))*$`, and `CLAUDE_CODE_VERSION`, validated as a version
-string), and the file is read-only. The container's options are fixed in
-`agent-sandbox.zsh`, which lives outside the repo. VS Code path (since 2026-11-16):
-`.devcontainer/` is read-only inside, so the agent cannot add a host
-command or change `runArgs`, `mounts` or `remoteEnv` from the container.
-The one `initializeCommand` is `.devcontainer/initialize.sh`, which refuses
-to start the container unless reopen is enabled on this host
-(`AGENT_SANDBOX_ALLOW_VSCODE=1` or `~/.config/zsh/agent-sandbox-allow-vscode`, both outside
-the repository), checks the commondir files, and never runs git.
+- **Mitigation:** Sandbox path: `agent-sandbox.zsh` never reads `devcontainer.json`
+  except two single-line values (`CLAUDE_SHORTCUT_FLAGS`, validated against
+  `^(--[a-z0-9-]+( |$))*$`, and `CLAUDE_CODE_VERSION`, validated as a version
+  string), and the file is read-only. The container's options are fixed in
+  `agent-sandbox.zsh`, which lives outside the repo. VS Code path (since 2026-11-16):
+  `.devcontainer/` is read-only inside, so the agent cannot add a host
+  command or change `runArgs`, `mounts` or `remoteEnv` from the container.
+  The one `initializeCommand` is `.devcontainer/initialize.sh`, which refuses
+  to start the container unless reopen is enabled on this host
+  (`AGENT_SANDBOX_ALLOW_VSCODE=1` or `~/.config/zsh/agent-sandbox-allow-vscode`, both outside
+  the repository), checks the commondir files, and never runs git.
 
-**Residual.** VS Code path: an edit made on the host, or shipped by a cloned
-repository, still runs at the next start; the extension does not warn.
-Review `git diff -- .devcontainer` before every rebuild. The agent could
-write `.devcontainer.json` at the repo root (writable); VS Code prefers
-`.devcontainer/devcontainer.json` when both exist, and `.vscode/settings.json`
-is read-only now. A fresh clone with an untrusted `devcontainer.json`
-is the untrusted-repository case, which no mount can cover.
+- **Residual:** VS Code path: an edit made on the host, or shipped by a cloned
+  repository, still runs at the next start; the extension does not warn.
+  Review `git diff -- .devcontainer` before every rebuild. The agent could
+  write `.devcontainer.json` at the repo root (writable); VS Code prefers
+  `.devcontainer/devcontainer.json` when both exist, and `.vscode/settings.json`
+  is read-only now. A fresh clone with an untrusted `devcontainer.json`
+  is the untrusted-repository case, which no mount can cover.
 
-**Verify.** `grep -n -A3 initializeCommand .devcontainer/devcontainer.json`
-on the host shows only the `initialize.sh` array and `git diff --
-.devcontainer/initialize.sh` is empty; reopen without the opt-in fails with
-the script's message;
-`docker inspect <container> --format '{{.HostConfig.Privileged}} {{.HostConfig.NetworkMode}} {{json .Mounts}}'`
-shows `false bridge` and only the project mounts and two volumes.
+- **Verify:** `grep -n -A3 initializeCommand .devcontainer/devcontainer.json`
+  on the host shows only the `initialize.sh` array and `git diff --
+  .devcontainer/initialize.sh` is empty; reopen without the opt-in fails with
+  the script's message;
+  `docker inspect <container> --format '{{.HostConfig.Privileged}} {{.HostConfig.NetworkMode}} {{json .Mounts}}'`
+  shows `false bridge` and only the project mounts and two volumes.
 
 ### 4.5 VS Code sockets and `$BROWSER`
 
-**Vector.** On the VS Code path the agent's environment holds `SSH_AUTH_SOCK` (host
-agent forwarded), `VSCODE_IPC_HOOK_CLI` (the `code` CLI socket),
-`REMOTE_CONTAINERS_IPC` (extension-host IPC that can run extension commands
-on the host), `GIT_ASKPASS` (host keychain helper), and `$BROWSER` set to
-`code --openExternal`.
+- **Vector:** On the VS Code path the agent's environment holds `SSH_AUTH_SOCK` (host
+  agent forwarded), `VSCODE_IPC_HOOK_CLI` (the `code` CLI socket),
+  `REMOTE_CONTAINERS_IPC` (extension-host IPC that can run extension commands
+  on the host), `GIT_ASKPASS` (host keychain helper), and `$BROWSER` set to
+  `code --openExternal`.
 
-**Gain.** Sign and authenticate as the user with keys that never leave the
-host (push anywhere, SSH anywhere the key opens). Open any URL in the host
-browser, past the firewall: exfiltration in a query string, phishing,
-`file://` or custom URL schemes that launch host applications. Run
-`code --command` and extension commands on the host.
+- **Gain:** Sign and authenticate as the user with keys that never leave the
+  host (push anywhere, SSH anywhere the key opens). Open any URL in the host
+  browser, past the firewall: exfiltration in a query string, phishing,
+  `file://` or custom URL schemes that launch host applications. Run
+  `code --command` and extension commands on the host.
 
-**Mitigation.** Sandbox path: none of these exist; the probe is
-`env | grep -E 'SSH_AUTH_SOCK|VSCODE_IPC|REMOTE_CONTAINERS|GIT_ASKPASS|BROWSER'`
-returning nothing.
+- **Mitigation:** Sandbox path: none of these exist; the probe is
+  `env | grep -E 'SSH_AUTH_SOCK|VSCODE_IPC|REMOTE_CONTAINERS|GIT_ASKPASS|BROWSER'`
+  returning nothing.
 
-**Residual.** VS Code path: blanking the variables through `remoteEnv` only
-hides them from processes that honour the environment. The sockets still
-exist under `/tmp` and `/root/.vscode-server`, and the host still answers on
-them; a process can find them with `find / -type s`. Treat the VS Code path
-as "the agent can use my SSH agent and open URLs on my machine".
+- **Residual:** VS Code path: blanking the variables through `remoteEnv` only
+  hides them from processes that honour the environment. The sockets still
+  exist under `/tmp` and `/root/.vscode-server`, and the host still answers on
+  them; a process can find them with `find / -type s`. Treat the VS Code path
+  as "the agent can use my SSH agent and open URLs on my machine".
 
-**Verify.** On the sandbox path the `env` probe is empty and
-`find / -type s 2>/dev/null` lists only Docker's own and tmux's sockets.
+- **Verify:** On the sandbox path the `env` probe is empty and
+  `find / -type s 2>/dev/null` lists only Docker's own and tmux's sockets.
 
 ### 4.6 Copied `.gitconfig` and credential helpers
 
-**Vector.** On the VS Code path the extension copies the host `~/.gitconfig`
-into the container, where the agent can read it. A
-`credential.helper = osxkeychain` line does not work in Linux, but the
-extension installs its own helper that proxies to the host keychain.
-`git credential fill` then returns the user's GitHub token to anything in the
-container.
+- **Vector:** On the VS Code path the extension copies the host `~/.gitconfig`
+  into the container, where the agent can read it. A
+  `credential.helper = osxkeychain` line does not work in Linux, but the
+  extension installs its own helper that proxies to the host keychain.
+  `git credential fill` then returns the user's GitHub token to anything in the
+  container.
 
-**Gain.** The user's GitHub identity: push to any repo they can write to,
-read private repos, through the allowed GitHub egress.
+- **Gain:** The user's GitHub identity: push to any repo they can write to,
+  read private repos, through the allowed GitHub egress.
 
-**Mitigation.** Sandbox path: only `user.name` and `user.email` are passed, as
-environment variables. No helper, no `.gitconfig`. GitHub access inside comes
-only from what the user signs in to deliberately (`gh auth login`), and that
-token is the agent's to use, which is by design for `/pr`.
+- **Mitigation:** Sandbox path: only `user.name` and `user.email` are passed, as
+  environment variables. No helper, no `.gitconfig`. GitHub access inside comes
+  only from what the user signs in to deliberately (`gh auth login`), and that
+  token is the agent's to use, which is by design for `/pr`.
 
-**Residual.** `gh auth` tokens and the Claude OAuth token in the `~/.claude`
-volume are readable by the agent; see scenario 13. Env-var identity
-overrides a per-repo `user.email`.
+- **Residual:** `gh auth` tokens and the Claude OAuth token in the `~/.claude`
+  volume are readable by the agent; see scenario 13. Env-var identity
+  overrides a per-repo `user.email`.
 
-**Verify.** Inside: `git config --show-origin credential.helper` prints
-nothing; `cat ~/.gitconfig` fails.
+- **Verify:** Inside: `git config --show-origin credential.helper` prints
+  nothing; `cat ~/.gitconfig` fails.
 
 ### 4.7 Published ports and dev servers
 
-**Vector.** A dev server the agent starts is reachable from the host browser
-(auto-forwarded by VS Code, or listed in `agent-sandbox-ports`). The agent controls
-every byte it serves. Inside the bridge network the server binds `0.0.0.0`,
-so sibling containers reach it too.
+- **Vector:** A dev server the agent starts is reachable from the host browser
+  (auto-forwarded by VS Code, or listed in `agent-sandbox-ports`). The agent controls
+  every byte it serves. Inside the bridge network the server binds `0.0.0.0`,
+  so sibling containers reach it too.
 
-**Gain.** A malicious page in the user's browser: JavaScript on
-`localhost:<port>` can probe other local services (CSRF to anything without
-auth on loopback), prompt for credentials under a trusted-looking origin, or
-exploit a browser bug.
+- **Gain:** A malicious page in the user's browser: JavaScript on
+  `localhost:<port>` can probe other local services (CSRF to anything without
+  auth on loopback), prompt for credentials under a trusted-looking origin, or
+  exploit a browser bug.
 
-**Mitigation.** Sandbox path publishes only ports named in `agent-sandbox-ports`, on
-`127.0.0.1`, with an ephemeral host port; the file is under the read-only
-mount, so the agent cannot add ports. Nothing is published by default.
-Inbound to the container is limited to the gateway network. Outbound to that
-network is off unless `# allow-host-network` is set; on Linux the gateway is
-the host itself, so keep it off there unless the sibling containers really
-need it.
+- **Mitigation:** Sandbox path publishes only ports named in `agent-sandbox-ports`, on
+  `127.0.0.1`, with an ephemeral host port; the file is under the read-only
+  mount, so the agent cannot add ports. Nothing is published by default.
+  Inbound to the container is limited to the gateway network. Outbound to that
+  network is off unless `# allow-host-network` is set; on Linux the gateway is
+  the host itself, so keep it off there unless the sibling containers really
+  need it.
 
-**Residual.** The user opens the URL in their everyday browser with their
-everyday sessions. VS Code forwards any port the container opens, with a
-notification but no decision. This is inherent to running a dev server you
-did not write; the control is to treat the page as untrusted content.
+- **Residual:** The user opens the URL in their everyday browser with their
+  everyday sessions. VS Code forwards any port the container opens, with a
+  notification but no decision. This is inherent to running a dev server you
+  did not write; the control is to treat the page as untrusted content.
 
-**Verify.** `docker port <container>` lists only the intended ports, all on
-`127.0.0.1`.
+- **Verify:** `docker port <container>` lists only the intended ports, all on
+  `127.0.0.1`.
 
 ### 4.8 Terminal and clipboard escape sequences
 
-**Vector.** Everything the agent prints is rendered by the host terminal. OSC
-52 writes the host clipboard; title-setting sequences plus "report title"
-answer-backs inject text into the shell input; terminal emulators have had
-code-execution bugs in escape-sequence parsing (iTerm2 CVE-2026-41253;
-several in the `tmux -CC` control-mode path; Linux terminals have had their
-own).
+- **Vector:** Everything the agent prints is rendered by the host terminal. OSC
+  52 writes the host clipboard; title-setting sequences plus "report title"
+  answer-backs inject text into the shell input; terminal emulators have had
+  code-execution bugs in escape-sequence parsing (iTerm2 CVE-2026-41253;
+  several in the `tmux -CC` control-mode path; Linux terminals have had their
+  own).
 
-**Gain.** Paste a prepared command into the user's clipboard, inject
-keystrokes, or exploit the terminal.
+- **Gain:** Paste a prepared command into the user's clipboard, inject
+  keystrokes, or exploit the terminal.
 
-**Mitigation.** `/etc/tmux.conf` sets `set-clipboard off` and
-`allow-passthrough off`, so tmux does not forward OSC 52 or raw passthrough
-sequences. README asks for iTerm2 3.6.10 or later, no `tmux -CC`, and
-"Terminal may report window title" off; on Linux, check the terminal's own
-OSC 52 and title-report settings.
+- **Mitigation:** `/etc/tmux.conf` sets `set-clipboard off` and
+  `allow-passthrough off`, so tmux does not forward OSC 52 or raw passthrough
+  sequences. README asks for iTerm2 3.6.10 or later, no `tmux -CC`, and
+  "Terminal may report window title" off; on Linux, check the terminal's own
+  OSC 52 and title-report settings.
 
-**Residual.** Any pane can run `tmux set -g set-clipboard on`; the config is
-a default, not an enforcement. `agent-sandbox --no-tmux` and `docker exec` shells
-bypass tmux entirely. The terminal's own parser is the trust boundary and is
-outside this repo.
+- **Residual:** Any pane can run `tmux set -g set-clipboard on`; the config is
+  a default, not an enforcement. `agent-sandbox --no-tmux` and `docker exec` shells
+  bypass tmux entirely. The terminal's own parser is the trust boundary and is
+  outside this repo.
 
-**Verify.** Inside tmux: `tmux show -g set-clipboard` prints `off`.
+- **Verify:** Inside tmux: `tmux show -g set-clipboard` prints `off`.
 
 ### 4.9 Exfiltration through allowed egress
 
-**Vector.** Even with the firewall intact, the agent can send data to
-anything on the allowlist.
+- **Vector:** Even with the firewall intact, the agent can send data to
+  anything on the allowlist.
 
-**Gain.** Code, secrets, or conversation contents leave the machine.
+- **Gain:** Code, secrets, or conversation contents leave the machine.
 
-**Channels that remain open, in order of capacity:**
+  **Channels that remain open, in order of capacity:**
 
-| Channel | Why it works | Capacity |
-| --- | --- | --- |
-| Any GitHub repository | the ipset holds GitHub's IP ranges; an injected prompt can carry its own token and `git push` to an attacker's repo, or open an issue with `gh` | unlimited |
-| DNS | queries go to the configured resolver, which is recursive and resolves any name; data rides in query names (`<base32>.attacker.example`) | tens of bytes per query, thousands of queries per minute |
-| `api.anthropic.com` | prompts and tool output go there by design | by design; governed by account data terms |
-| `registry.npmjs.org` | `npm publish` with a token the agent holds | needs a token |
-| Allowlisted project APIs | anything added for the stack with an authenticated write path | per service |
+  | Channel | Why it works | Capacity |
+  | --- | --- | --- |
+  | Any GitHub repository | the ipset holds GitHub's IP ranges; an injected prompt can carry its own token and `git push` to an attacker's repo, or open an issue with `gh` | unlimited |
+  | DNS | queries go to the configured resolver, which is recursive and resolves any name; data rides in query names (`<base32>.attacker.example`) | tens of bytes per query, thousands of queries per minute |
+  | `api.anthropic.com` | prompts and tool output go there by design | by design; governed by account data terms |
+  | `registry.npmjs.org` | `npm publish` with a token the agent holds | needs a token |
+  | Allowlisted project APIs | anything added for the stack with an authenticated write path | per service |
 
-**Mitigation.** Closed since this review: TCP 22 anywhere, UDP 53 anywhere,
-the host /24, `sentry.io`, `statsig.com`, all IPv6.
+- **Mitigation:** Closed since this review: TCP 22 anywhere, UDP 53 anywhere,
+  the host /24, `sentry.io`, `statsig.com`, all IPv6.
 
-**Residual.** The first two rows. The proposed controls are a filtering
-resolver that answers only allowlisted names (closes DNS tunnelling) and an
-egress proxy that restricts GitHub to this project's repositories (closes the
-GitHub row). Neither exists yet.
+- **Residual:** The first two rows. The proposed controls are a filtering
+  resolver that answers only allowlisted names (closes DNS tunnelling) and an
+  egress proxy that restricts GitHub to this project's repositories (closes the
+  GitHub row). Neither exists yet.
 
-**Verify.** `dig +short @1.1.1.1 example.com` returns nothing;
-`dig +short example.com` returns an address (resolver works, so the tunnel
-is narrowed, not closed).
+- **Verify:** `dig +short @1.1.1.1 example.com` returns nothing;
+  `dig +short example.com` returns an address (resolver works, so the tunnel
+  is narrowed, not closed).
 
 ### 4.10 Packages executed inside the container
 
-**Vector.** The agent (or you) runs `npm install` of a malicious or
-typosquatted package, `npx` of arbitrary code, a `postinstall` script, or a
-dependency's code at test time. Here the agent may be the victim rather than
-the attacker: the package's code then has the agent's reach.
+- **Vector:** The agent (or you) runs `npm install` of a malicious or
+  typosquatted package, `npx` of arbitrary code, a `postinstall` script, or a
+  dependency's code at test time. Here the agent may be the victim rather than
+  the attacker: the package's code then has the agent's reach.
 
-**Gain.** The agent's reach, nothing more: the package runs as `node` inside
-the same boundary. It cannot do anything the agent itself could not.
+- **Gain:** The agent's reach, nothing more: the package runs as `node` inside
+  the same boundary. It cannot do anything the agent itself could not.
 
-**Mitigation.** `.npmrc` sets `ignore-scripts=true` and exact pins;
-lockfiles; the optional Socket scan hook. The firewall limits what the
-package can call home to. Supply-chain hardening recipes per stack in
-`STACKS.md`.
+- **Mitigation:** `.npmrc` sets `ignore-scripts=true` and exact pins;
+  lockfiles; the optional Socket scan hook. The firewall limits what the
+  package can call home to. Supply-chain hardening recipes per stack in
+  `STACKS.md`.
 
-**Residual.** `ignore-scripts` stops install-time execution only;
-`node_modules` code runs at `require` time regardless. A package can read the
-same secrets the agent can (scenario 13). On the host, if the user runs
-`npm install` or `npm test` in the same checkout outside the container, the
-package runs on the host with the user's rights.
+- **Residual:** `ignore-scripts` stops install-time execution only;
+  `node_modules` code runs at `require` time regardless. A package can read the
+  same secrets the agent can (scenario 13). On the host, if the user runs
+  `npm install` or `npm test` in the same checkout outside the container, the
+  package runs on the host with the user's rights.
 
-**Verify.** `npm config get ignore-scripts` prints `true` inside the
-container.
+- **Verify:** `npm config get ignore-scripts` prints `true` inside the
+  container.
 
 ### 4.11 VS Code extensions
 
-**Vector.** No agent action is needed: `devcontainer.json` lists extensions
-that the Dev Containers extension installs automatically into the
-container's extension host. Some
-extensions, and all UI extensions, run on the host. A malicious or
-compromised extension (marketplace takeover, maintainer account compromise)
-has at least the agent's reach plus the VS Code channels of scenario 5, and
-on the host side the user's rights.
+- **Vector:** No agent action is needed: `devcontainer.json` lists extensions
+  that the Dev Containers extension installs automatically into the
+  container's extension host. Some
+  extensions, and all UI extensions, run on the host. A malicious or
+  compromised extension (marketplace takeover, maintainer account compromise)
+  has at least the agent's reach plus the VS Code channels of scenario 5, and
+  on the host side the user's rights.
 
-**Gain.** Host code execution through the extension host, or the full
-scenario-5 channel set without even needing the agent.
+- **Gain:** Host code execution through the extension host, or the full
+  scenario-5 channel set without even needing the agent.
 
-**Mitigation.** The list is four well-known publishers (`anthropic`,
-`dbaeumer`, `esbenp`, `eamodio`). Marketplace hosts are on the firewall
-allowlist only for this path. The sandbox path installs no extensions and does
-not contact the marketplace.
+- **Mitigation:** The list is four well-known publishers (`anthropic`,
+  `dbaeumer`, `esbenp`, `eamodio`). Marketplace hosts are on the firewall
+  allowlist only for this path. The sandbox path installs no extensions and does
+  not contact the marketplace.
 
-**Residual.** The extensions list in `devcontainer.json` changes only from
-the host now (read-only inside since 2026-11-16). `.vscode/extensions.json` recommendations
-prompt the user on the host. Extension auto-update is a persistent
-supply-chain exposure independent of this harness.
+- **Residual:** The extensions list in `devcontainer.json` changes only from
+  the host now (read-only inside since 2026-11-16). `.vscode/extensions.json` recommendations
+  prompt the user on the host. Extension auto-update is a persistent
+  supply-chain exposure independent of this harness.
 
-**Verify.** `code --list-extensions` in the container matches the four
-listed; on the sandbox path the command does not exist.
+- **Verify:** `code --list-extensions` in the container matches the four
+  listed; on the sandbox path the command does not exist.
 
 ### 4.12 Image build inputs
 
-**Vector.** No agent action is needed: the image pulls `node:22-bookworm` by tag, Debian packages,
-`npm@latest`, `@anthropic-ai/claude-code@latest`, and two sha256-pinned
-downloads (git-delta, zsh-in-docker). A compromised upstream enters the image
-at rebuild.
+- **Vector:** No agent action is needed: the image pulls `node:22-bookworm` by tag, Debian packages,
+  `npm@latest`, `@anthropic-ai/claude-code@latest`, and two sha256-pinned
+  downloads (git-delta, zsh-in-docker). A compromised upstream enters the image
+  at rebuild.
 
-**Gain.** Code in the image runs as `node` (or root during build) inside the
-container; a compromised Claude Code binary would hold the OAuth token and
-act as the agent.
+- **Gain:** Code in the image runs as `node` (or root during build) inside the
+  container; a compromised Claude Code binary would hold the OAuth token and
+  act as the agent.
 
-**Mitigation.** Two downloads are hash-pinned and fail the build on
-mismatch. `agent-sandbox-rebuild` uses `--pull --no-cache` so the inputs are the
-current upstream, not a stale layer. The build fails on `claude --version`
-if the install is broken.
+- **Mitigation:** Two downloads are hash-pinned and fail the build on
+  mismatch. `agent-sandbox-rebuild` uses `--pull --no-cache` so the inputs are the
+  current upstream, not a stale layer. The build fails on `claude --version`
+  if the install is broken.
 
-**Residual.** The base image and Claude Code are not digest-pinned; `latest`
-is a trust-the-publisher decision made at each rebuild. The build itself
-runs on Docker Desktop with network access and could be the first point
-where an attacker-controlled registry answers.
+- **Residual:** The base image and Claude Code are not digest-pinned; `latest`
+  is a trust-the-publisher decision made at each rebuild. The build itself
+  runs on Docker Desktop with network access and could be the first point
+  where an attacker-controlled registry answers.
 
-**Verify.**
-`docker image inspect <image> --format '{{index .Config.Labels "agent-sandbox.devcontainer-sha256"}}'`
-matches the hash of the reviewed `.devcontainer`; pin `CLAUDE_CODE_VERSION`
-in `devcontainer.json` if reproducibility matters.
+- **Verify:**
+  `docker image inspect <image> --format '{{index .Config.Labels "agent-sandbox.devcontainer-sha256"}}'`
+  matches the hash of the reviewed `.devcontainer`; pin `CLAUDE_CODE_VERSION`
+  in `devcontainer.json` if reproducibility matters.
 
 ### 4.13 Credentials stored in the config volume and the repo
 
-**Vector.** The agent can read the `~/.claude` volume, which holds the OAuth token (and memory, which
-can carry anything the agent chose to remember). `.claude/settings.local.json`
-may hold `ANTHROPIC_API_KEY` or `SOCKET_CLI_API_TOKEN`. `gh auth` stores a
-GitHub token. `.env` files hold project secrets.
+- **Vector:** The agent can read the `~/.claude` volume, which holds the OAuth token (and memory, which
+  can carry anything the agent chose to remember). `.claude/settings.local.json`
+  may hold `ANTHROPIC_API_KEY` or `SOCKET_CLI_API_TOKEN`. `gh auth` stores a
+  GitHub token. `.env` files hold project secrets.
 
-**Gain.** The agent reads its own credentials and sends them out through
-scenario 9; an attacker then uses the Anthropic account or GitHub access
-from elsewhere.
+- **Gain:** The agent reads its own credentials and sends them out through
+  scenario 9; an attacker then uses the Anthropic account or GitHub access
+  from elsewhere.
 
-**Mitigation.** The firewall limits where they can be sent. `.env*` and
-`settings.local.json` are gitignored, so they do not leak through a commit.
-The volume is per project name, not shared across projects.
+- **Mitigation:** The firewall limits where they can be sent. `.env*` and
+  `settings.local.json` are gitignored, so they do not leak through a commit.
+  The volume is per project name, not shared across projects.
 
-**Residual.** Inherent: a process that must authenticate holds the
-credential. Scope tokens narrowly (GitHub fine-grained token for this
-repository only; a Console API key with a spend limit rather than a
-subscription OAuth token where exfiltration risk matters). Rotate after any
-suspected injection.
+- **Residual:** Inherent: a process that must authenticate holds the
+  credential. Scope tokens narrowly (GitHub fine-grained token for this
+  repository only; a Console API key with a spend limit rather than a
+  subscription OAuth token where exfiltration risk matters). Rotate after any
+  suspected injection.
 
-**Verify.** `gh auth status` shows a token scoped to what the project needs;
-no `.env` is tracked (`git ls-files | grep -i env`).
+- **Verify:** `gh auth status` shows a token scoped to what the project needs;
+  no `.env` is tracked (`git ls-files | grep -i env`).
 
 ### 4.14 Host-side harness files
 
-**Vector.** `~/.config/zsh/agent-sandbox.zsh` decides what the container sees. If it
-were a symlink into a repo, or lived in a dotfiles repo the agent can edit,
-the next `agent-sandbox` would run attacker code on the host. `scripts/sync-harness.sh`
-runs on the host and copies files from the boilerplate checkout into other
-projects. `.claude/hooks/*.py` and `settings.json` hooks run wherever Claude
-Code runs: in the container normally, but on the host if someone starts
-`claude` there.
+- **Vector:** `~/.config/zsh/agent-sandbox.zsh` decides what the container sees. If it
+  were a symlink into a repo, or lived in a dotfiles repo the agent can edit,
+  the next `agent-sandbox` would run attacker code on the host. `scripts/sync-harness.sh`
+  runs on the host and copies files from the boilerplate checkout into other
+  projects. `.claude/hooks/*.py` and `settings.json` hooks run wherever Claude
+  Code runs: in the container normally, but on the host if someone starts
+  `claude` there.
 
-**Gain.** Host code execution at the next `agent-sandbox` or the next Claude session
-on the host.
+- **Gain:** Host code execution at the next `agent-sandbox` or the next Claude session
+  on the host.
 
-**Mitigation.** `--install-shell` refuses a symlinked file or directory,
-copies with `install -m 0644`, shows a diff before replacing, prints the
-version and SHA-256. The header tells the user to keep it outside any
-agent-writable folder. Claude Code's workspace trust gates project hooks on
-first open.
+- **Mitigation:** `--install-shell` refuses a symlinked file or directory,
+  copies with `install -m 0644`, shows a diff before replacing, prints the
+  version and SHA-256. The header tells the user to keep it outside any
+  agent-writable folder. Claude Code's workspace trust gates project hooks on
+  first open.
 
-**Residual.** Running `sync-harness.sh` from a boilerplate checkout an agent
-has modified propagates that modification; review the boilerplate's own diff
-first. Running Claude on the host at all removes every control in this
-document except the deny list and `block_destructive.py`.
+- **Residual:** Running `sync-harness.sh` from a boilerplate checkout an agent
+  has modified propagates that modification; review the boilerplate's own diff
+  first. Running Claude on the host at all removes every control in this
+  document except the deny list and `block_destructive.py`.
 
-**Verify.** `ls -l ~/.config/zsh/agent-sandbox.zsh` shows a regular file, mode 0644;
-`shasum -a 256` of it matches the repo's `scripts/agent-sandbox.zsh` at the reviewed
-commit.
+- **Verify:** `ls -l ~/.config/zsh/agent-sandbox.zsh` shows a regular file, mode 0644;
+  `shasum -a 256` of it matches the repo's `scripts/agent-sandbox.zsh` at the reviewed
+  commit.
 
 ## 5. Control matrix: sandbox path versus VS Code reopen
 

@@ -430,6 +430,11 @@ printf '.' > "$proj/.git/commondir"
 reset_state image container running iptables_drop has_tmux; built_hash
 run_agent agent "$proj"
 assert_eq "commondir placeholder '.' → attaches" "tmux" "$(actions)"
+printf '.\n' > "$proj/.git/commondir"
+reset_state image container running iptables_drop has_tmux; built_hash
+run_agent agent "$proj"
+assert_eq "commondir '.' with a trailing newline → agent refuses" 1 $rc
+assert_eq "  nothing run" "" "$(actions)"
 rm -f "$proj/.git/commondir"
 
 mkdir -p "$proj/vendor/lib" && ( cd "$proj/vendor/lib" && git init -q )
@@ -459,6 +464,37 @@ run_agent agent "$proj"
 assert_eq "allowlist without it → refuses" 1 $rc
 rm -f "$proj/.devcontainer/agent-nested-repos"; rm -rf "$proj/vendor" "$proj/.claude" "$proj/node_modules"
 ( cd "$proj" && git checkout -q -- .devcontainer 2>/dev/null )
+
+( cd "$proj" && git worktree add -q --no-track .claude/worktrees/wt -b wt HEAD )
+[[ "$(<"$proj/.git/worktrees/wt/commondir")" == "../.." ]] && ok "linked worktree commondir is '../..' as git writes it" || bad "linked worktree commondir is '../..' as git writes it"
+reset_state image container running iptables_drop has_tmux; built_hash
+run_agent agent "$proj"
+assert_eq "linked worktree with normal commondir → attaches" "tmux" "$(actions)"
+printf '../../../.alt' > "$proj/.git/worktrees/wt/commondir"
+reset_state image container running iptables_drop has_tmux; built_hash
+run_agent agent "$proj"
+assert_eq "linked worktree commondir redirected → agent refuses" 1 $rc
+assert_has "  names the file" "$stderr" ".git/worktrees/wt/commondir"
+printf '../..' > "$proj/.git/worktrees/wt/commondir"
+( cd "$proj" && git worktree remove --force .claude/worktrees/wt && git branch -q -D wt )
+
+( cd "$proj" && git init -q "$tmp/subsrc" && cd "$tmp/subsrc" && echo a > a && git add a && git -c user.name=t -c user.email=t@t commit -q -m a )
+( cd "$proj" && git -c protocol.file.allow=always submodule add -q "$tmp/subsrc" sub 2>/dev/null && git -c user.name=t -c user.email=t@t commit -q -m sub )
+[[ -f $proj/.git/modules/sub/config ]] && ok "registered submodule has .git/modules/sub/config" || bad "registered submodule has .git/modules/sub/config"
+reset_state image has_tmux
+run_agent agent "$proj"
+assert_eq "registered submodule, unlisted → refuses" 1 $rc
+printf 'sub\n' > "$proj/.devcontainer/agent-nested-repos"
+reset_state image has_tmux
+run_agent agent "$proj"
+assert_eq "registered submodule, listed → run, firewall, tmux" "run firewall tmux" "$(actions)"
+assert_has "  .git/modules/sub/config mounted read-only" "$(logline run)" "type=bind,src=$proj/.git/modules/sub/config,dst=/workspace/.git/modules/sub/config,readonly"
+assert_has "  hints at diff.ignoreSubmodules while listed" "$stderr" "ignoreSubmodules"
+( cd "$proj" && git config diff.ignoreSubmodules all )
+reset_state image has_tmux
+run_agent agent "$proj"
+assert_not_has "  no hint once the host config has it" "$stderr" "ignoreSubmodules"
+( cd "$proj" && git config --unset diff.ignoreSubmodules; git rm -q -f sub 2>/dev/null; rm -rf .git/modules/sub sub; git -c user.name=t -c user.email=t@t commit -q -m rmsub 2>/dev/null; git checkout -q -- .devcontainer 2>/dev/null; rm -f .devcontainer/agent-nested-repos )
 
 n=$(grep -E '^[[:space:]]*[^#]*[[:space:]]git ' "$src" | grep -vE 'print|git config --global' | wc -l)
 assert_eq "no git invocation in agent.zsh except git config --global" 0 "$n"

@@ -205,9 +205,24 @@ directory and a writable working tree.
    and `node_modules` are never checked. A listed repository is trusted:
    review it as you would any dependency. On the host,
    `git config diff.ignoreSubmodules all` stops `status`, `diff`, `log`,
-   `submodule status` and `stash list` from entering nested repos
-   (verified); other submodule-aware commands are untested. An untracked
-   nested repo is not entered by the top-level `git status` (verified).
+   `submodule status` and `stash list` from entering nested repos, and so
+   do `fetch --recurse-submodules`, `grep --recurse-submodules`, `ls-files
+   --recurse-submodules`, `stash`, `checkout`, `add`, `commit`, `push
+   --recurse-submodules=check`, `gc` and `fsck` (all verified on git 2.39).
+   An untracked nested repo is not entered by the top-level `git status`
+   (verified). Prefer exact paths over globs in the allowlist: a glob also
+   admits a repository the agent creates under it.
+3. **Two more agent-writable files git reads on the host, found while
+   answering "is `core.fsmonitor` covered":** a *registered* submodule's
+   config lives in `.git/modules/<name>/config` (writable; the host's
+   `git status` reads it: verified), and a *linked worktree* (`ccw`,
+   `claude --worktree`) has its own `.git/worktrees/<name>/commondir`
+   (writable; git run *inside* that worktree on the host follows it:
+   verified; the top-level `git status` and `git worktree list` do not).
+   Agent path: every existing `.git/modules/**/config` is mounted read-only
+   (a submodule added inside is covered from the next `agent-recreate`),
+   and `agent` refuses to attach when any `.git/worktrees/*/commondir` holds
+   anything but `../..`.
 
 **The harness itself must not be the trigger.** Until this review,
 `agent-rebuild` ran `git status` in the repo on the host before showing
@@ -232,11 +247,14 @@ by you, not checked by the harness.
 
 **Verify.** Inside: `git config x.y z` fails, `mv .git .git.x` fails with
 "Device or resource busy", `echo ../x > .git/commondir` fails, `cat
-.git/commondir` prints `.`, `touch .vscode/x` fails. On the host, **before
-running git in the repo**: `cat .git/commondir` prints `.`; `find . -name
-.git -not -path './.git' -not -path './.claude/worktrees/*'` lists only what
-`.devcontainer/agent-nested-repos` names;
-then `git config --show-origin --list | grep -E 'hooksPath|fsmonitor|sshCommand|filter'`
+.git/commondir` prints `.`, `touch .vscode/x` fails, and with a registered
+submodule `echo x >> .git/modules/<name>/config` fails. On the host,
+**before running git in the repo**: `cat .git/commondir` prints `.`; `cat
+.git/worktrees/*/commondir` prints only `../..`; `find . -name .git -not
+-path './.git' -not -path './.claude/worktrees/*'` lists only what
+`.devcontainer/agent-nested-repos` names; `git config --get
+diff.ignoreSubmodules` prints `all` if any are listed; then `git config
+--show-origin --list | grep -E 'hooksPath|fsmonitor|sshCommand|filter'`
 shows nothing unexpected. `grep -c 'git status' ~/.config/zsh/agent.zsh`
 prints `0`.
 
@@ -594,6 +612,8 @@ VS Code path. In rough order of value per effort:
 | Control | Closes | Cost and trade-off | Status |
 | --- | --- | --- | --- |
 | Filtering DNS resolver in the container (dnsmasq bound to loopback, answers only allowlisted names and GitHub; firewall allows upstream 53 only for its uid via `-m owner`) | DNS tunnelling (scenario 9) | one image layer above the marker, a start step in `init-firewall.sh`, a self-test; CDN hostnames with many aliases need listing | proposed, awaiting decision |
+- [ ] Inside: `ccw t`, then write anything but `../..` to `.git/worktrees/t/commondir`; on the host `agent` refuses and names the file; restore `../..` (scenario 3)
+- [ ] In a project with a registered submodule listed in `agent-nested-repos`: inside, `echo x >> .git/modules/<name>/config` fails (scenario 3)
 | Egress proxy for GitHub and npm that restricts GitHub to this project's repositories and npm to reads | GitHub-wide exfiltration (scenario 9) | large: GitHub API, web and git share hosts, so a CONNECT allowlist is not enough; needs URL rewriting to a proxy that enforces repository names, or a fine-grained token as the only credential | proposed, design first |
 | Trim `.claude/settings.json` auto-allow (`curl`, `gh`, `node`, `npx`, `python`, `WebFetch`) | makes prompts meaningful on the VS Code path and in `agent --setup` | a prompt on most tool calls; pointless where `CLAUDE_SHORTCUT_FLAGS` skips prompts anyway | decision needed |
 | Digest-pin `node:22-bookworm` and pin `CLAUDE_CODE_VERSION` | base-image and Claude Code supply chain (scenario 12) | a hash to bump on every refresh; `cc-update` still works between rebuilds | easy, not started |

@@ -1,7 +1,7 @@
 # agent.zsh: run Claude Code in a per-project Docker container — plain Docker
 # from the host, no devcontainer CLI, no VS Code attach.
 #
-# AGENT_ZSH_VERSION=1.4.0
+# AGENT_ZSH_VERSION=1.5.0
 #
 # Source this from ~/.zshrc (`scripts/sync-harness.sh --install-shell` copies
 # it to ~/.config/zsh/agent.zsh and prints the line). Keep the installed copy
@@ -46,7 +46,10 @@
 #     directory. .vscode is created empty when missing.
 #   - nested repositories must be listed in .devcontainer/agent-nested-repos
 #     (a submodule entry would make the host's git read their config);
-#     `agent` refuses to attach when an unlisted one exists.
+#     `agent` refuses to attach when an unlisted one exists. Registered
+#     submodules keep their config under .git/modules/, which is mounted
+#     read-only per file; linked worktrees keep a per-worktree commondir
+#     under .git/worktrees/, which `agent` verifies says "../..".
 #     Caveat: git rewrites .git/config by renaming a new file over it, so
 #     after a host-side `git remote add`, `git config` or `push -u` the
 #     container still sees the OLD inode — `agent-recreate`.
@@ -237,13 +240,26 @@ _agent_snapshot_git() {
 # with the shell, never with git.
 _agent_check_commondir() {
   emulate -L zsh
-  local f=$1/.git/commondir
-  [[ -e $f ]] || return 0
-  [[ -f $f && "$(<"$f")" == "." ]] && return 0
-  print -u2 "agent: DANGER: $f exists and does not hold '.' — git on the host would read config and"
-  print -u2 "agent: hooks from the directory it names (core.fsmonitor there runs as you). Do not run git in"
-  print -u2 "agent: $1 until you have inspected and removed that file."
-  return 1
+  local f=$1/.git/commondir w bad=0
+  # Exactly one byte: $(<f) drops a trailing newline, and ".\n" breaks git
+  # on 2.39 instead of being read as ".".
+  if [[ -e $f ]] && ! [[ -f $f && "$(<"$f")" == "." && $(wc -c < "$f") -eq 1 ]]; then
+    print -u2 "agent: DANGER: $f exists and does not hold '.' — git on the host would read config and"
+    print -u2 "agent: hooks from the directory it names (core.fsmonitor there runs as you). Do not run git in"
+    print -u2 "agent: $1 until you have inspected and removed that file."
+    bad=1
+  fi
+  # Linked worktrees (.claude/worktrees/<n>, ccw, claude --worktree) carry
+  # their own commondir under .git/worktrees/<n>/, writable from inside.
+  # git writes "../.." there; anything else redirects git run INSIDE that
+  # worktree on the host (an editor, a shell prompt) to another config.
+  for w in "$1"/.git/worktrees/*/commondir(N); do
+    [[ "$(<"$w")" == "../.." ]] && continue
+    print -u2 "agent: DANGER: $w does not hold '../..' — git run inside that worktree on the host would read"
+    print -u2 "agent: config and hooks from the directory it names. Inspect and remove it before running git there."
+    bad=1
+  done
+  return $bad
 }
 
 # Nested repositories (a .git dir or file below the top level). A submodule
@@ -284,7 +300,13 @@ _agent_unlisted_nested_repos() {
 _agent_check_nested_repos() {
   emulate -L zsh
   local dir=$1 unlisted
-  unlisted=$(_agent_unlisted_nested_repos "$dir") && return 0
+  if unlisted=$(_agent_unlisted_nested_repos "$dir"); then
+    # All listed. Still worth one line: the host's git enters them unless told not to.
+    if [[ -n $(_agent_nested_repos "$dir") ]] && ! grep -qE '^[[:space:]]*ignoreSubmodules[[:space:]]*=[[:space:]]*all' "$dir/.git/config" 2>/dev/null; then
+      print -u2 "agent: note: nested repositories are listed, but the host's git still enters them — set \`git config diff.ignoreSubmodules all\` on the host."
+    fi
+    return 0
+  fi
   print -u2 "agent: nested git repositories under $dir that .devcontainer/agent-nested-repos does not list:"
   print -u2 -r -- "$unlisted" | sed 's/^/agent:   /' >&2
   print -u2 "agent: a submodule entry for one of them makes the host's git read its config (core.fsmonitor)."
@@ -343,6 +365,14 @@ _agent_create() {
       --mount "type=bind,src=$dir/.git/config,dst=/workspace/.git/config,readonly"
       --mount "type=bind,src=$dir/.git/commondir,dst=/workspace/.git/commondir,readonly"
     )
+    # Registered submodules: the host's git reads .git/modules/<n>/config for
+    # each (core.fsmonitor included). Mount every existing one read-only;
+    # a submodule added inside is covered from the next agent-recreate on
+    # (and its .git file must be listed in agent-nested-repos anyway).
+    local m
+    for m in "$dir"/.git/modules/**/config(N.); do
+      mounts+=(--mount "type=bind,src=$m,dst=/workspace/${m#$dir/},readonly")
+    done
   fi
 
   out=$(_agent_port_args "$dir") || return 1

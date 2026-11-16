@@ -329,22 +329,36 @@ build time. When `agent-sandbox` finds the directory changed since then, it warn
 .devcontainer, then agent-sandbox-rebuild`) and still attaches: changes there only
 take effect at a rebuild, which is exactly when they must have been reviewed.
 
-**What you give up versus VS Code:** the editor attached to the container
-(use VS Code on the host folder instead; it is the same files, but not
-while a nested repository you do not trust sits in it: the editor's
-repository detection runs git there as you), automatic
-port forwarding (use `agent-sandbox-ports`), `$BROWSER`, the marketplace extensions,
-and `.gitconfig` beyond name and email. "Reopen in Container" still works,
-once enabled per host (`touch ~/.config/zsh/agent-sandbox-allow-vscode`, or
-`AGENT_SANDBOX_ALLOW_VSCODE=1` where VS Code is launched from):
-`.devcontainer/initialize.sh` runs on the host before every start, checks
-the switch and the `.git/commondir` files, and `devcontainer.json` applies
-the same read-only overlays. It is still the less isolated path (host
-channels, no nested-repo check, no drift gate). For an editor inside the
-hardened container instead, start it with `agent-sandbox` and use the Dev Containers
-command "Attach to Running Container"; attach ignores `devcontainer.json`
-customizations, so extensions and settings go into VS Code's
-attached-container configuration.
+**Compared with "Reopen in Container".** `agent-sandbox` runs the same image
+with plain Docker; the Dev Containers extension is not involved. What that
+means in daily use:
+
+- **No editor inside the container.** Edit with VS Code on the host folder:
+  it is the same files. Exception: while a nested repository you do not
+  trust sits in the project (see [Auditing another
+  repository](#auditing-another-repository)), do not open the folder on
+  the host at all, because the editor's repository detection runs git in
+  that directory as you.
+- **No automatic port forwarding.** List the ports in
+  `.devcontainer/agent-sandbox-ports`; `agent-sandbox-ports` shows the host
+  side.
+- **No `$BROWSER`.** `/dev` prints the container port and the `docker port`
+  command instead of opening a browser.
+- **No marketplace extensions**, and only name and email from your
+  `.gitconfig`.
+
+To get an editor inside the hardened container anyway, start it with
+`agent-sandbox` and use the Dev Containers command "Attach to Running
+Container". Attach ignores `devcontainer.json` customizations, so extensions
+and settings go into VS Code's attached-container configuration.
+
+"Reopen in Container" itself still works, once enabled per host (`touch
+~/.config/zsh/agent-sandbox-allow-vscode`, or `AGENT_SANDBOX_ALLOW_VSCODE=1`
+in the environment VS Code is launched from). `.devcontainer/initialize.sh`
+runs on the host before every start, checks the switch and the
+`.git/commondir` files, and `devcontainer.json` applies the same read-only
+overlays. It remains the less isolated path: host channels stay open, and
+there is no nested-repository check and no drift gate.
 
 **Host notes.** The harness runs on macOS and Linux hosts (and on Windows
 through WSL for the VS Code path). The boundary is the same; what sits

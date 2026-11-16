@@ -4,7 +4,7 @@ Threat model for the dev container this boilerplate ships: what a rogue or
 prompt-injected agent inside it could reach, what stops it today, and what
 does not. Last reviewed 2026-11-13, against commit `fb50130` and later; the second external review of that commit added scenario 3's bypasses.
 
-The README's [Security model](../README.md#security-model) section is the
+The README's [Security model](../README.md#310-security-model) section is the
 short version. This document is the long one: every channel, every
 scenario, the residual risk, and how to check each control by hand.
 
@@ -86,27 +86,38 @@ read-only guards on the mount; the VS Code path opens all five and copies
 it executes with the agent's reach, and, for VS Code extensions, partly on
 the host.
 
-```
- Host (macOS or Linux)                                   Container (node user)
- ┌──────────────────────────┐                          ┌──────────────────────────┐
- │ Terminal + tmux client   │── docker exec … tmux ───▶│ Claude Code + tools      │
- │ Docker Desktop           │◀── bind mount (rw) ─────▶│ /workspace (the repo)    │
- │ VS Code (optional)       │◀══ SSH agent, keychain, ═│ Firewall (root via sudo) │
- │ Keychain, SSH agent,     │    code IPC, $BROWSER    │ ~/.claude volume (token) │
- │   browser                │◀── published ports ──────│ Dev servers, tmux        │
- │ Host git, direnv, tasks  │◀── escape sequences ─────│                          │
- │   (execute repo files)   │                          └────────────┬─────────────┘
- └──────────┬───────────────┘                            egress:    │   ▲ supply chain:
-   extensions │ (marketplace code                     ipset only,   │   │ base image, apt,
-   run here too)                                      REJECT rest   ▼   │ npm, extensions
- ┌─────────────────────────────────────────────────────────────────────────────────┐
- │ Internet, as the firewall sees it                                               │
- │  GitHub (all ranges) · api.anthropic.com · registry.npmjs.org · DNS resolvers  │
- │  any repo, any port    + platform.claude.com  + VS Code marketplace  recursive  │
- └─────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph host["Host (macOS or Linux)"]
+        term["Terminal + tmux client"]
+        docker["Docker Desktop or Engine"]
+        vscode["VS Code (optional)"]
+        secrets["Keychain, SSH agent, browser"]
+        hostgit["Host git, direnv, editor tasks<br/>(execute repository files)"]
+    end
+    subgraph container["Container (node user)"]
+        claude["Claude Code + tools"]
+        ws["/workspace (the repo)"]
+        fw["Firewall (root via sudo)"]
+        vol["~/.claude volume (token)"]
+        dev["Dev servers, tmux"]
+    end
+    subgraph net["Internet, as the firewall sees it"]
+        allowed["GitHub, all ranges, any repo, any port<br/>api.anthropic.com · platform.claude.com<br/>registry.npmjs.org · VS Code marketplace<br/>DNS resolvers (recursive)"]
+    end
+    term -->|"docker exec … tmux"| claude
+    docker <-->|"bind mount, read-write;<br/>overlays read-only"| ws
+    vscode <-.->|"SSH agent, keychain,<br/>code IPC, $BROWSER (reopen only)"| claude
+    secrets -.-> vscode
+    dev -->|"published ports"| host
+    dev -->|"escape sequences"| term
+    ws -->|"files the host executes"| hostgit
+    claude -->|"egress: ipset allowlist,<br/>REJECT the rest"| fw --> allowed
+    allowed -->|"supply chain: base image, apt,<br/>npm, extensions"| claude
+    allowed -.->|"extensions run here too"| vscode
 ```
 
-Double line: open only on the VS Code path. On both paths the bind mount
+Dotted lines: open only on the VS Code path. On both paths the bind mount
 carries read-only overlays for `.devcontainer`, `.vscode`, `.git/hooks`,
 `.git/config` and `.git/commondir`; only the `agent-sandbox` path adds the dynamic
 checks. GitHub and the resolvers are the residual exfiltration paths.

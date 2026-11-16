@@ -131,42 +131,57 @@ controls there.
 
 Everything the agent can do to the host goes through five channels between
 the container and the host; everything it can send out goes through the
-firewall. The `agent-sandbox` path keeps only the first two host channels open, with
-read-only guards on the mount; the VS Code path opens all five and copies
-`.gitconfig` in. Supply chain runs the other way: code that arrives through
-it executes with the agent's reach, and, for VS Code extensions, partly on
-the host.
+firewall. Both start paths open channels 1 to 4 with read-only guards on
+the mount; the `agent-sandbox` path publishes only named ports, on
+loopback. Only the VS Code path opens
+channel 5, runs `initializeCommand` on the host and copies `.gitconfig` in.
+Supply chain runs the other way: code that arrives through it executes with
+the agent's reach, and, for VS Code extensions, partly on the host.
 
 ```mermaid
 %%{init: {"themeVariables": {"fontSize": "18px"}}}%%
 flowchart TB
-    subgraph host["Host"]
-        term["Terminal"]
-        vscode["VS Code<br/>(reopen path)"]
-        hostgit["Host git,<br/>direnv, tasks"]
+    subgraph host["Host (macOS or Linux)"]
+        keys["Keychain, SSH agent"]
+        vscode["VS Code"]
+        term["Terminal + tmux client"]
+        browser["Browser"]
+        hostfiles["Host git, direnv,<br/>editor tasks"]
     end
     subgraph container["Container (node user)"]
-        claude["Claude Code"]
-        ws["/workspace"]
-        dev["Dev servers"]
+        vscs["VS Code server,<br/>extensions"]
+        claude["Claude Code + tools"]
+        dev["Dev servers, tmux"]
+        ws["/workspace (the repo)"]
+        vol["~/.claude volume<br/>(OAuth token)"]
+        fw["Firewall<br/>(root via sudo)"]
     end
-    fw["Firewall"]
-    allowed["Allowlisted<br/>internet"]
+    subgraph net["Internet, as the firewall sees it"]
+        allowed["GitHub (all ranges) · api.anthropic.com<br/>platform.claude.com · registry.npmjs.org<br/>VS Code marketplace · DNS resolvers"]
+    end
 
-    term -->|"1 · docker exec"| claude
-    hostgit <-->|"2 · bind mount"| ws
-    dev -->|"3 · ports"| host
-    dev -->|"4 · escapes"| term
-    vscode <-.->|"5 · sockets"| claude
-    claude --> fw -->|"egress"| allowed
-    allowed -->|"supply chain"| claude
+    keys -.-> vscode
+    vscode <-.->|"VS Code path: Reopen in Container<br/>5 · SSH agent, keychain, IPC, $BROWSER"| vscs
+    term -->|"sandbox path: agent-sandbox.zsh<br/>1 · docker exec … tmux"| claude
+    term <-->|"4 · escape sequences"| dev
+    browser -->|"3 · published ports"| dev
+    hostfiles <-->|"2 · bind mount, read-write;<br/>host executes repo files"| ws
+    vscs -.- claude
+    claude -->|"edits"| ws
+    claude --- vol
+    claude -->|"egress"| fw
+    fw -->|"ipset allowlist,<br/>REJECT the rest"| allowed
+    allowed -->|"supply chain:<br/>image, apt, npm"| claude
+    allowed -.->|"extensions,<br/>also run on host"| vscode
 ```
 
 Solid lines are open on both paths; dotted lines only on the VS Code path.
+On the VS Code path the container starts from the editor instead of
+`agent-sandbox.zsh`, and channel 1 is usually the editor's terminal.
 
 | # | Channel | What crosses it |
 | --- | --- | --- |
-| 1 | `docker exec … tmux` | the terminal session into the container |
+| 1 | Terminal session | `docker exec … tmux` on the sandbox path, the editor terminal on the VS Code path |
 | 2 | Bind mount of the project folder | read-write, so files the host later executes (git config and hooks, `.envrc`, editor tasks) are written here; five paths are mounted read-only on top |
 | 3 | Published ports | dev servers reachable from the host browser |
 | 4 | Escape sequences | everything printed is rendered by the host terminal |
@@ -174,10 +189,8 @@ Solid lines are open on both paths; dotted lines only on the VS Code path.
 | – | Egress | through the firewall's ipset allowlist, everything else rejected |
 | – | Supply chain | base image, apt, npm and VS Code extensions arrive from the allowed hosts; extensions also run on the host |
 
-The allowlist covers GitHub (all ranges, any repository, any port),
-`api.anthropic.com`, `platform.claude.com`, `registry.npmjs.org`, the VS
-Code marketplace, and the configured recursive DNS resolvers. GitHub and the
-resolvers are the residual exfiltration paths.
+GitHub is allowed on any port and for any repository, and the DNS
+resolvers are recursive; these two are the residual exfiltration paths.
 
 On both paths the project folder is bind-mounted read-write, and
 `.devcontainer`, `.vscode`, `.git/hooks`, `.git/config` and

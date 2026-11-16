@@ -36,7 +36,7 @@ api.anthropic.com
 platform.claude.com
 # No sentry.io / statsig.com: error reports and usage metrics are switched
 # off with DISABLE_ERROR_REPORTING=1 and DISABLE_TELEMETRY=1 (containerEnv in
-# devcontainer.json, and agent.zsh). Both hosts accept posts from anyone with
+# devcontainer.json, and agent-sandbox.zsh). Both hosts accept posts from anyone with
 # their own project key, so an open path to them is an exfiltration channel.
 # Side effect of DISABLE_TELEMETRY (per the Claude Code docs): feature-flag
 # evaluation is off too, so Remote Control is unavailable in the container.
@@ -46,7 +46,7 @@ registry.npmjs.org
 
 # --- VS Code: extension marketplace + updates ---
 # Only needed on the VS Code "Reopen in Container" path (the extension host
-# inside the container fetches extensions). Harmless but idle under agent.zsh;
+# inside the container fetches extensions). Harmless but idle under agent-sandbox.zsh;
 # remove them if you never attach VS Code.
 marketplace.visualstudio.com
 vscode.blob.core.windows.net

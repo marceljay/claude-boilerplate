@@ -511,7 +511,7 @@ Defines the sandboxed Docker environment Claude runs in: the image
 (`Dockerfile`), a network firewall (`init-firewall.sh` — logic only; the domain
 allowlist is the data file `allowed-domains.txt`), shell shortcuts
 (`claude-harness.zsh`: `cc`/`ccc`/`ccr`/`ccw`, `cc-help` lists them),
-editor/mount config (`devcontainer.json`), and `agent-ports` (ports the
+editor/mount config (`devcontainer.json`), and `agent-sandbox-ports` (ports the
 no-VS-Code path publishes). You generally only touch this when changing the runtime
 environment, not day-to-day. Project-specific Dockerfile layers go **below**
 the `# ==== PROJECT LAYERS ====` marker: `scripts/sync-harness.sh` replaces
@@ -520,7 +520,7 @@ below.
 
 **Two ways to start the container**, same image either way:
 
-- **`agent` from a host terminal** (`scripts/agent.zsh`, installed by
+- **`agent-sandbox` from a host terminal** (`scripts/agent-sandbox.zsh`, installed by
   `scripts/sync-harness.sh --install-shell`; README "Run without VS Code").
   Plain Docker: the project folder, two volumes, `NET_ADMIN`/`NET_RAW`, and
   `.devcontainer/`, `.git/hooks/`, `.git/config` mounted **read-only**.
@@ -529,14 +529,14 @@ below.
   isolated: the Dev Containers extension adds host channels (SSH agent,
   keychain credential helper, `code` IPC, `$BROWSER` = `code
   --openExternal`) and copies `~/.gitconfig` in. It must be enabled once
-  per host (`touch ~/.config/zsh/agent-allow-vscode` or
-  `AGENT_ALLOW_VSCODE=1`); `.devcontainer/initialize.sh` checks that on the
+  per host (`touch ~/.config/zsh/agent-sandbox-allow-vscode` or
+  `AGENT_SANDBOX_ALLOW_VSCODE=1`); `.devcontainer/initialize.sh` checks that on the
   host before every start and the same read-only overlays apply, but none
-  of `agent`'s dynamic checks (nested repos, drift gate). README "Security
+  of `agent-sandbox`'s dynamic checks (nested repos, drift gate). README "Security
   model" lists what that means.
 
-Tell them apart from inside: `$AGENT_CONTAINER_NAME` is set only by
-`agent.zsh`; `$BROWSER` and `$REMOTE_CONTAINERS` only by VS Code. Both set
+Tell them apart from inside: `$AGENT_SANDBOX_CONTAINER_NAME` is set only by
+`agent-sandbox.zsh`; `$BROWSER` and `$REMOTE_CONTAINERS` only by VS Code. Both set
 `DEVCONTAINER=true`.
 
 **What "running in a container" actually means** (Claude is told this in
@@ -563,25 +563,25 @@ prune` / a Docker Desktop reset / a `devcontainerId` change wipes it. Memory
     real host URL in the host browser. `/dev` does exactly that and reports
     the container port plus "opened via VS Code"; the Ports panel shows the
     host side.
-  - *`agent.zsh`:* nothing forwards automatically. A port is published only
-    if `.devcontainer/agent-ports` lists it (edited on the host, applied by
-    `agent-recreate`), on `127.0.0.1` with an ephemeral host port. `$BROWSER`
+  - *`agent-sandbox.zsh`:* nothing forwards automatically. A port is published only
+    if `.devcontainer/agent-sandbox-ports` lists it (edited on the host, applied by
+    `agent-sandbox-recreate`), on `127.0.0.1` with an ephemeral host port. `$BROWSER`
     is unset, so `/dev` prints the container port and
-    `docker port $AGENT_CONTAINER_NAME <port>` for the user to run on the
-    host (`agent-ports` does the same).
+    `docker port $AGENT_SANDBOX_CONTAINER_NAME <port>` for the user to run on the
+    host (`agent-sandbox-ports` does the same).
   `open`/`xdg-open` don't work in either.
-- **Under `agent.zsh`, five paths are read-only:** `.devcontainer/`,
+- **Under `agent-sandbox.zsh`, five paths are read-only:** `.devcontainer/`,
   `.vscode/`, `.git/hooks/`, `.git/config`, `.git/commondir`. Those are the
   files your *host* executes (next rebuild, editor open, every git
   command). So: `git push origin HEAD` instead of `push -u`, `git worktree
   add --no-track`, no `git remote add`/`git config` writes, no `rm -rf
   .git`, no editor settings edits from inside. A nested git repository
   under the project (vendored, an audit target) must be listed in
-  `.devcontainer/agent-nested-repos` on the host, or `agent` refuses to
+  `.devcontainer/agent-sandbox-nested-repos` on the host, or `agent-sandbox` refuses to
   attach. `/pr` and `ccw` already comply; `/init` detects
   a read-only `.devcontainer` and hands the edits to the user (or runs in
-  `agent --setup`). After the host changes `.git/config`, the container
-  sees the old content until `agent-recreate` (git renames a new file over
+  `agent-sandbox --setup`). After the host changes `.git/config`, the container
+  sees the old content until `agent-sandbox-recreate` (git renames a new file over
   it; the mount keeps the old inode).
 - **Never add `appPort` or a `-p` runArg to `devcontainer.json`.** It fights
   the dynamic forwarding above, and Docker treats `"3000:3000"` and
@@ -608,10 +608,10 @@ prune` / a Docker Desktop reset / a `devcontainerId` change wipes it. Memory
 - **A container that "won't start" has a second, unrelated cause:**
   `"waitFor": "postStartCommand"` means a failing `init-firewall.sh` (e.g. a
   typo'd domain that won't resolve) blocks the container from ever becoming
-  ready; `agent` stops the container when the script fails. Distinguish
+  ready; `agent-sandbox` stops the container when the script fails. Distinguish
   them by the log: port conflicts fail at `docker run`, firewall failures
-  fail after it, in the postStart / `agent` output. Firewall rules are lost
-  on every container restart; VS Code re-runs the script on start, `agent`
+  fail after it, in the postStart / `agent-sandbox` output. Firewall rules are lost
+  on every container restart; VS Code re-runs the script on start, `agent-sandbox`
   checks the actual OUTPUT policy and re-applies when it isn't DROP. The
   script may also be re-run by hand on a live container
   (`sudo /usr/local/bin/init-firewall.sh`): it resolves first, swaps the

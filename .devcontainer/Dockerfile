@@ -54,7 +54,7 @@ ARG USERNAME=node
 # defaults are fine there. Native Docker Engine on Linux does not: the repo
 # appears with the HOST user's uid, and a `node` user at 1000 cannot write it
 # when the host user is 1001. VS Code fixes this with updateRemoteUserUID;
-# scripts/agent.zsh passes the host's ids as these args on Linux. Renumbering
+# scripts/agent-sandbox.zsh passes the host's ids as these args on Linux. Renumbering
 # happens before anything is created as $USERNAME.
 ARG USER_UID=1000
 ARG USER_GID=1000
@@ -222,7 +222,7 @@ RUN chmod +x /usr/local/bin/init-firewall.sh && \
   echo "$USERNAME ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh" > /etc/sudoers.d/node-firewall && \
   chmod 0440 /etc/sudoers.d/node-firewall
 
-# tmux config for the no-VS-Code path (scripts/agent.zsh attaches to a tmux
+# tmux config for the no-VS-Code path (scripts/agent-sandbox.zsh attaches to a tmux
 # session inside the container, so a closed terminal tab doesn't end the
 # Claude session). System-wide and root-owned so the agent can't edit the
 # file. set-clipboard off: tmux would otherwise forward OSC 52 sequences,

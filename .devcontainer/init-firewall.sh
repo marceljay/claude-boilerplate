@@ -1,6 +1,6 @@
 #!/bin/bash
 # Default-deny egress firewall for the dev container. Runs as root at every
-# container start (devcontainer.json postStartCommand, or agent.zsh when the
+# container start (devcontainer.json postStartCommand, or agent-sandbox.zsh when the
 # OUTPUT policy is not DROP) and may be re-run on a live container.
 #
 # Order matters for re-runs: everything that needs the network (GitHub meta,
@@ -26,7 +26,7 @@ ALLOW_HOST_NETWORK=0
 # with open egress: the VS Code path keeps the container up and only
 # reports the postStart error. On failure, if no DROP policy is in place
 # yet, apply a loopback-only DROP table. A re-run cannot then fetch
-# GitHub's ranges through it, so recovery is a container restart (agent.zsh
+# GitHub's ranges through it, so recovery is a container restart (agent-sandbox.zsh
 # stops the container on failure anyway, and treats this table as "not
 # applied" because it lacks the allowlist rule). A re-run that fails keeps
 # the previous rules: the gather phase runs before anything is touched.
@@ -136,7 +136,7 @@ done
 # Docker's embedded resolver forwards upstream FROM INSIDE this network
 # namespace, so those packets also cross OUTPUT. Docker lists the upstreams
 # in resolv.conf as `# ExtServers: [host(192.168.65.7) 8.8.8.8]`; take them
-# too. The default bridge (agent.zsh, plain devcontainer.json) has the real
+# too. The default bridge (agent-sandbox.zsh, plain devcontainer.json) has the real
 # upstream addresses as nameservers and no ExtServers line. The compose path
 # is untested here; the DNS self-test below fails closed if it is wrong.
 nameservers=()
@@ -241,7 +241,7 @@ fi
 # ---------------------------------------------------------------------------
 # 4. Self-tests. Each failure exits non-zero so a container that starts with
 #    a broken firewall never becomes "ready" (devcontainer.json waits for
-#    this script; agent.zsh stops the container).
+#    this script; agent-sandbox.zsh stops the container).
 # ---------------------------------------------------------------------------
 echo "Firewall configuration complete"
 echo "Verifying firewall rules..."

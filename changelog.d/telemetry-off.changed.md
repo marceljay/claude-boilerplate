@@ -2,7 +2,7 @@
   and `statsig.com` leave the firewall allowlist.** Both hosts accept posts
   from anyone with their own project key, so an open path to them was an
   exfiltration channel. `DISABLE_ERROR_REPORTING=1` and `DISABLE_TELEMETRY=1`
-  are set in `devcontainer.json`'s `containerEnv` and by `agent.zsh`
+  are set in `devcontainer.json`'s `containerEnv` and by `agent-sandbox.zsh`
   (names verified against the Claude Code docs; the umbrella
   `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` was not used because it also
   disables `/feedback` and update checks). Side effect: `DISABLE_TELEMETRY`

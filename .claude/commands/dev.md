@@ -80,14 +80,14 @@ recorded default port (see step 1a), falling back to stack detection.
      it if needed) and opens the *real* host URL in the host browser. Report
      it as "container port 3000, opened via VS Code; the host port is in the
      Ports panel". **If `$BROWSER` is unset** you are most likely under
-     `scripts/agent.zsh` (plain Docker, no editor): there is no forward to
+     `scripts/agent-sandbox.zsh` (plain Docker, no editor): there is no forward to
      resolve and nothing here can open a browser. Print the container port
      and the exact host-side command that shows where it landed —
-     `docker port $AGENT_CONTAINER_NAME <port>` when that variable is set
-     (agent.zsh sets it to the container name), otherwise the generic
+     `docker port $AGENT_SANDBOX_CONTAINER_NAME <port>` when that variable is set
+     (agent-sandbox.zsh sets it to the container name), otherwise the generic
      `docker port <container> <port>` — and note that a port is only
-     published if it is listed in `.devcontainer/agent-ports` (one port per
-     line; the user edits that file on the host, then `agent-recreate`). If
+     published if it is listed in `.devcontainer/agent-sandbox-ports` (one port per
+     line; the user edits that file on the host, then `agent-sandbox-recreate`). If
      `docker port` shows nothing, that is the fix. Don't run
      `open`/`xdg-open` — there is no browser here.
    - **On the host:** you may open it — `open` (macOS) / `xdg-open` (Linux) /
@@ -95,7 +95,7 @@ recorded default port (see step 1a), falling back to stack detection.
 
 5. Confirm to the user: server is running in the background / a new terminal,
    how to reach it (container port + "opened via VS Code" in the container;
-   container port + the `docker port` command under agent.zsh;
+   container port + the `docker port` command under agent-sandbox.zsh;
    `http://localhost:PORT` on the host), and that this chat stays available.
 
 Keep the chat unblocked. Never run the dev server in the foreground of this session.

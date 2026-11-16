@@ -7,8 +7,8 @@
 #
 #   1. Opt-in. Reopen is the less isolated path (host channels, see
 #      docs/SECURITY-MODEL.md), so it must be enabled once per host: either
-#      AGENT_ALLOW_VSCODE=1 in the environment VS Code sees, or the marker
-#      file ${XDG_CONFIG_HOME:-$HOME/.config}/zsh/agent-allow-vscode. Without
+#      AGENT_SANDBOX_ALLOW_VSCODE=1 in the environment VS Code sees, or the marker
+#      file ${XDG_CONFIG_HOME:-$HOME/.config}/zsh/agent-sandbox-allow-vscode. Without
 #      either the container does not start. The switch lives on the host,
 #      never in the repository, so a cloned repo cannot flip it.
 #   2. Guards. .git must be a directory holding config and hooks (the mounts
@@ -29,18 +29,18 @@ set -u
 
 dir=${1:-.}
 tag="initialize.sh:"
-marker="${XDG_CONFIG_HOME:-$HOME/.config}/zsh/agent-allow-vscode"
+marker="${XDG_CONFIG_HOME:-$HOME/.config}/zsh/agent-sandbox-allow-vscode"
 
 fail() { printf '%s %s\n' "$tag" "$*" >&2; exit 1; }
 
 # 1. Opt-in -------------------------------------------------------------------
-if [ "${AGENT_ALLOW_VSCODE:-}" != 1 ] && [ ! -f "$marker" ]; then
+if [ "${AGENT_SANDBOX_ALLOW_VSCODE:-}" != 1 ] && [ ! -f "$marker" ]; then
   fail "VS Code \"Reopen in Container\" is not enabled on this host.
   It opens channels from the container back to this machine (SSH agent,
   keychain, editor IPC, \$BROWSER); the recommended way to run the container
-  is \`agent\` from a host terminal (README, \"Run without VS Code\"). To use
+  is \`agent-sandbox\` from a host terminal (README, \"Run without VS Code\"). To use
   reopen anyway, once per host:  touch \"$marker\"
-  or set AGENT_ALLOW_VSCODE=1 in the environment VS Code is launched from."
+  or set AGENT_SANDBOX_ALLOW_VSCODE=1 in the environment VS Code is launched from."
 fi
 
 # 2. Guards -------------------------------------------------------------------

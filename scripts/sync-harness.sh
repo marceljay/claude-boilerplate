@@ -59,13 +59,13 @@
 # To overwrite only ONE file's conventions (e.g. just CLAUDE.md), plain
 # refresh mode already covers it: answer y at that file's diff prompt.
 #
-# INSTALL-SHELL (--install-shell, no target): copies scripts/agent.zsh — the
+# INSTALL-SHELL (--install-shell, no target): copies scripts/agent-sandbox.zsh — the
 # host-side "run Claude in a container without VS Code" functions — to
-# ~/.config/zsh/agent.zsh (XDG_CONFIG_HOME honoured) and offers the one
+# ~/.config/zsh/agent-sandbox.zsh (XDG_CONFIG_HOME honoured) and offers the one
 # `source` line for ~/.zshrc. Also offered at the end of every sync. Host
 # only (skipped inside the container); refuses a symlinked destination and
 # never creates one — the installed copy must live where no agent can write
-# (README "Run without VS Code"). agent.zsh is never copied into targets.
+# (README "Run without VS Code"). agent-sandbox.zsh is never copied into targets.
 
 set -euo pipefail
 
@@ -181,94 +181,125 @@ ask3() {
   esac
 }
 
-# --- agent.zsh → ~/.config/zsh/agent.zsh -----------------------------------
+# --- agent-sandbox.zsh → ~/.config/zsh/agent-sandbox.zsh -----------------------------------
 # sha256 of a file, host-portable (macOS ships shasum, Linux sha256sum).
 file_sha256() {
   if command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" | cut -d' ' -f1
   elif command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1
   else echo "(no shasum/sha256sum on PATH)"; fi
 }
-AGENT_ZSH_SRC="$SRC/scripts/agent.zsh"
+AGENT_ZSH_SRC="$SRC/scripts/agent-sandbox.zsh"
 AGENT_ZSH_DEST_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/zsh"
-AGENT_ZSH_DEST="$AGENT_ZSH_DEST_DIR/agent.zsh"
+AGENT_ZSH_DEST="$AGENT_ZSH_DEST_DIR/agent-sandbox.zsh"
 # The ~/.zshrc line. With the default location it uses the portable ~ form;
 # with a custom XDG_CONFIG_HOME the resolved path, so the line works no
 # matter where in .zshrc XDG_CONFIG_HOME gets set.
 if [ "$AGENT_ZSH_DEST_DIR" = "$HOME/.config/zsh" ]; then
-  AGENT_ZSH_SOURCE_LINE='[[ -r ~/.config/zsh/agent.zsh ]] && source ~/.config/zsh/agent.zsh'
+  AGENT_ZSH_SOURCE_LINE='[[ -r ~/.config/zsh/agent-sandbox.zsh ]] && source ~/.config/zsh/agent-sandbox.zsh'
 else
   AGENT_ZSH_SOURCE_LINE="[[ -r $AGENT_ZSH_DEST ]] && source $AGENT_ZSH_DEST"
 fi
 ZSHRC="${ZDOTDIR:-$HOME}/.zshrc"
 # For a bash login shell (common on Linux): thin bash functions that run the
-# zsh file in a zsh subprocess, so `agent` works from bash without a port.
-# AGENT_TZ is read from the environment, so `export AGENT_TZ=…` in .bashrc.
+# zsh file in a zsh subprocess, so `agent-sandbox` works from bash without a port.
+# AGENT_SANDBOX_TZ is read from the environment, so `export AGENT_SANDBOX_TZ=…` in .bashrc.
 BASHRC="$HOME/.bashrc"
-AGENT_BASH_SHIM_MARK='# agent.zsh shim (sync-harness.sh --install-shell)'
+AGENT_BASH_SHIM_MARK='# agent-sandbox.zsh shim (sync-harness.sh --install-shell)'
 agent_bash_shim() {
   cat <<EOF
 $AGENT_BASH_SHIM_MARK
-_agent_zsh() { zsh -c 'source "\$1"; shift; "\$@"' zsh "$AGENT_ZSH_DEST" "\$@"; }
-agent() { _agent_zsh agent "\$@"; }
-agent-setup() { _agent_zsh agent-setup "\$@"; }
-agent-shell() { _agent_zsh agent-shell "\$@"; }
-agent-rebuild() { _agent_zsh agent-rebuild "\$@"; }
-agent-recreate() { _agent_zsh agent-recreate "\$@"; }
-agent-stop() { _agent_zsh agent-stop "\$@"; }
-agent-ports() { _agent_zsh agent-ports "\$@"; }
+_agent_sandbox_zsh() { zsh -c 'source "\$1"; shift; "\$@"' zsh "$AGENT_ZSH_DEST" "\$@"; }
+agent-sandbox() { _agent_sandbox_zsh agent-sandbox "\$@"; }
+agent-sandbox-setup() { _agent_sandbox_zsh agent-sandbox-setup "\$@"; }
+agent-sandbox-shell() { _agent_sandbox_zsh agent-sandbox-shell "\$@"; }
+agent-sandbox-rebuild() { _agent_sandbox_zsh agent-sandbox-rebuild "\$@"; }
+agent-sandbox-recreate() { _agent_sandbox_zsh agent-sandbox-recreate "\$@"; }
+agent-sandbox-stop() { _agent_sandbox_zsh agent-sandbox-stop "\$@"; }
+agent-sandbox-ports() { _agent_sandbox_zsh agent-sandbox-ports "\$@"; }
 EOF
 }
 
-# Install or update the host-side agent.zsh. Returns 0 unless something is
+# Install or update the host-side agent-sandbox.zsh. Returns 0 unless something is
 # wrong with the environment (symlink, syntax error, no zsh); declining is 0.
 install_shell() {
   local version new_sha ts
   echo
   if [ "$IN_CONTAINER" = "true" ]; then
-    say "note" "agent.zsh: skipped — this runs inside the dev container; run it on the host:"
+    say "note" "agent-sandbox.zsh: skipped — this runs inside the dev container; run it on the host:"
     echo "          scripts/sync-harness.sh --install-shell"
     return 0
   fi
   if [ ! -f "$AGENT_ZSH_SRC" ]; then
-    say "WARNING" "scripts/agent.zsh missing in $SRC — nothing to install"
+    say "WARNING" "scripts/agent-sandbox.zsh missing in $SRC — nothing to install"
     return 1
   fi
   if ! command -v zsh >/dev/null 2>&1; then
-    say "WARNING" "no zsh on PATH — agent.zsh is a zsh file; not offering the install"
+    say "WARNING" "no zsh on PATH — agent-sandbox.zsh is a zsh file; not offering the install"
     return 1
   fi
   if ! zsh -n "$AGENT_ZSH_SRC"; then
-    say "WARNING" "scripts/agent.zsh fails \`zsh -n\` — not offering the install"
+    say "WARNING" "scripts/agent-sandbox.zsh fails \`zsh -n\` — not offering the install"
     return 1
   fi
   # The file, its directory and the config root must all be real: a
   # ~/.config/zsh that is a symlink into a dotfiles repo is exactly the
-  # agent-writable place the agent.zsh header warns about.
+  # agent-writable place the agent-sandbox.zsh header warns about.
   local link
   for link in "$AGENT_ZSH_DEST" "$AGENT_ZSH_DEST_DIR" "$(dirname "$AGENT_ZSH_DEST_DIR")"; do
     if [ -L "$link" ]; then
-      say "WARNING" "$link is a symlink — refusing. agent.zsh decides what the container"
+      say "WARNING" "$link is a symlink — refusing. agent-sandbox.zsh decides what the container"
       echo "          sees, so it must be a plain file in a real directory outside any folder"
       echo "          an agent can write to (a dotfiles repo you run Claude in counts)."
       echo "          Replace the symlink with a real directory/file, then re-run --install-shell."
       return 1
     fi
   done
-  version=$(grep -m1 -E '^# AGENT_ZSH_VERSION=' "$AGENT_ZSH_SRC" | cut -d= -f2)
+  version=$(grep -m1 -E '^# AGENT_SANDBOX_VERSION=' "$AGENT_ZSH_SRC" | cut -d= -f2)
+  # Before 2026-11-16 the file was agent.zsh and defined `agent`, `agent-rebuild`
+  # etc. Both copies sourced from .zshrc would define both families, so offer
+  # to remove the old file and rewrite its source line.
+  local old_dest="$AGENT_ZSH_DEST_DIR/agent.zsh" old_line rc="$ZSHRC"
+  if [ -e "$old_dest" ]; then
+    say "note" "$old_dest is the pre-rename copy (commands were \`agent …\`, now \`agent-sandbox …\`)."
+    if ask "Remove the old $old_dest?"; then
+      rm -f "$old_dest" && say "removed" "$old_dest"
+    else
+      say "kept" "$old_dest — remove it yourself, or both command families stay defined"
+    fi
+    if [ "$AGENT_ZSH_DEST_DIR" = "$HOME/.config/zsh" ]; then
+      old_line='[[ -r ~/.config/zsh/agent.zsh ]] && source ~/.config/zsh/agent.zsh'
+    else
+      old_line="[[ -r $old_dest ]] && source $old_dest"
+    fi
+    if [ -f "$rc" ] && grep -qF -- "$old_line" "$rc"; then
+      say "note" "$rc still sources the old file:"
+      echo "          $old_line"
+      if ask "Replace that line with the agent-sandbox.zsh one?"; then
+        cp -p "$rc" "$rc.bak-$(date +%Y%m%d-%H%M%S)"
+        awk -v old="$old_line" -v new="$AGENT_ZSH_SOURCE_LINE" '$0 == old { print new; next } { print }' "$rc" > "$rc.tmp" && mv "$rc.tmp" "$rc"
+        say "copied" "$rc updated (backup kept beside it)"
+      else
+        say "kept" "$rc untouched — replace the line yourself"
+      fi
+    fi
+  fi
+  if [ -f "$BASHRC" ] && grep -qF -- '# agent.zsh shim (sync-harness.sh --install-shell)' "$BASHRC"; then
+    say "WARNING" "$BASHRC has the pre-rename bash shim block (agent.zsh); remove it by hand, then accept the new block below."
+  fi
   if [ ! -e "$AGENT_ZSH_DEST" ]; then
-    say "note" "agent.zsh ${version:-?} is not installed yet. It would be copied to:"
+    say "note" "agent-sandbox.zsh ${version:-?} is not installed yet. It would be copied to:"
     echo "          $AGENT_ZSH_DEST   (mode 0644, a plain copy — not a symlink)"
-    echo "          It defines agent / agent-rebuild / agent-stop … (host-side zsh functions"
+    echo "          It defines agent-sandbox / agent-sandbox-rebuild / agent-sandbox-stop … (host-side zsh functions"
     echo "          that run Claude Code in a per-project Docker container without VS Code)."
-    ask "Install agent.zsh there?" || { say "kept" "agent.zsh not installed"; return 0; }
+    ask "Install agent-sandbox.zsh there?" || { say "kept" "agent-sandbox.zsh not installed"; return 0; }
   elif cmp -s "$AGENT_ZSH_SRC" "$AGENT_ZSH_DEST"; then
-    say "in sync" "$AGENT_ZSH_DEST (agent.zsh ${version:-?})"
+    say "in sync" "$AGENT_ZSH_DEST (agent-sandbox.zsh ${version:-?})"
     offer_zshrc_line
     return 0
   else
-    say "differs" "$AGENT_ZSH_DEST vs scripts/agent.zsh ${version:-?} (installed → boilerplate):"
+    say "differs" "$AGENT_ZSH_DEST vs scripts/agent-sandbox.zsh ${version:-?} (installed → boilerplate):"
     show_diff "$AGENT_ZSH_DEST" "$AGENT_ZSH_SRC"
-    ask "Replace the installed agent.zsh with this version?" || { say "kept" "$AGENT_ZSH_DEST"; return 0; }
+    ask "Replace the installed agent-sandbox.zsh with this version?" || { say "kept" "$AGENT_ZSH_DEST"; return 0; }
     ts=$(date +%Y%m%d-%H%M%S)
     cp -p "$AGENT_ZSH_DEST" "$AGENT_ZSH_DEST.bak-$ts"
     say "copied" "backup → $AGENT_ZSH_DEST.bak-$ts"
@@ -277,7 +308,7 @@ install_shell() {
   install -m 0644 "$AGENT_ZSH_SRC" "$AGENT_ZSH_DEST"
   new_sha=$(file_sha256 "$AGENT_ZSH_DEST")
   say "copied" "$AGENT_ZSH_DEST"
-  echo "          AGENT_ZSH_VERSION=${version:-?}  sha256 $new_sha"
+  echo "          AGENT_SANDBOX_VERSION=${version:-?}  sha256 $new_sha"
   offer_zshrc_line
 }
 
@@ -290,7 +321,7 @@ offer_zshrc_line() {
     return $?
   fi
   if [ -f "$rc" ] && grep -qF -- "$AGENT_ZSH_SOURCE_LINE" "$rc"; then
-    say "in sync" "$rc already sources agent.zsh"
+    say "in sync" "$rc already sources agent-sandbox.zsh"
     return 0
   fi
   say "note" "$rc does not source it yet. The line to add:"
@@ -299,7 +330,7 @@ offer_zshrc_line() {
     printf '\n%s\n' "$AGENT_ZSH_SOURCE_LINE" >> "$rc"
     say "copied" "appended to $rc — open a new shell (or \`source $rc\`)"
   else
-    say "kept" "$rc untouched — add the line yourself to use \`agent\`"
+    say "kept" "$rc untouched — add the line yourself to use \`agent-sandbox\`"
   fi
 }
 
@@ -308,13 +339,13 @@ offer_bashrc_shim() {
     say "in sync" "$BASHRC already has the agent shim"
     return 0
   fi
-  say "note" "your login shell is bash. agent.zsh is a zsh file; this block in $BASHRC runs it through zsh:"
+  say "note" "your login shell is bash. agent-sandbox.zsh is a zsh file; this block in $BASHRC runs it through zsh:"
   agent_bash_shim | sed 's/^/          /'
   if ask "Append that block to $BASHRC?"; then
     { printf '\n'; agent_bash_shim; } >> "$BASHRC"
     say "copied" "appended to $BASHRC — open a new shell (or \`source $BASHRC\`)"
   else
-    say "kept" "$BASHRC untouched — add the block yourself to use \`agent\` from bash"
+    say "kept" "$BASHRC untouched — add the block yourself to use \`agent-sandbox\` from bash"
   fi
 }
 
@@ -586,14 +617,24 @@ if [ -f "$TARGET/.claude/CLAUDE.md" ] && grep -Eq "$BATON_RE" "$TARGET/.claude/C
 fi
 
 # --- 2c. Per-project files copied only when missing, never overwritten ------
-# .devcontainer/agent-ports: the ports scripts/agent.zsh publishes for the
-# target's container; .devcontainer/agent-nested-repos: nested repositories
-# agent.zsh accepts under the project. Pure per-project data (the
+# .devcontainer/agent-sandbox-ports: the ports scripts/agent-sandbox.zsh publishes for the
+# target's container; .devcontainer/agent-sandbox-nested-repos: nested repositories
+# agent-sandbox.zsh accepts under the project. Pure per-project data (the
 # boilerplate's copies are the documented empty templates), so a target's
 # lists are never touched.
-COPY_IF_MISSING=".devcontainer/agent-ports .devcontainer/agent-nested-repos"
+COPY_IF_MISSING=".devcontainer/agent-sandbox-ports .devcontainer/agent-sandbox-nested-repos"
 for f in $COPY_IF_MISSING; do
   [ -f "$SRC/$f" ] || continue
+  # Pre-2026-11-16 name (agent-ports, agent-nested-repos): rename the target's
+  # copy, which keeps its per-project lines; never overwrite an existing new one.
+  old="$TARGET/$(dirname "$f")/$(basename "$f" | sed 's/^agent-sandbox-/agent-/')"
+  if [ -f "$old" ]; then
+    if [ -f "$TARGET/$f" ]; then
+      say "WARNING" "$f and the old $(basename "$old") both exist — merge by hand, then delete the old one"
+    else
+      mv "$old" "$TARGET/$f" && say "renamed" "$(basename "$old") → $f (old name from before the agent-sandbox rename)"
+    fi
+  fi
   if [ ! -f "$TARGET/$f" ]; then
     mkdir -p "$TARGET/$(dirname "$f")"
     cp -p "$SRC/$f" "$TARGET/$f"
@@ -682,5 +723,5 @@ else
   echo "If .devcontainer/ files changed, rebuild the target's container to apply."
 fi
 
-# --- 5. Host-side agent.zsh (not part of the target; lives in ~/.config) ----
+# --- 5. Host-side agent-sandbox.zsh (not part of the target; lives in ~/.config) ----
 install_shell || true

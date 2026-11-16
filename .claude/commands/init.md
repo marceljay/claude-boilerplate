@@ -6,26 +6,26 @@ Scaffold the standard file structure for a new project.
 
 **Before anything: can this session write `.devcontainer/`?** Test it
 (`touch .devcontainer/.init-probe && rm .devcontainer/.init-probe`). In the
-normal `agent` container and in a VS Code "Reopen in Container" window,
+normal `agent-sandbox` container and in a VS Code "Reopen in Container" window,
 `.devcontainer`, `.git/config` and `.git/hooks` are read-only bind mounts:
 the detach script (step 0: `rm -rf
 .git`, `git init`), the container rename and the shortcut-flags edit (step
 3), and every STACKS.md recipe need them writable. Two ways through:
 
 - **Not writable → host-edit path.** Tell the user once: either exit and
-  run `agent --setup` on the host (a one-time container without the
+  run `agent-sandbox --setup` on the host (a one-time container without the
   overlays, prompts on), then `/init` again there; or stay here and apply
   the edits by hand. On this path never attempt the write: for each
   `.devcontainer/` change below, emit the exact edit for the user to apply
   on the host (file, the line as it is, the line as it should be) — the
   same pattern as the shortcut-flags fallback in step 3 — and skip the
   detach offer in step 0 (say why; `scripts/new-project.sh` must run on the
-  host or in `agent --setup`). After they apply the edits:
-  `agent-rebuild`.
-- **Writable** (`agent --setup`, or a container without the overlays) →
+  host or in `agent-sandbox --setup`). After they apply the edits:
+  `agent-sandbox-rebuild`.
+- **Writable** (`agent-sandbox --setup`, or a container without the overlays) →
   proceed as written.
-  Under `agent --setup`, remind the user at the end: review
-  `git diff -- .devcontainer`, then `agent-rebuild`; plain `agent` refuses
+  Under `agent-sandbox --setup`, remind the user at the end: review
+  `git diff -- .devcontainer`, then `agent-sandbox-rebuild`; plain `agent-sandbox` refuses
   to attach to the setup container until then.
 
 0. **Guard:** if a `.boilerplate-dev` file exists at the repo root, this is the
@@ -354,9 +354,9 @@ the detach script (step 0: `rm -rf
      `devcontainer.json` themselves.
    - **Keep prompts** — leave it empty; the shortcuts behave like `claude`.
    Either way, note that `containerEnv` applies on the next **rebuild**
-   (`agent-rebuild` under agent.zsh, which also reads the value for its own
+   (`agent-sandbox-rebuild` under agent-sandbox.zsh, which also reads the value for its own
    `-e`); until then `export CLAUDE_SHORTCUT_FLAGS=…` in `~/.zshrc` bridges
-   it. The value must be empty or space-separated `--long-flags`; agent.zsh
+   it. The value must be empty or space-separated `--long-flags`; agent-sandbox.zsh
    ignores anything else with a warning.
 
 4. Initialize git if not already a repo (`git init`). Not possible with the

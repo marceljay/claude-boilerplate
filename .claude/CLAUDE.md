@@ -18,8 +18,8 @@ STATUS.md at session start.
   is not readable from inside — never announce a host port. Open URLs with
   `"$BROWSER" http://localhost:<container port>` (VS Code resolves the
   forward), never `open`/`xdg-open`. No `$BROWSER` means the container was
-  started by `scripts/agent.zsh`: print the container port and `docker port
-  $AGENT_CONTAINER_NAME <port>` for the user. On both paths `.devcontainer/`,
+  started by `scripts/agent-sandbox.zsh`: print the container port and `docker port
+  $AGENT_SANDBOX_CONTAINER_NAME <port>` for the user. On both paths `.devcontainer/`,
   `.vscode/`, `.git/hooks` and `.git/config` are read-only (no `push -u`,
   `git config`, `git init`; `/init` hands those edits to the host). Details:
   `.claude/README.md` §7.

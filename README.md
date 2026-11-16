@@ -52,8 +52,8 @@ sandbox. See [Dev Container](#dev-container) below.
 ├── skills/            # Auto-invoked skills: project-state upkeep (update-status, log, status, release), TDD, systematic-debugging, writing-plans, brainstorming, using-superpowers
 ├── scripts/           # usage-statusline.sh (status line), review_page.py (/review page), changelog_fold.py (folds changelog.d/ fragments), subagent_summary.py (tabulates the SubagentStop log)
 └── hooks/             # PreToolUse: block_destructive.py (rm -rf/force-push variants), socket_scan.py (installs via Socket; opt-in), bounded_reads.py (no bare cat of big files) · SessionStart: first-run-check.sh, status-staleness-check.sh, plan-staleness-check.sh · PreCompact: save-context.sh · SubagentStop: log_subagent.py
-.devcontainer/         # Sandboxed Docker env: Dockerfile, firewall script + allowed-domains.txt, shell shortcuts, agent-ports, STACKS.md (see below)
-scripts/               # sync-harness.sh (install/refresh the harness in another repo; --install-shell installs agent.zsh), agent.zsh (run the container from the host without VS Code), new-project.sh (detach a copy), tests/
+.devcontainer/         # Sandboxed Docker env: Dockerfile, firewall script + allowed-domains.txt, shell shortcuts, agent-sandbox-ports, STACKS.md (see below)
+scripts/               # sync-harness.sh (install/refresh the harness in another repo; --install-shell installs agent-sandbox.zsh), agent-sandbox.zsh (run the container from the host without VS Code), new-project.sh (detach a copy), tests/
 changelog.d/           # One changelog fragment per change, written on branches; folded into CHANGELOG.md on the release branch
 .npmrc                 # Supply-chain hardening: no install scripts, exact pins (see STACKS.md §Supply-chain hardening — incl. pnpm/cargo/go equivalents)
 LICENSE                # MIT
@@ -84,18 +84,18 @@ Two ways in, depending on whether your project already exists.
 ### Path A — start a new project from this repo
 
 1. **Copy this repo** as the seed for your new project (or use it as a template).
-2. **Open it in the dev container** — either `agent` from a host terminal
+2. **Open it in the dev container** — either `agent-sandbox` from a host terminal
    ([Run without VS Code](#run-without-vs-code-recommended), the more
    isolated path) or VS Code's "Reopen in Container" (enable it once per
-   host first: `touch ~/.config/zsh/agent-allow-vscode`). The first start builds
+   host first: `touch ~/.config/zsh/agent-sandbox-allow-vscode`). The first start builds
    the image — a few minutes; it installs Claude Code and the tools listed
    under [Dev Container](#dev-container). Or use your own env and skip the
    container-specific steps.
 3. **Start Claude** in the container terminal — `cc` (the shortcut; `cc-help`
    lists the others) or plain `claude`. The first run asks you to sign in
    (see [Signing in](#signing-in)). Then run **`/init`** — in a one-time
-   `agent --setup` container, since `/init` edits `.devcontainer/` and
-   `.git`, which both the `agent` container and the reopened one mount
+   `agent-sandbox --setup` container, since `/init` edits `.devcontainer/` and
+   `.git`, which both the `agent-sandbox` container and the reopened one mount
    read-only (inside those it prints the edits for you to apply on the
    host instead). It offers to
    detach the boilerplate first (`scripts/new-project.sh` — renames this
@@ -108,7 +108,7 @@ Two ways in, depending on whether your project already exists.
    policy, STATUS.md visibility, whether the shell shortcuts skip permission
    prompts, and — for a non-Node stack — walks you through
    [`STACKS.md`](.devcontainer/STACKS.md). Then add your project's own `LICENSE`.
-4. **Rebuild the container once** (`agent-rebuild`, or VS Code's "Rebuild
+4. **Rebuild the container once** (`agent-sandbox-rebuild`, or VS Code's "Rebuild
    Container") if `/init` touched `.devcontainer/` — it renames the
    container and sets the shortcut flags in `devcontainer.json`, and a stack
    recipe edits the Dockerfile and firewall list. Those files are baked into
@@ -240,8 +240,8 @@ container is a safer place for it to work than your host machine.
 | `initialize.sh`     | Host-side step of VS Code's "Reopen in Container" (`initializeCommand`): refuses unless reopen is enabled on this host, refuses a redirected `.git/commondir`, creates the sources for the read-only mounts. Never runs git. |
 | `allowed-domains.txt` | The firewall allowlist, one domain per line. The per-project file: add your stack's hosts here.                                                                                                             |
 | `claude-harness.zsh` | Shell shortcuts (`cc`, `ccc`, `ccr`, `ccw`, `cc-help`) and history seeding; the prompt shows a timestamp per command.                                                                                         |
-| `agent-ports`       | Container ports `scripts/agent.zsh` publishes on the host (loopback only, ephemeral host port). Per-project; empty by default. Ignored by the VS Code path, which auto-forwards.                               |
-| `agent-nested-repos` | Nested git repositories `scripts/agent.zsh` accepts under the project (paths or globs). Per-project; empty by default. An unlisted one stops `agent` from attaching.                                        |
+| `agent-sandbox-ports`       | Container ports `scripts/agent-sandbox.zsh` publishes on the host (loopback only, ephemeral host port). Per-project; empty by default. Ignored by the VS Code path, which auto-forwards.                               |
+| `agent-sandbox-nested-repos` | Nested git repositories `scripts/agent-sandbox.zsh` accepts under the project (paths or globs). Per-project; empty by default. An unlisted one stops `agent-sandbox` from attaching.                                        |
 | `STACKS.md`         | Recipes for adding non-Node stacks (Python, Go, Rust, Java, Ruby): toolchain install + exact firewall domains + a verification step. The container ships Node-only until one is applied.                       |
 
 > **Rename the container for your project.** The `"name"` in `devcontainer.json`
@@ -259,7 +259,7 @@ container is a safer place for it to work than your host machine.
 
 VS Code's "Reopen in Container" is convenient, but the Dev Containers
 extension opens channels from the container back to your machine (listed
-under [Security model](#security-model)). `scripts/agent.zsh` starts the
+under [Security model](#security-model)). `scripts/agent-sandbox.zsh` starts the
 same image with plain Docker from a host terminal and nothing else: the
 project folder, two named volumes, two capabilities. Inside, Claude runs in
 `tmux`, so a closed terminal tab doesn't end the session.
@@ -271,7 +271,7 @@ get a shim, see the Linux notes below):
 scripts/sync-harness.sh --install-shell
 ```
 
-It copies `scripts/agent.zsh` to `~/.config/zsh/agent.zsh` (a plain file,
+It copies `scripts/agent-sandbox.zsh` to `~/.config/zsh/agent-sandbox.zsh` (a plain file,
 mode 0644, never a symlink — the file decides what the container sees, so it
 must live where no agent can write) and offers the one `source` line for
 `~/.zshrc`. Re-running shows a diff and backs the old copy up before
@@ -282,19 +282,19 @@ the end. The file is not copied into projects.
 
 | Command | What it does |
 | --- | --- |
-| `agent` | Builds the image if missing, creates the container if missing, starts it if stopped, applies the firewall if the OUTPUT policy isn't DROP, attaches to tmux. Idempotent; `Ctrl-b d` detaches, the session keeps running. |
-| `agent --no-tmux` / `agent-shell` | Same, but a plain zsh (closing the tab ends what runs in it). |
-| `agent --setup` / `agent-setup` | One-time container for `/init` and `scripts/new-project.sh`: no read-only overlays, permission prompts on. Plain `agent` refuses to attach to it until you `agent-rebuild`. |
-| `agent-rebuild` | `docker build --pull --no-cache` (fresh base image, newest Claude Code), new container. When `.devcontainer` differs from what the current image was built from (uncommitted or committed), it lists the changes and asks first. |
-| `agent-recreate` | New container from the existing image — after changing `agent-ports`, the shortcut flags, or `.git/config` on the host. Same review prompt as `agent-rebuild`. |
-| `agent-stop` | Stops the container; sign-in, memory and history live in volumes and survive. |
-| `agent-ports` | Host ports published for the container (`docker port`). |
+| `agent-sandbox` | Builds the image if missing, creates the container if missing, starts it if stopped, applies the firewall if the OUTPUT policy isn't DROP, attaches to tmux. Idempotent; `Ctrl-b d` detaches, the session keeps running. |
+| `agent-sandbox --no-tmux` / `agent-sandbox-shell` | Same, but a plain zsh (closing the tab ends what runs in it). |
+| `agent-sandbox --setup` / `agent-sandbox-setup` | One-time container for `/init` and `scripts/new-project.sh`: no read-only overlays, permission prompts on. Plain `agent-sandbox` refuses to attach to it until you `agent-sandbox-rebuild`. |
+| `agent-sandbox-rebuild` | `docker build --pull --no-cache` (fresh base image, newest Claude Code), new container. When `.devcontainer` differs from what the current image was built from (uncommitted or committed), it lists the changes and asks first. |
+| `agent-sandbox-recreate` | New container from the existing image — after changing `agent-sandbox-ports`, the shortcut flags, or `.git/config` on the host. Same review prompt as `agent-sandbox-rebuild`. |
+| `agent-sandbox-stop` | Stops the container; sign-in, memory and history live in volumes and survive. |
+| `agent-sandbox-ports` | Host ports published for the container (`docker port`). |
 
 Names are `claude-<folder>` (lowercased, odd characters → `-`); containers
 you created by hand under that name are picked up as they are. Two projects
-with the same folder name share the name: `agent` refuses to attach when the
+with the same folder name share the name: `agent-sandbox` refuses to attach when the
 existing container mounts the other folder. The
-container's time zone comes from `AGENT_TZ` (default `$TZ`, else
+container's time zone comes from `AGENT_SANDBOX_TZ` (default `$TZ`, else
 Europe/Berlin); set it in `~/.zshrc` before the `source` line.
 
 **What's different inside.** `.devcontainer/`, `.vscode/`, `.git/hooks/`,
@@ -302,42 +302,42 @@ Europe/Berlin); set it in `~/.zshrc` before the `source` line.
 mount point, so it can't be renamed away and replaced by a writable copy):
 an agent can't change what the next rebuild runs, what the editor runs on
 open, what git runs on your machine (`core.hooksPath`, `core.fsmonitor`,
-filter drivers), or where `git push` goes. `agent` creates the
+filter drivers), or where `git push` goes. `agent-sandbox` creates the
 `.git/commondir` placeholder (a single `.`, which git treats as "no
 redirect") and an empty `.vscode/` when missing. Nested git repositories
 under the project must be listed in
-[`.devcontainer/agent-nested-repos`](.devcontainer/agent-nested-repos), or
-`agent` refuses to attach: a submodule entry would make your git read their
+[`.devcontainer/agent-sandbox-nested-repos`](.devcontainer/agent-sandbox-nested-repos), or
+`agent-sandbox` refuses to attach: a submodule entry would make your git read their
 config. Consequences: `/pr` pushes with `git
 push origin HEAD` (no `-u`), `ccw` creates worktrees with `--no-track`, and
-`/init` either runs in `agent --setup` or prints the `.devcontainer` edits
+`/init` either runs in `agent-sandbox --setup` or prints the `.devcontainer` edits
 for you to apply on the host. Git rewrites `.git/config` by renaming a new
 file over it, so after a host-side `git remote add` or `git config` the
-container still sees the old content until `agent-recreate`. There is no
+container still sees the old content until `agent-sandbox-recreate`. There is no
 `$BROWSER`: `/dev` prints the container port and the `docker port` command
 that shows the host side. Ports are only published if listed in
-[`.devcontainer/agent-ports`](.devcontainer/agent-ports) (one per line,
+[`.devcontainer/agent-sandbox-ports`](.devcontainer/agent-sandbox-ports) (one per line,
 loopback, ephemeral host port — several projects never collide). Git author
 and committer come from your host's global git config as environment
 variables, which win over a per-repo `user.email`.
 
 **Drift warning.** The image is labelled with a hash of `.devcontainer/` at
-build time. When `agent` finds the directory changed since then, it warns
+build time. When `agent-sandbox` finds the directory changed since then, it warns
 (`.devcontainer changed since the last build — review git diff --
-.devcontainer, then agent-rebuild`) and still attaches: changes there only
+.devcontainer, then agent-sandbox-rebuild`) and still attaches: changes there only
 take effect at a rebuild, which is exactly when they must have been reviewed.
 
 **What you give up versus VS Code:** the editor attached to the container
 (use VS Code on the host folder instead; it is the same files), automatic
-port forwarding (use `agent-ports`), `$BROWSER`, the marketplace extensions,
+port forwarding (use `agent-sandbox-ports`), `$BROWSER`, the marketplace extensions,
 and `.gitconfig` beyond name and email. "Reopen in Container" still works,
-once enabled per host (`touch ~/.config/zsh/agent-allow-vscode`, or
-`AGENT_ALLOW_VSCODE=1` where VS Code is launched from):
+once enabled per host (`touch ~/.config/zsh/agent-sandbox-allow-vscode`, or
+`AGENT_SANDBOX_ALLOW_VSCODE=1` where VS Code is launched from):
 `.devcontainer/initialize.sh` runs on the host before every start, checks
 the switch and the `.git/commondir` files, and `devcontainer.json` applies
 the same read-only overlays. It is still the less isolated path (host
 channels, no nested-repo check, no drift gate). For an editor inside the
-hardened container instead, start it with `agent` and use the Dev Containers
+hardened container instead, start it with `agent-sandbox` and use the Dev Containers
 command "Attach to Running Container"; attach ignores `devcontainer.json`
 customizations, so extensions and settings go into VS Code's
 attached-container configuration.
@@ -349,11 +349,11 @@ around it differs.
 *Linux:*
 
 - **File ownership.** Native Docker Engine shows the repo inside the
-  container with your host uid, and the container user is uid 1000. `agent`
+  container with your host uid, and the container user is uid 1000. `agent-sandbox`
   builds the image with your uid and gid (`USER_UID`/`USER_GID` build args)
   and warns when an existing image was built for another uid; the VS Code
-  path does the same through `updateRemoteUserUID`. If `agent` says the
-  image was built for another uid, run `agent-rebuild`.
+  path does the same through `updateRemoteUserUID`. If `agent-sandbox` says the
+  image was built for another uid, run `agent-sandbox-rebuild`.
 - **No VM in between.** On macOS the container runs inside Docker Desktop's
   VM; on Linux it shares your kernel. A privilege escalation inside the
   container is a host compromise, so the `no-new-privileges` and
@@ -363,9 +363,9 @@ around it differs.
   the host are reachable there. Inbound from that network is allowed for
   published ports; `# allow-host-network` would expose the host's own
   listeners and is best left off on Linux.
-- **Bash as login shell.** `agent.zsh` is zsh. `--install-shell` detects a
+- **Bash as login shell.** `agent-sandbox.zsh` is zsh. `--install-shell` detects a
   bash `$SHELL` and offers a block for `~/.bashrc` that runs the functions
-  through `zsh -c`; zsh must be installed. `export AGENT_TZ=…` in `.bashrc`
+  through `zsh -c`; zsh must be installed. `export AGENT_SANDBOX_TZ=…` in `.bashrc`
   if you want a time zone other than `$TZ`.
 - **`docker` group membership is root on the host.** Anyone (or anything)
   that can talk to the Docker socket can start a privileged container. Keep
@@ -379,7 +379,7 @@ around it differs.
 *macOS:*
 
 - Use **iTerm2 3.6.10 or later** (CVE-2026-41253 is fixed there). Don't use
-  iTerm2's `tmux -CC` integration for agent sessions: that path has had
+  iTerm2's `tmux -CC` integration for agent-sandbox sessions: that path has had
   several code-execution CVEs, and the point of tmux here is a plain
   scrollback. The container's `/etc/tmux.conf` turns off `set-clipboard`
   and `allow-passthrough` so a command inside can't write your clipboard or
@@ -396,7 +396,7 @@ around it differs.
 
 ### The firewall (`init-firewall.sh`)
 
-On every container start (and on `agent` whenever the OUTPUT policy isn't
+On every container start (and on `agent-sandbox` whenever the OUTPUT policy isn't
 DROP) the container locks outbound traffic down to a small allowlist, so
 commands Claude runs can't reach arbitrary hosts:
 
@@ -418,7 +418,7 @@ commands Claude runs can't reach arbitrary hosts:
 - **Self-verifying:** `example.com` unreachable, `api.github.com` reachable,
   DNS still resolves, TCP 22 to a non-GitHub address blocked, DNS to a
   foreign resolver blocked, IPv6 egress blocked where IPv6 exists. Any
-  failure fails the start: `agent` stops the container; on the VS Code path
+  failure fails the start: `agent-sandbox` stops the container; on the VS Code path
   a first-start failure leaves a loopback-only DROP table in place (all
   egress blocked until a restart), and a failed re-run keeps the previous
   rules.
@@ -471,13 +471,13 @@ these before trusting the sandbox:
   --openExternal`, which opens any URL in your browser — past the firewall.
   Blanking those variables (the commented `remoteEnv` block in
   `devcontainer.json`) only hides them; the host still answers on the
-  sockets. `scripts/agent.zsh` opens none of them.
+  sockets. `scripts/agent-sandbox.zsh` opens none of them.
 - **The workspace is a read-write bind mount of your repo.** Anything the
   agent writes there is on your disk. Three places are executed by your
   machine, not the container: `.devcontainer/*` (the next rebuild runs it;
   `initializeCommand` runs on the host), `.git/hooks/*` and `.git/config`
   (`core.hooksPath`, `core.fsmonitor`, filter drivers, `core.sshCommand`
-  — run by every git command you type on the host). `agent.zsh` mounts
+  — run by every git command you type on the host). `agent-sandbox.zsh` mounts
   those read-only together with `.vscode/` and a `.git/commondir`
   placeholder (the file that could otherwise redirect git to a config and
   hooks directory the agent controls), refuses to attach while an unlisted
@@ -486,7 +486,7 @@ these before trusting the sandbox:
   `devcontainer.json` and a host-side opt-in and guard script
   (`.devcontainer/initialize.sh`), but not the nested-repo check, the drift
   gate or the git-free harness. Either way,
-  review changes to `.devcontainer` before a rebuild (`agent-rebuild` shows
+  review changes to `.devcontainer` before a rebuild (`agent-sandbox-rebuild` shows
   them).
 - **Firewall limits.** GitHub is allowed by IP range, so an injected prompt
   can push to any GitHub repository with a token it brought along — the

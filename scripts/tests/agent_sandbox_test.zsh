@@ -1,7 +1,7 @@
 #!/usr/bin/env zsh
-# Tests for scripts/agent.zsh against a stub `docker` — no Docker needed.
+# Tests for scripts/agent-sandbox.zsh against a stub `docker` — no Docker needed.
 #
-#   zsh scripts/tests/agent_zsh_test.zsh
+#   zsh scripts/tests/agent_sandbox_test.zsh
 #
 # The stub logs every docker argv to a file and simulates state (image,
 # container, running, firewall policy, labels, tmux present) with marker
@@ -12,16 +12,16 @@ emulate -L zsh
 setopt pipe_fail
 
 here=${0:A:h}
-src=$here/../agent.zsh
+src=$here/../agent-sandbox.zsh
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-export AGENT_STUB_STATE=$tmp/state
-mkdir -p "$AGENT_STUB_STATE" "$tmp/bin" "$tmp/home"
+export AGENT_SANDBOX_STUB_STATE=$tmp/state
+mkdir -p "$AGENT_SANDBOX_STUB_STATE" "$tmp/bin" "$tmp/home"
 
 cat > "$tmp/bin/docker" <<'STUB'
 #!/usr/bin/env bash
-S="$AGENT_STUB_STATE"
+S="$AGENT_SANDBOX_STUB_STATE"
 printf '%s\n' "$*" >> "$S/log"
 sub="$1"; shift || true
 case "$sub" in
@@ -30,8 +30,8 @@ case "$sub" in
     if [ "${1:-}" = -f ]; then
       [ -e "$S/image" ] || exit 1
       case "$2" in
-        *agent.devcontainer-sha256*) cat "$S/image_hash" 2>/dev/null || echo '<no value>' ;;
-        *agent.user-uid*) cat "$S/image_uid" 2>/dev/null || echo '<no value>' ;;
+        *agent-sandbox.devcontainer-sha256*) cat "$S/image_hash" 2>/dev/null || echo '<no value>' ;;
+        *agent-sandbox.user-uid*) cat "$S/image_uid" 2>/dev/null || echo '<no value>' ;;
       esac
     else
       [ -e "$S/image" ]
@@ -42,7 +42,7 @@ case "$sub" in
       [ -e "$S/container" ] || exit 1
       case "$2" in
         *State.Running*) if [ -e "$S/running" ]; then echo true; else echo false; fi ;;
-        *agent.mode*) cat "$S/container_mode" 2>/dev/null || echo '<no value>' ;;
+        *agent-sandbox.mode*) cat "$S/container_mode" 2>/dev/null || echo '<no value>' ;;
         *Mounts*) cat "$S/mount_src" 2>/dev/null || true ;;
       esac
     else
@@ -50,13 +50,13 @@ case "$sub" in
     fi ;;
   build)
     touch "$S/image"
-    for a in "$@"; do case "$a" in agent.devcontainer-sha256=*) echo "${a#*=}" > "$S/image_hash" ;; agent.user-uid=*) echo "${a#*=}" > "$S/image_uid" ;; esac; done ;;
+    for a in "$@"; do case "$a" in agent-sandbox.devcontainer-sha256=*) echo "${a#*=}" > "$S/image_hash" ;; agent-sandbox.user-uid=*) echo "${a#*=}" > "$S/image_uid" ;; esac; done ;;
   run)
     [ -e "$S/image" ] || { echo "stub: no image" >&2; exit 125; }
     rm -f "$S/iptables_drop"
     touch "$S/container" "$S/running"
     echo normal > "$S/container_mode"
-    for a in "$@"; do case "$a" in agent.mode=*) echo "${a#*=}" > "$S/container_mode" ;; esac; done ;;
+    for a in "$@"; do case "$a" in agent-sandbox.mode=*) echo "${a#*=}" > "$S/container_mode" ;; esac; done ;;
   start) rm -f "$S/iptables_drop"; touch "$S/running" ;;
   stop)  rm -f "$S/running" ;;
   rm)    rm -f "$S/container" "$S/running" "$S/container_mode" ;;
@@ -121,8 +121,8 @@ assert_not_has() {
 }
 
 reset_state() {
-  rm -rf "$AGENT_STUB_STATE"; mkdir -p "$AGENT_STUB_STATE"; : > "$AGENT_STUB_STATE/log"
-  for m in "$@"; do touch "$AGENT_STUB_STATE/$m"; done
+  rm -rf "$AGENT_SANDBOX_STUB_STATE"; mkdir -p "$AGENT_SANDBOX_STUB_STATE"; : > "$AGENT_SANDBOX_STUB_STATE/log"
+  for m in "$@"; do touch "$AGENT_SANDBOX_STUB_STATE/$m"; done
 }
 # State-changing docker calls, in order.
 actions() {
@@ -138,10 +138,10 @@ actions() {
       *" tmux new-session "*) out+=(tmux) ;;
       *"exec -it "*" zsh") out+=(zsh) ;;
     esac
-  done < "$AGENT_STUB_STATE/log"
+  done < "$AGENT_SANDBOX_STUB_STATE/log"
   print -r -- "${(j: :)out}"
 }
-logline() { grep -m1 -- "^$1 " "$AGENT_STUB_STATE/log" }
+logline() { grep -m1 -- "^$1 " "$AGENT_SANDBOX_STUB_STATE/log" }
 run_agent() {   # runs "$@" capturing rc, stderr
   err=$tmp/err; : > "$err"
   "$@" 2>"$err" >/dev/null
@@ -149,18 +149,18 @@ run_agent() {   # runs "$@" capturing rc, stderr
   stderr=$(<"$err")
 }
 
-print "agent.zsh lifecycle (stub docker)"
+print "agent-sandbox.zsh lifecycle (stub docker)"
 
 reset_state has_tmux
-run_agent agent "$proj"
+run_agent agent-sandbox "$proj"
 assert_eq "nothing exists → build, run, firewall, tmux" "build run firewall tmux" "$(actions)"
 assert_eq "  exit 0" 0 $rc
-assert_has "  build labels the image with the .devcontainer hash" "$(logline build)" "agent.devcontainer-sha256=$(_agent_devcontainer_hash "$proj")"
+assert_has "  build labels the image with the .devcontainer hash" "$(logline build)" "agent-sandbox.devcontainer-sha256=$(_agent_sandbox_devcontainer_hash "$proj")"
 assert_has "  build passes CLAUDE_CODE_VERSION from devcontainer.json" "$(logline build)" "CLAUDE_CODE_VERSION=latest"
-assert_has "  build passes TZ" "$(logline build)" "TZ=$AGENT_TZ"
+assert_has "  build passes TZ" "$(logline build)" "TZ=$AGENT_SANDBOX_TZ"
 if [[ $(uname -s) == Linux ]]; then
   assert_has "  build passes the host uid on Linux" "$(logline build)" "USER_UID=$(id -u) --build-arg USER_GID=$(id -g)"
-  assert_has "  build labels the uid" "$(logline build)" "agent.user-uid=$(id -u)"
+  assert_has "  build labels the uid" "$(logline build)" "agent-sandbox.user-uid=$(id -u)"
 else
   assert_has "  build keeps uid 1000 off Linux" "$(logline build)" "USER_UID=1000"
 fi
@@ -178,8 +178,8 @@ assert_has "  run: .vscode read-only" "$run_line" "type=bind,src=$proj/.vscode,d
 [[ -d $proj/.vscode ]] && ok "  .vscode created on the host when missing" || bad "  .vscode created on the host when missing"
 assert_has "  run: config volume" "$run_line" "claude-my-proj-config:/home/node/.claude"
 assert_has "  run: history volume" "$run_line" "claude-my-proj-history:/commandhistory"
-assert_has "  run: mode label normal" "$run_line" "agent.mode=normal"
-assert_has "  run: AGENT_CONTAINER_NAME" "$run_line" "AGENT_CONTAINER_NAME=claude-my-proj"
+assert_has "  run: mode label normal" "$run_line" "agent-sandbox.mode=normal"
+assert_has "  run: AGENT_SANDBOX_CONTAINER_NAME" "$run_line" "AGENT_SANDBOX_CONTAINER_NAME=claude-my-proj"
 assert_has "  run: git author from host" "$run_line" "GIT_AUTHOR_NAME=Test User"
 assert_has "  run: git committer email from host" "$run_line" "GIT_COMMITTER_EMAIL=test@example.com"
 assert_has "  run: telemetry off" "$run_line" "DISABLE_TELEMETRY=1"
@@ -191,228 +191,228 @@ assert_not_has "  run: no docker socket" "$run_line" "docker.sock"
 assert_not_has "  run: no ~/.ssh" "$run_line" ".ssh"
 
 reset_state image has_tmux
-run_agent agent "$proj"
+run_agent agent-sandbox "$proj"
 assert_eq "image only → run, firewall, tmux" "run firewall tmux" "$(actions)"
 
 reset_state image container has_tmux
-run_agent agent "$proj"
+run_agent agent-sandbox "$proj"
 assert_eq "stopped → start, firewall, tmux" "start firewall tmux" "$(actions)"
 
 reset_state image container running iptables_drop has_tmux
-run_agent agent "$proj"
+run_agent agent-sandbox "$proj"
 assert_eq "running with -P OUTPUT DROP → tmux only" "tmux" "$(actions)"
 
 reset_state image container running has_tmux
-run_agent agent "$proj"
+run_agent agent-sandbox "$proj"
 assert_eq "running without DROP policy → firewall, tmux" "firewall tmux" "$(actions)"
 
 reset_state image container running iptables_failclosed has_tmux
-run_agent agent "$proj"
+run_agent agent-sandbox "$proj"
 assert_eq "running with the fail-closed DROP table (no allowlist rule) → firewall re-applied" "firewall tmux" "$(actions)"
 
 reset_state image firewall_fail has_tmux
-run_agent agent "$proj"
+run_agent agent-sandbox "$proj"
 assert_eq "firewall fails → run, firewall, stop; no tmux" "run firewall stop" "$(actions)"
 assert_eq "  non-zero exit" 1 $rc
 assert_has "  says why" "$stderr" "firewall failed"
 assert_has "  shows the script output" "$stderr" "stub firewall failure"
 
 reset_state image container running iptables_drop
-run_agent agent "$proj"
+run_agent agent-sandbox "$proj"
 assert_eq "no tmux in the image → zsh" "zsh" "$(actions)"
 assert_has "  with a warning" "$stderr" "no tmux"
 
 reset_state image container running iptables_drop has_tmux
-run_agent agent --no-tmux "$proj"
+run_agent agent-sandbox --no-tmux "$proj"
 assert_eq "--no-tmux → zsh" "zsh" "$(actions)"
 assert_not_has "  no warning" "$stderr" "no tmux"
 
 reset_state image container running iptables_drop has_tmux
-run_agent agent-shell "$proj"
-assert_eq "agent-shell → zsh" "zsh" "$(actions)"
+run_agent agent-sandbox-shell "$proj"
+assert_eq "agent-sandbox-shell → zsh" "zsh" "$(actions)"
 
 reset_state image container running iptables_drop has_tmux
-run_agent agent --bogus "$proj"
+run_agent agent-sandbox --bogus "$proj"
 assert_eq "unknown option → exit 2" 2 $rc
 assert_eq "  nothing run" "" "$(actions)"
 
 print "setup mode"
 
 reset_state image container running iptables_drop has_tmux
-echo setup > "$AGENT_STUB_STATE/container_mode"
-run_agent agent "$proj"
-assert_eq "setup-mode container → plain agent refuses" 1 $rc
+echo setup > "$AGENT_SANDBOX_STUB_STATE/container_mode"
+run_agent agent-sandbox "$proj"
+assert_eq "setup-mode container → plain agent-sandbox refuses" 1 $rc
 assert_eq "  nothing run" "" "$(actions)"
-assert_has "  points at agent-rebuild" "$stderr" "agent-rebuild"
+assert_has "  points at agent-sandbox-rebuild" "$stderr" "agent-sandbox-rebuild"
 
 reset_state image container running iptables_drop has_tmux
-echo setup > "$AGENT_STUB_STATE/container_mode"
-run_agent agent --setup "$proj"
-assert_eq "agent --setup re-attaches to a setup container" "tmux" "$(actions)"
+echo setup > "$AGENT_SANDBOX_STUB_STATE/container_mode"
+run_agent agent-sandbox --setup "$proj"
+assert_eq "agent-sandbox --setup re-attaches to a setup container" "tmux" "$(actions)"
 assert_has "  loud warning" "$stderr" "SETUP MODE"
 
 write_devcontainer_json "--dangerously-skip-permissions"
 reset_state image has_tmux
-run_agent agent --setup "$proj"
-assert_eq "agent --setup, no container → run (setup), firewall, tmux" "run firewall tmux" "$(actions)"
+run_agent agent-sandbox --setup "$proj"
+assert_eq "agent-sandbox --setup, no container → run (setup), firewall, tmux" "run firewall tmux" "$(actions)"
 run_line=$(logline run)
-assert_has "  setup label" "$run_line" "agent.mode=setup"
+assert_has "  setup label" "$run_line" "agent-sandbox.mode=setup"
 assert_not_has "  no read-only overlays" "$run_line" "readonly"
 assert_not_has "  no .git mount either" "$run_line" "dst=/workspace/.git"
 assert_has "  flags forced empty" "$run_line" "CLAUDE_SHORTCUT_FLAGS= "
 assert_has "  firewall still applied" "$(actions)" "firewall"
 
 reset_state image container has_tmux
-run_agent agent --setup "$proj"
-assert_eq "agent --setup on a stopped normal container → rm, run, firewall, tmux" "rm run firewall tmux" "$(actions)"
+run_agent agent-sandbox --setup "$proj"
+assert_eq "agent-sandbox --setup on a stopped normal container → rm, run, firewall, tmux" "rm run firewall tmux" "$(actions)"
 
 reset_state image container running has_tmux
-run_agent agent --setup "$proj"
-assert_eq "agent --setup on a running normal container → refuses" 1 $rc
-assert_has "  says agent-stop first" "$stderr" "agent-stop"
+run_agent agent-sandbox --setup "$proj"
+assert_eq "agent-sandbox --setup on a running normal container → refuses" 1 $rc
+assert_has "  says agent-sandbox-stop first" "$stderr" "agent-sandbox-stop"
 
 reset_state image has_tmux
-run_agent agent-setup "$proj"
-assert_has "agent-setup = agent --setup" "$(logline run)" "agent.mode=setup"
+run_agent agent-sandbox-setup "$proj"
+assert_has "agent-sandbox-setup = agent-sandbox --setup" "$(logline run)" "agent-sandbox.mode=setup"
 
 print "flags, ports, drift, names, checks"
 
 write_devcontainer_json "--dangerously-skip-permissions"
 reset_state image has_tmux
-run_agent agent "$proj"
+run_agent agent-sandbox "$proj"
 assert_has "valid CLAUDE_SHORTCUT_FLAGS passed through" "$(logline run)" "CLAUDE_SHORTCUT_FLAGS=--dangerously-skip-permissions"
 assert_not_has "  no warning" "$stderr" "ignoring CLAUDE_SHORTCUT_FLAGS"
 
 write_devcontainer_json '--ok; rm -rf /'
 reset_state image has_tmux
-run_agent agent "$proj"
+run_agent agent-sandbox "$proj"
 assert_has "invalid CLAUDE_SHORTCUT_FLAGS → empty" "$(logline run)" "CLAUDE_SHORTCUT_FLAGS= "
 assert_has "  with a warning" "$stderr" "ignoring CLAUDE_SHORTCUT_FLAGS"
 write_devcontainer_json ""
 
-printf '# dev server\n3000\n  8080  # api\n\n' > "$proj/.devcontainer/agent-ports"
+printf '# dev server\n3000\n  8080  # api\n\n' > "$proj/.devcontainer/agent-sandbox-ports"
 reset_state image has_tmux
-run_agent agent "$proj"
+run_agent agent-sandbox "$proj"
 run_line=$(logline run)
-assert_has "agent-ports: 3000 published loopback-only, ephemeral host port" "$run_line" "-p 127.0.0.1::3000"
-assert_has "agent-ports: 8080 too" "$run_line" "-p 127.0.0.1::8080"
+assert_has "agent-sandbox-ports: 3000 published loopback-only, ephemeral host port" "$run_line" "-p 127.0.0.1::3000"
+assert_has "agent-sandbox-ports: 8080 too" "$run_line" "-p 127.0.0.1::8080"
 
-printf '3000\n70000\n' > "$proj/.devcontainer/agent-ports"
+printf '3000\n70000\n' > "$proj/.devcontainer/agent-sandbox-ports"
 reset_state image has_tmux
-run_agent agent "$proj"
-assert_eq "agent-ports: out-of-range line rejects the file" 1 $rc
+run_agent agent-sandbox "$proj"
+assert_eq "agent-sandbox-ports: out-of-range line rejects the file" 1 $rc
 assert_eq "  no container created" "" "$(actions)"
-assert_has "  names the line" "$stderr" "agent-ports:2"
-printf '80a\n' > "$proj/.devcontainer/agent-ports"
+assert_has "  names the line" "$stderr" "agent-sandbox-ports:2"
+printf '80a\n' > "$proj/.devcontainer/agent-sandbox-ports"
 reset_state image has_tmux
-run_agent agent "$proj"
-assert_eq "agent-ports: non-numeric line rejected" 1 $rc
-rm -f "$proj/.devcontainer/agent-ports"
+run_agent agent-sandbox "$proj"
+assert_eq "agent-sandbox-ports: non-numeric line rejected" 1 $rc
+rm -f "$proj/.devcontainer/agent-sandbox-ports"
 
 reset_state image container running iptables_drop has_tmux
-print -r -- "$(printf 'a%.0s' {1..64})" > "$AGENT_STUB_STATE/image_hash"
-run_agent agent "$proj"
+print -r -- "$(printf 'a%.0s' {1..64})" > "$AGENT_SANDBOX_STUB_STATE/image_hash"
+run_agent agent-sandbox "$proj"
 assert_has "drift: label mismatch → warning" "$stderr" ".devcontainer changed since the last build"
 assert_eq "  still attaches" "tmux" "$(actions)"
 
 reset_state image container running iptables_drop has_tmux
-run_agent agent "$proj"
+run_agent agent-sandbox "$proj"
 assert_has "drift: image without label → warning" "$stderr" "carries no .devcontainer hash"
 
 reset_state image container running iptables_drop has_tmux
-_agent_devcontainer_hash "$proj" > "$AGENT_STUB_STATE/image_hash"
-id -u > "$AGENT_STUB_STATE/image_uid"
-run_agent agent "$proj"
+_agent_sandbox_devcontainer_hash "$proj" > "$AGENT_SANDBOX_STUB_STATE/image_hash"
+id -u > "$AGENT_SANDBOX_STUB_STATE/image_uid"
+run_agent agent-sandbox "$proj"
 assert_not_has "drift: matching label → no warning" "$stderr" "WARNING"
 if [[ $(uname -s) == Linux && $(id -u) != 1000 ]]; then
   reset_state image container running iptables_drop has_tmux
-  _agent_devcontainer_hash "$proj" > "$AGENT_STUB_STATE/image_hash"
-  run_agent agent "$proj"
+  _agent_sandbox_devcontainer_hash "$proj" > "$AGENT_SANDBOX_STUB_STATE/image_hash"
+  run_agent agent-sandbox "$proj"
   assert_has "uid: image without uid label on a non-1000 Linux host → warning" "$stderr" "built for uid"
 fi
-h1=$(_agent_devcontainer_hash "$proj")
+h1=$(_agent_sandbox_devcontainer_hash "$proj")
 print '# touched' >> "$proj/.devcontainer/Dockerfile"
-h2=$(_agent_devcontainer_hash "$proj")
+h2=$(_agent_sandbox_devcontainer_hash "$proj")
 [[ $h1 != $h2 ]] && ok "hash changes when a file changes" || bad "hash changes when a file changes"
 [[ $h1 =~ '^[0-9a-f]{64}$' ]] && ok "hash is 64 hex chars" || bad "hash is 64 hex chars" "$h1"
 
-assert_eq "_agent_name: 'My Proj' → claude-my-proj" "claude-my-proj" "$(_agent_name "$proj")"
-assert_eq "_agent_name: trailing slash ignored" "claude-my-proj" "$(_agent_name "$proj/")"
+assert_eq "_agent_sandbox_name: 'My Proj' → claude-my-proj" "claude-my-proj" "$(_agent_sandbox_name "$proj")"
+assert_eq "_agent_sandbox_name: trailing slash ignored" "claude-my-proj" "$(_agent_sandbox_name "$proj/")"
 mkdir -p "$tmp/Web.App_v2"
-assert_eq "_agent_name: dots and underscores kept" "claude-web.app_v2" "$(_agent_name "$tmp/Web.App_v2")"
+assert_eq "_agent_sandbox_name: dots and underscores kept" "claude-web.app_v2" "$(_agent_sandbox_name "$tmp/Web.App_v2")"
 mkdir -p "$tmp/a b@c"
-assert_eq "_agent_name: other chars → -" "claude-a-b-c" "$(_agent_name "$tmp/a b@c")"
-( cd "$proj" && assert_eq "_agent_name: defaults to \$PWD" "claude-my-proj" "$(_agent_name)" )
+assert_eq "_agent_sandbox_name: other chars → -" "claude-a-b-c" "$(_agent_sandbox_name "$tmp/a b@c")"
+( cd "$proj" && assert_eq "_agent_sandbox_name: defaults to \$PWD" "claude-my-proj" "$(_agent_sandbox_name)" )
 
 nogit="$tmp/nogit"; mkdir -p "$nogit/.devcontainer"; : > "$nogit/.devcontainer/Dockerfile"
-_agent_check "$nogit" 2>/dev/null && bad "_agent_check: no .git → refused" || ok "_agent_check: no .git → refused"
-_agent_check "$nogit" setup 2>/dev/null && ok "_agent_check: setup mode needs only the Dockerfile" || bad "_agent_check: setup mode needs only the Dockerfile"
-_agent_check "$tmp" 2>/dev/null && bad "_agent_check: no Dockerfile → refused" || ok "_agent_check: no Dockerfile → refused"
+_agent_sandbox_check "$nogit" 2>/dev/null && bad "_agent_sandbox_check: no .git → refused" || ok "_agent_sandbox_check: no .git → refused"
+_agent_sandbox_check "$nogit" setup 2>/dev/null && ok "_agent_sandbox_check: setup mode needs only the Dockerfile" || bad "_agent_sandbox_check: setup mode needs only the Dockerfile"
+_agent_sandbox_check "$tmp" 2>/dev/null && bad "_agent_sandbox_check: no Dockerfile → refused" || ok "_agent_sandbox_check: no Dockerfile → refused"
 reset_state has_tmux
-run_agent agent "$nogit"
+run_agent agent-sandbox "$nogit"
 assert_eq "agent on a non-repo → nothing run" "" "$(actions)"
 
 reset_state image container running iptables_drop has_tmux
-print -r -- "$tmp/elsewhere/My Proj" > "$AGENT_STUB_STATE/mount_src"
-run_agent agent "$proj"
+print -r -- "$tmp/elsewhere/My Proj" > "$AGENT_SANDBOX_STUB_STATE/mount_src"
+run_agent agent-sandbox "$proj"
 assert_eq "same name, other folder mounted → refuses" 1 $rc
 assert_eq "  nothing run" "" "$(actions)"
 assert_has "  names the other folder" "$stderr" "$tmp/elsewhere/My Proj"
 reset_state image container running iptables_drop has_tmux
-print -r -- "$proj" > "$AGENT_STUB_STATE/mount_src"
-run_agent agent "$proj"
+print -r -- "$proj" > "$AGENT_SANDBOX_STUB_STATE/mount_src"
+run_agent agent-sandbox "$proj"
 assert_eq "same folder mounted → attaches" "tmux" "$(actions)"
 comma="$tmp/a,b"; mkdir -p "$comma/.devcontainer"; : > "$comma/.devcontainer/Dockerfile"
-_agent_check "$comma" setup 2>/dev/null && bad "_agent_check: comma in path → refused" || ok "_agent_check: comma in path → refused"
+_agent_sandbox_check "$comma" setup 2>/dev/null && bad "_agent_sandbox_check: comma in path → refused" || ok "_agent_sandbox_check: comma in path → refused"
 
 print "rebuild / recreate / stop / ports"
 
 ( cd "$proj" && git add -A && git -c user.name=t -c user.email=t@t commit -q -m init )
-state="$tmp/home/.cache/agent-zsh/claude-my-proj"
-built_hash() { _agent_devcontainer_hash "$proj" > "$AGENT_STUB_STATE/image_hash" }
+state="$tmp/home/.cache/agent-sandbox/claude-my-proj"
+built_hash() { _agent_sandbox_devcontainer_hash "$proj" > "$AGENT_SANDBOX_STUB_STATE/image_hash" }
 reset_state has_tmux
-run_agent agent "$proj"
+run_agent agent-sandbox "$proj"
 [[ -d $state/devcontainer ]] && ok "build snapshots .devcontainer outside the repo" || bad "build snapshots .devcontainer outside the repo" "$state"
 reset_state image container running iptables_drop has_tmux; built_hash
-run_agent agent-rebuild "$proj"
-assert_eq "agent-rebuild, .devcontainer unchanged since build → build, rm, run (no prompt)" "build rm run" "$(actions)"
+run_agent agent-sandbox-rebuild "$proj"
+assert_eq "agent-sandbox-rebuild, .devcontainer unchanged since build → build, rm, run (no prompt)" "build rm run" "$(actions)"
 assert_has "  --pull --no-cache" "$(logline build)" "--pull --no-cache"
 
 print 'x' >> "$proj/.devcontainer/Dockerfile"
 reset_state image container running iptables_drop has_tmux
-out=$(print n | agent-rebuild "$proj" 2>&1); rc=$?
-assert_eq "agent-rebuild with changed .devcontainer and 'n' → aborted" 1 $rc
+out=$(print n | agent-sandbox-rebuild "$proj" 2>&1); rc=$?
+assert_eq "agent-sandbox-rebuild with changed .devcontainer and 'n' → aborted" 1 $rc
 assert_eq "  nothing built" "" "$(actions)"
 assert_has "  shows the diff against the last build" "$out" "+x"
 assert_has "  names the file" "$out" "Dockerfile"
 reset_state image container running iptables_drop has_tmux
-out=$(print y | agent-rebuild "$proj" 2>&1); rc=$?
-assert_eq "agent-rebuild with changes and 'y' → build, rm, run" "build rm run" "$(actions)"
+out=$(print y | agent-sandbox-rebuild "$proj" 2>&1); rc=$?
+assert_eq "agent-sandbox-rebuild with changes and 'y' → build, rm, run" "build rm run" "$(actions)"
 ( cd "$proj" && git -c user.name=t -c user.email=t@t commit -q -am "agent commit" )
 reset_state image container running iptables_drop has_tmux
-print -r -- "$(printf 'b%.0s' {1..64})" > "$AGENT_STUB_STATE/image_hash"
-out=$(print n | agent-rebuild "$proj" 2>&1); rc=$?
-assert_eq "agent-rebuild: clean tree but hash differs from image → still asks; 'n' aborts" 1 $rc
+print -r -- "$(printf 'b%.0s' {1..64})" > "$AGENT_SANDBOX_STUB_STATE/image_hash"
+out=$(print n | agent-sandbox-rebuild "$proj" 2>&1); rc=$?
+assert_eq "agent-sandbox-rebuild: clean tree but hash differs from image → still asks; 'n' aborts" 1 $rc
 reset_state image container running iptables_drop has_tmux
-out=$(agent-rebuild "$proj" </dev/null 2>&1); rc=$?
-assert_eq "agent-rebuild: no label on image, EOF on the prompt → aborted (default No)" 1 $rc
+out=$(agent-sandbox-rebuild "$proj" </dev/null 2>&1); rc=$?
+assert_eq "agent-sandbox-rebuild: no label on image, EOF on the prompt → aborted (default No)" 1 $rc
 
 print "setup snapshot, commondir, nested repos (no git on the host)"
 
 reset_state image has_tmux
-run_agent agent --setup "$proj"
-[[ -f $state/setup-git-config && -d $state/setup-git-hooks ]] && ok "agent --setup snapshots .git/config and .git/hooks first" || bad "agent --setup snapshots .git/config and .git/hooks first"
+run_agent agent-sandbox --setup "$proj"
+[[ -f $state/setup-git-config && -d $state/setup-git-hooks ]] && ok "agent-sandbox --setup snapshots .git/config and .git/hooks first" || bad "agent-sandbox --setup snapshots .git/config and .git/hooks first"
 cp "$proj/.git/config" "$tmp/config.orig"
 print '[core]\n\tfsmonitor = "touch PLANTED; false"' >> "$proj/.git/config"
 print '#!/bin/sh\ntouch PLANTED' > "$proj/.git/hooks/pre-commit"
 reset_state image container running iptables_drop has_tmux; built_hash
-out=$(print n | agent-rebuild "$proj" 2>&1); rc=$?
-assert_eq "agent-rebuild after setup with a changed config → asks; 'n' aborts" 1 $rc
+out=$(print n | agent-sandbox-rebuild "$proj" 2>&1); rc=$?
+assert_eq "agent-sandbox-rebuild after setup with a changed config → asks; 'n' aborts" 1 $rc
 assert_has "  shows the config change" "$out" "fsmonitor"
 assert_has "  shows the new hook" "$out" "pre-commit"
 [[ -f $proj/PLANTED ]] && bad "  the gate ran no git on the host" || ok "  the gate ran no git on the host"
 reset_state image container running iptables_drop has_tmux; built_hash
-out=$(print y | agent-rebuild "$proj" 2>&1); rc=$?
+out=$(print y | agent-sandbox-rebuild "$proj" 2>&1); rc=$?
 assert_eq "  'y' → build, rm, run and the snapshot is cleared" "build rm run" "$(actions)"
 [[ -f $state/setup-git-config ]] && bad "  snapshot cleared after review" || ok "  snapshot cleared after review"
 [[ -f $proj/PLANTED ]] && bad "  still no git run on the host" || ok "  still no git run on the host"
@@ -420,60 +420,60 @@ cp "$tmp/config.orig" "$proj/.git/config"; rm -f "$proj/.git/hooks/pre-commit"
 
 print '../.alt' > "$proj/.git/commondir"
 reset_state image container running iptables_drop has_tmux; built_hash
-run_agent agent "$proj"
-assert_eq "commondir redirect present → agent refuses to attach" 1 $rc
+run_agent agent-sandbox "$proj"
+assert_eq "commondir redirect present → agent-sandbox refuses to attach" 1 $rc
 assert_has "  names the file" "$stderr" ".git/commondir"
 assert_eq "  nothing run" "" "$(actions)"
-run_agent agent-rebuild "$proj"
-assert_eq "  agent-rebuild refuses too" 1 $rc
+run_agent agent-sandbox-rebuild "$proj"
+assert_eq "  agent-sandbox-rebuild refuses too" 1 $rc
 printf '.' > "$proj/.git/commondir"
 reset_state image container running iptables_drop has_tmux; built_hash
-run_agent agent "$proj"
+run_agent agent-sandbox "$proj"
 assert_eq "commondir placeholder '.' → attaches" "tmux" "$(actions)"
 printf '.\n' > "$proj/.git/commondir"
 reset_state image container running iptables_drop has_tmux; built_hash
-run_agent agent "$proj"
-assert_eq "commondir '.' with a trailing newline → agent refuses" 1 $rc
+run_agent agent-sandbox "$proj"
+assert_eq "commondir '.' with a trailing newline → agent-sandbox refuses" 1 $rc
 assert_eq "  nothing run" "" "$(actions)"
 rm -f "$proj/.git/commondir"
 
 mkdir -p "$proj/vendor/lib" && ( cd "$proj/vendor/lib" && git init -q )
 mkdir -p "$proj/.claude/worktrees/wt/.git" "$proj/node_modules/pkg/.git"
 reset_state image container running iptables_drop has_tmux; built_hash
-run_agent agent "$proj"
-assert_eq "unlisted nested repo → agent refuses" 1 $rc
+run_agent agent-sandbox "$proj"
+assert_eq "unlisted nested repo → agent-sandbox refuses" 1 $rc
 assert_has "  names it" "$stderr" "vendor/lib"
 assert_not_has "  harness worktrees are not reported" "$stderr" ".claude/worktrees"
 assert_not_has "  node_modules is not reported" "$stderr" "node_modules"
-assert_has "  points at agent-nested-repos" "$stderr" "agent-nested-repos"
+assert_has "  points at agent-sandbox-nested-repos" "$stderr" "agent-sandbox-nested-repos"
 assert_has "  hints at diff.ignoreSubmodules" "$stderr" "ignoreSubmodules"
 assert_eq "  nothing run" "" "$(actions)"
-run_agent agent-rebuild "$proj"
-assert_eq "  agent-rebuild refuses too" 1 $rc
-printf '# vendored\nvendor/lib/\n' > "$proj/.devcontainer/agent-nested-repos"
+run_agent agent-sandbox-rebuild "$proj"
+assert_eq "  agent-sandbox-rebuild refuses too" 1 $rc
+printf '# vendored\nvendor/lib/\n' > "$proj/.devcontainer/agent-sandbox-nested-repos"
 reset_state image container running iptables_drop has_tmux; built_hash
-run_agent agent "$proj"
+run_agent agent-sandbox "$proj"
 assert_eq "listed nested repo → attaches" "tmux" "$(actions)"
-printf 'vendor/*\n' > "$proj/.devcontainer/agent-nested-repos"
+printf 'vendor/*\n' > "$proj/.devcontainer/agent-sandbox-nested-repos"
 reset_state image container running iptables_drop has_tmux; built_hash
-run_agent agent "$proj"
+run_agent agent-sandbox "$proj"
 assert_eq "glob pattern in the allowlist → attaches" "tmux" "$(actions)"
-printf 'other/thing\n' > "$proj/.devcontainer/agent-nested-repos"
+printf 'other/thing\n' > "$proj/.devcontainer/agent-sandbox-nested-repos"
 reset_state image container running iptables_drop has_tmux; built_hash
-run_agent agent "$proj"
+run_agent agent-sandbox "$proj"
 assert_eq "allowlist without it → refuses" 1 $rc
-rm -f "$proj/.devcontainer/agent-nested-repos"; rm -rf "$proj/vendor" "$proj/.claude" "$proj/node_modules"
+rm -f "$proj/.devcontainer/agent-sandbox-nested-repos"; rm -rf "$proj/vendor" "$proj/.claude" "$proj/node_modules"
 ( cd "$proj" && git checkout -q -- .devcontainer 2>/dev/null )
 
 ( cd "$proj" && git worktree add -q --no-track .claude/worktrees/wt -b wt HEAD )
 [[ "$(<"$proj/.git/worktrees/wt/commondir")" == "../.." ]] && ok "linked worktree commondir is '../..' as git writes it" || bad "linked worktree commondir is '../..' as git writes it"
 reset_state image container running iptables_drop has_tmux; built_hash
-run_agent agent "$proj"
+run_agent agent-sandbox "$proj"
 assert_eq "linked worktree with normal commondir → attaches" "tmux" "$(actions)"
 printf '../../../.alt' > "$proj/.git/worktrees/wt/commondir"
 reset_state image container running iptables_drop has_tmux; built_hash
-run_agent agent "$proj"
-assert_eq "linked worktree commondir redirected → agent refuses" 1 $rc
+run_agent agent-sandbox "$proj"
+assert_eq "linked worktree commondir redirected → agent-sandbox refuses" 1 $rc
 assert_has "  names the file" "$stderr" ".git/worktrees/wt/commondir"
 printf '../..' > "$proj/.git/worktrees/wt/commondir"
 ( cd "$proj" && git worktree remove --force .claude/worktrees/wt && git branch -q -D wt )
@@ -482,41 +482,41 @@ printf '../..' > "$proj/.git/worktrees/wt/commondir"
 ( cd "$proj" && git -c protocol.file.allow=always submodule add -q "$tmp/subsrc" sub 2>/dev/null && git -c user.name=t -c user.email=t@t commit -q -m sub )
 [[ -f $proj/.git/modules/sub/config ]] && ok "registered submodule has .git/modules/sub/config" || bad "registered submodule has .git/modules/sub/config"
 reset_state image has_tmux
-run_agent agent "$proj"
+run_agent agent-sandbox "$proj"
 assert_eq "registered submodule, unlisted → refuses" 1 $rc
-printf 'sub\n' > "$proj/.devcontainer/agent-nested-repos"
+printf 'sub\n' > "$proj/.devcontainer/agent-sandbox-nested-repos"
 reset_state image has_tmux
-run_agent agent "$proj"
+run_agent agent-sandbox "$proj"
 assert_eq "registered submodule, listed → run, firewall, tmux" "run firewall tmux" "$(actions)"
 assert_has "  .git/modules/sub/config mounted read-only" "$(logline run)" "type=bind,src=$proj/.git/modules/sub/config,dst=/workspace/.git/modules/sub/config,readonly"
 assert_has "  hints at diff.ignoreSubmodules while listed" "$stderr" "ignoreSubmodules"
 ( cd "$proj" && git config diff.ignoreSubmodules all )
 reset_state image has_tmux
-run_agent agent "$proj"
+run_agent agent-sandbox "$proj"
 assert_not_has "  no hint once the host config has it" "$stderr" "ignoreSubmodules"
-( cd "$proj" && git config --unset diff.ignoreSubmodules; git rm -q -f sub 2>/dev/null; rm -rf .git/modules/sub sub; git -c user.name=t -c user.email=t@t commit -q -m rmsub 2>/dev/null; git checkout -q -- .devcontainer 2>/dev/null; rm -f .devcontainer/agent-nested-repos )
+( cd "$proj" && git config --unset diff.ignoreSubmodules; git rm -q -f sub 2>/dev/null; rm -rf .git/modules/sub sub; git -c user.name=t -c user.email=t@t commit -q -m rmsub 2>/dev/null; git checkout -q -- .devcontainer 2>/dev/null; rm -f .devcontainer/agent-sandbox-nested-repos )
 
 n=$(grep -E '^[[:space:]]*[^#]*[[:space:]]git ' "$src" | grep -vE 'print|git config --global' | wc -l)
-assert_eq "no git invocation in agent.zsh except git config --global" 0 "$n"
+assert_eq "no git invocation in agent-sandbox.zsh except git config --global" 0 "$n"
 
 reset_state image container running iptables_drop has_tmux; built_hash
-run_agent agent-recreate "$proj"
-assert_eq "agent-recreate → rm, run (no build)" "rm run" "$(actions)"
+run_agent agent-sandbox-recreate "$proj"
+assert_eq "agent-sandbox-recreate → rm, run (no build)" "rm run" "$(actions)"
 reset_state image container running iptables_drop has_tmux
-out=$(print n | agent-recreate "$proj" 2>&1); rc=$?
-assert_eq "agent-recreate with .devcontainer changed since build and 'n' → aborted" 1 $rc
+out=$(print n | agent-sandbox-recreate "$proj" 2>&1); rc=$?
+assert_eq "agent-sandbox-recreate with .devcontainer changed since build and 'n' → aborted" 1 $rc
 assert_eq "  nothing recreated" "" "$(actions)"
 reset_state
-run_agent agent-recreate "$proj"
-assert_eq "agent-recreate without image → error" 1 $rc
+run_agent agent-sandbox-recreate "$proj"
+assert_eq "agent-sandbox-recreate without image → error" 1 $rc
 
 reset_state image container running
-run_agent agent-stop "$proj"
-assert_eq "agent-stop → stop" "stop" "$(actions)"
+run_agent agent-sandbox-stop "$proj"
+assert_eq "agent-sandbox-stop → stop" "stop" "$(actions)"
 
 reset_state image container running
-out=$(agent-ports "$proj")
-assert_has "agent-ports → docker port <name>" "$(logline port)" "port claude-my-proj"
+out=$(agent-sandbox-ports "$proj")
+assert_has "agent-sandbox-ports → docker port <name>" "$(logline port)" "port claude-my-proj"
 assert_has "  prints the mapping" "$out" "127.0.0.1:55000"
 
 print "sourcing"
@@ -525,12 +525,12 @@ out=$(zsh -fc "
   source '$src'
   for v in \${(k)parameters}; do [[ -n \${before[\$v]} ]] || print -r -- \$v; done
 ")
-assert_eq "sourcing defines only AGENT_TZ" "AGENT_TZ" "$out"
+assert_eq "sourcing defines only AGENT_SANDBOX_TZ" "AGENT_SANDBOX_TZ" "$out"
 out=$(zsh -fc "source '$src'; print -r -- \${(k)functions}" | tr ' ' '\n' | grep -c '^_\?agent')
 (( out >= 15 )) && ok "functions defined ($out)" || bad "functions defined" "$out"
 zsh -n "$src" && ok "zsh -n passes" || bad "zsh -n passes"
-v=$(grep -m1 -E '^# AGENT_ZSH_VERSION=' "$src")
-[[ -n $v ]] && ok "header has AGENT_ZSH_VERSION ($v)" || bad "header has AGENT_ZSH_VERSION"
+v=$(grep -m1 -E '^# AGENT_SANDBOX_VERSION=' "$src")
+[[ -n $v ]] && ok "header has AGENT_SANDBOX_VERSION ($v)" || bad "header has AGENT_SANDBOX_VERSION"
 grep -q 'OUTSIDE any folder an agent can write' "$src" && ok "header warns about placement" || bad "header warns about placement"
 grep -q 'never symlink' "$src" && ok "header forbids symlinking" || bad "header forbids symlinking"
 n=$(grep -cE '^_?agent[a-z-]*\(\)' "$src")

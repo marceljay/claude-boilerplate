@@ -22,8 +22,8 @@
     "--cap-add=NET_RAW"
   ],
   // Runs on the HOST before every create and start. It refuses unless
-  // "Reopen in Container" is enabled on this host (AGENT_ALLOW_VSCODE=1 or
-  // ~/.config/zsh/agent-allow-vscode; `agent` from a terminal is the
+  // "Reopen in Container" is enabled on this host (AGENT_SANDBOX_ALLOW_VSCODE=1 or
+  // ~/.config/zsh/agent-sandbox-allow-vscode; `agent-sandbox` from a terminal is the
   // recommended path) and creates the sources for the read-only mounts
   // below. Array form: no shell, paths with spaces are safe.
   "initializeCommand": [
@@ -62,10 +62,10 @@
   "mounts": [
     "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
     "source=claude-code-config-${devcontainerId},target=/home/node/.claude,type=volume",
-    // The same read-only overlays scripts/agent.zsh applies: what the host
+    // The same read-only overlays scripts/agent-sandbox.zsh applies: what the host
     // executes (next rebuild, editor open, every git command) cannot be
     // changed from inside. initialize.sh creates .git/commondir and .vscode
-    // when missing. Edit these files from a host editor or `agent --setup`.
+    // when missing. Edit these files from a host editor or `agent-sandbox --setup`.
     // .git is a mount point of its own so it cannot be renamed away and
     // replaced by a writable copy.
     "source=${localWorkspaceFolder}/.git,target=${containerWorkspaceFolder}/.git,type=bind",
@@ -89,7 +89,7 @@
     // off, and their hosts are no longer in allowed-domains.txt — both accept
     // posts from anyone with their own project key, i.e. an exfiltration
     // path. Side effect: DISABLE_TELEMETRY also stops feature-flag
-    // evaluation, so Remote Control is unavailable in here. agent.zsh sets
+    // evaluation, so Remote Control is unavailable in here. agent-sandbox.zsh sets
     // the same two; keep them in step.
     "DISABLE_ERROR_REPORTING": "1",
     "DISABLE_TELEMETRY": "1"
@@ -103,7 +103,7 @@
   // URL in the host browser, past the firewall). Blanking the variables
   // only HIDES them from processes in the container — the host still answers
   // on the sockets. It also breaks /dev's browser opening. For real isolation
-  // use scripts/agent.zsh (README "Run without VS Code"). To try it anyway:
+  // use scripts/agent-sandbox.zsh (README "Run without VS Code"). To try it anyway:
   // "remoteEnv": {
   //   "BROWSER": "",
   //   "SSH_AUTH_SOCK": "",

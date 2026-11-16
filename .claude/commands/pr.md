@@ -19,7 +19,7 @@ Create a pull request with a standardized format.
    - Check if branch is pushed to remote; if not, push WITHOUT setting
      upstream tracking: `git push origin HEAD`. `-u`/`--set-upstream` writes
      `.git/config`, which is mounted read-only when the container runs under
-     `scripts/agent.zsh` (the push would succeed and then fail on the config
+     `scripts/agent-sandbox.zsh` (the push would succeed and then fail on the config
      write). Tracking can be set on the host later (`git branch -u
      origin/<branch>`) if wanted.
 

@@ -1,9 +1,9 @@
-# Ports scripts/agent.zsh publishes for this project's container — one
+# Ports scripts/agent-sandbox.zsh publishes for this project's container — one
 # container port per line, 1-65535; `#` starts a comment. Each becomes
 # `-p 127.0.0.1::<port>`: reachable from the host only (loopback), on an
-# EPHEMERAL host port so several containers never collide. `agent-ports`
+# EPHEMERAL host port so several containers never collide. `agent-sandbox-ports`
 # (or `docker port <container> <port>`) shows the mapping. Changes apply at
-# the next agent-recreate / agent-rebuild. One invalid line rejects the file.
+# the next agent-sandbox-recreate / agent-sandbox-rebuild. One invalid line rejects the file.
 #
 # This file is read on the HOST and sits under the read-only .devcontainer
 # overlay, so the agent can't publish ports for itself. Per-project:

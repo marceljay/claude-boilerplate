@@ -1,12 +1,12 @@
-- **`agent.zsh` never runs git inside the project on the host, and detects
-  the two overlay bypasses.** A second review showed that `agent-rebuild`'s
+- **`agent-sandbox.zsh` never runs git inside the project on the host, and detects
+  the two overlay bypasses.** A second review showed that `agent-sandbox-rebuild`'s
   review gate ran `git status` in the repo before anything was reviewed —
-  after `agent --setup`, where `.git/config` is writable, that call would
+  after `agent-sandbox --setup`, where `.git/config` is writable, that call would
   have executed a planted `core.fsmonitor`. The gate now diffs against copies
-  kept outside the repo (`~/.cache/agent-zsh/<name>/`: `.devcontainer` from
+  kept outside the repo (`~/.cache/agent-sandbox/<name>/`: `.devcontainer` from
   the last build; `.git/config` and `.git/hooks` from before a setup
   container) and asks; the only git call left is `git config --global`,
-  run from `/`. `agent` and the gate refuse when `.git/commondir` exists
+  run from `/`. `agent-sandbox` and the gate refuse when `.git/commondir` exists
   with anything but `.` (a one-file redirect of git's config and hooks past
   the read-only overlays) and warn about nested repositories (a submodule
   entry makes the host's `git status` read their config). Both bypasses

@@ -8,7 +8,7 @@
 # that skips permission prompts: inside this container the sandbox is the
 # permission system (default-deny firewall, only /workspace mounted), so
 # per-tool prompts add friction without adding safety. How much of a sandbox
-# depends on how the container was started: under scripts/agent.zsh the
+# depends on how the container was started: under scripts/agent-sandbox.zsh the
 # only host paths are the project folder with .devcontainer, .git/config and
 # .git/hooks read-only; under a VS Code attach, VS Code adds host channels
 # (SSH agent, credential helper, `code` IPC, $BROWSER) — README "Security
@@ -57,7 +57,7 @@ ccw() {
     fi
     git rev-parse -q --verify "${base}^{commit}" >/dev/null || { echo "ccw: unknown ref '$base'" >&2; return 1; }
     # --no-track: a remote-tracking base would otherwise set upstream config,
-    # which is a write to .git/config — read-only under agent.zsh.
+    # which is a write to .git/config — read-only under agent-sandbox.zsh.
     git worktree add "$dir" -b "worktree-$name" --no-track "$base" || return 1
     echo "Created $dir on branch worktree-$name from $base"
   fi
@@ -119,9 +119,9 @@ Full commands are in shell history too: Ctrl-R "claude". Plain \`claude\` keeps 
 Firewall: sudo /usr/local/bin/init-firewall.sh re-applies it on this live container
   (refreshes GitHub ranges and resolved IPs; the allowlist itself is baked into
   the image — edits to allowed-domains.txt need a rebuild). Rules are lost on a
-  container restart; agent.zsh re-applies them, the VS Code path runs it on start.
-Ports (agent.zsh): \`docker port \${AGENT_CONTAINER_NAME:-<container>} <port>\` on the host
-  shows where a container port landed; publish ports via .devcontainer/agent-ports.
+  container restart; agent-sandbox.zsh re-applies them, the VS Code path runs it on start.
+Ports (agent-sandbox.zsh): \`docker port \${AGENT_SANDBOX_CONTAINER_NAME:-<container>} <port>\` on the host
+  shows where a container port landed; publish ports via .devcontainer/agent-sandbox-ports.
 HELP
 }
 

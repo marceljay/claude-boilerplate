@@ -22,9 +22,9 @@ Two independent layers must both be handled, and they fail differently:
    forever with no error.
 
 Both edits land only after a **container rebuild** ("Rebuild Container" in the
-editor, or `agent-rebuild` from the host under `scripts/agent.zsh`, where
+editor, or `agent-sandbox-rebuild` from the host under `scripts/agent-sandbox.zsh`, where
 `.devcontainer/` is read-only inside the container — make the edits on the
-host, or run `/init` in `agent --setup`): the firewall script and its domain list are baked into the image
+host, or run `/init` in `agent-sandbox --setup`): the firewall script and its domain list are baked into the image
 (`/usr/local/bin/init-firewall.sh`, `/etc/init-firewall/allowed-domains.txt`)
 and those copies are what run on start — editing the repo copy alone changes
 nothing.

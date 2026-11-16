@@ -308,7 +308,9 @@ redirect") and an empty `.vscode/` when missing. Nested git repositories
 under the project must be listed in
 [`.devcontainer/agent-sandbox-nested-repos`](.devcontainer/agent-sandbox-nested-repos), or
 `agent-sandbox` refuses to attach: a submodule entry would make your git read their
-config. Consequences: `/pr` pushes with `git
+config, and so does any git, git-aware prompt or IDE you run inside them on
+the host (listing one means you trust it; see [Auditing another
+repository](#auditing-another-repository)). Consequences: `/pr` pushes with `git
 push origin HEAD` (no `-u`), `ccw` creates worktrees with `--no-track`, and
 `/init` either runs in `agent-sandbox --setup` or prints the `.devcontainer` edits
 for you to apply on the host. Git rewrites `.git/config` by renaming a new
@@ -328,7 +330,9 @@ build time. When `agent-sandbox` finds the directory changed since then, it warn
 take effect at a rebuild, which is exactly when they must have been reviewed.
 
 **What you give up versus VS Code:** the editor attached to the container
-(use VS Code on the host folder instead; it is the same files), automatic
+(use VS Code on the host folder instead; it is the same files, but not
+while a nested repository you do not trust sits in it: the editor's
+repository detection runs git there as you), automatic
 port forwarding (use `agent-sandbox-ports`), `$BROWSER`, the marketplace extensions,
 and `.gitconfig` beyond name and email. "Reopen in Container" still works,
 once enabled per host (`touch ~/.config/zsh/agent-sandbox-allow-vscode`, or
@@ -393,6 +397,40 @@ around it differs.
   "<terminal> would like to access data from other apps" prompt. Allowing
   it lets that terminal app talk to Docker Desktop's files (the socket);
   it grants nothing to the container.
+
+### Auditing another repository
+
+To let Claude review code you do not trust, the clone must not become a
+place your host's git runs. A nested repository under the project has its
+own `.git/config` and hooks, writable from the container, and every git
+process whose working directory is inside it reads them: `git status` you
+type there, a git-aware shell prompt after `cd`, GitLens, or VS Code's
+repository detection when you open the project folder on the host.
+`git config diff.ignoreSubmodules all` only keeps the plain `status`,
+`diff` and `log` of the parent from spawning git in it by accident; it is a
+reporting setting, not a boundary.
+
+The workable way today, from inside the sandbox:
+
+1. On the host, add `audits/` to the project's `.gitignore` and the exact
+   path (`audits/<name>`, no glob) to
+   [`.devcontainer/agent-sandbox-nested-repos`](.devcontainer/agent-sandbox-nested-repos).
+   Without the line, the next `agent-sandbox` start refuses and names the
+   directory, which is the safety net if you forget.
+2. In the container, `git clone <url> audits/<name>` (the host must be on
+   the firewall allowlist; GitHub is). Claude may run git in there freely:
+   that is inside the sandbox.
+3. On the host, treat `audits/` as agent-controlled: no git, no git-aware
+   prompt, no IDE opened on the project folder while it is there. Read the
+   code in the container. Delete the directory when the audit is done.
+
+Do not add the harness to the audited repository and run it as the project
+instead: its own `Makefile`, `package.json` scripts, `.envrc` and
+`devcontainer.json` would then be what your host executes.
+
+Proposed and not built yet: a per-project list of paths `agent-sandbox`
+mounts as Docker named volumes, so `audits/` never exists on the host
+filesystem at all and nothing above applies.
 
 ### The firewall (`init-firewall.sh`)
 

@@ -207,15 +207,24 @@ directory and a writable working tree.
    does not list (one path or glob per line, read on the host, under the
    read-only overlay, so the agent cannot list its own). Harness worktrees
    and `node_modules` are never checked. A listed repository is trusted:
-   review it as you would any dependency. On the host,
-   `git config diff.ignoreSubmodules all` stops `status`, `diff`, `log`,
-   `submodule status` and `stash list` from entering nested repos, and so
-   do `fetch --recurse-submodules`, `grep --recurse-submodules`, `ls-files
-   --recurse-submodules`, `stash`, `checkout`, `add`, `commit`, `push
-   --recurse-submodules=check`, `gc` and `fsck` (all verified on git 2.39).
-   An untracked nested repo is not entered by the top-level `git status`
-   (verified). Prefer exact paths over globs in the allowlist: a glob also
-   admits a repository the agent creates under it.
+   review it as you would any dependency. What keeps the host out of a
+   nested repository: the read-only `.git/config` keeps a submodule
+   *inactive*, so `fetch`, `pull` and `push` told to recurse skip it; an
+   untracked nested repo is not entered by the top-level `git status`
+   (verified); and your own discipline, since any git process whose working
+   directory is inside it reads its config. `git config
+   diff.ignoreSubmodules all` on the host removes the accidental trigger
+   (plain `status`, `diff`, `log`, `commit`, `stash`, `checkout`, `add`,
+   `gc`, `fsck` and the `--recurse-submodules` forms of `fetch`, `grep`,
+   `ls-files` and `push` then spawn no git in a nested repository, verified
+   on git 2.39), but it is a reporting setting, not a boundary:
+   `--ignore-submodules=none`, `git submodule foreach`, an IDE's repository
+   detection when the project is opened on the host, GitLens, or a
+   git-aware shell prompt after `cd` into the directory all run its config.
+   Prefer exact paths over globs in the allowlist: a glob also admits a
+   repository the agent creates under it. For code you do not trust, keep
+   the clone off the host altogether (a Docker volume mounted into the
+   container, proposed below).
 3. **Two more agent-writable files git reads on the host, found while
    answering "is `core.fsmonitor` covered":** a *registered* submodule's
    config lives in `.git/modules/<name>/config` (writable; the host's
@@ -261,7 +270,8 @@ submodule `echo x >> .git/modules/<name>/config` fails. On the host,
 .git/worktrees/*/commondir` prints only `../..`; `find . -name .git -not
 -path './.git' -not -path './.claude/worktrees/*'` lists only what
 `.devcontainer/agent-sandbox-nested-repos` names; `git config --get
-diff.ignoreSubmodules` prints `all` if any are listed; then `git config
+diff.ignoreSubmodules` prints `all` if any are listed (accident guard, not
+a control); then `git config
 --show-origin --list | grep -E 'hooksPath|fsmonitor|sshCommand|filter'`
 shows nothing unexpected. `grep -c 'git status' ~/.config/zsh/agent-sandbox.zsh`
 prints `0`.
@@ -641,6 +651,7 @@ VS Code path. In rough order of value per effort:
 | `--security-opt no-new-privileges` and a user-namespace remap in `agent-sandbox.zsh` | privilege escalation inside the container (scenario 2); on Linux hosts this is also host protection, since no VM sits in between | `no-new-privileges` breaks `sudo`, so the firewall would have to run from `agent-sandbox.zsh` as `docker exec -u root` only (which it already can); userns remap changes bind-mount ownership on Linux hosts, usually harmless on Docker Desktop | investigate |
 | Fine-grained GitHub token scoped to this repository for `gh auth` inside the container | blast radius of a leaked token (scenario 13) | per-project token management | user practice, document in README |
 | Read-only `.claude/` overlay (hooks, `settings.json`) on the sandbox path | the agent editing the hooks that screen its own commands | `/remember`, `update-config`, the status line and the `log`/`update-status` skills write there; would need a split between code and state | deferred (decided 2026-11-14) |
+| Nested repositories in a Docker volume: an opt-in list (`.devcontainer/agent-sandbox-volumes`) of paths `agent-sandbox` mounts as named volumes, so an audit clone never exists on the host filesystem | the whole nested-repository class on the host (scenario 3): no host git, IDE or prompt can reach it, nothing to allowlist | code not browsable from a host editor; lives only as long as the volume; not available on the reopen path without a devcontainer.json edit | proposed 2026-11-16 |
 | VS Code path: attach to the `agent-sandbox` container instead of reopen (README instructions plus an attached-container configuration for the extensions) | the dynamic checks (nested repos, module configs, drift gate) on the editor path | attach ignores `devcontainer.json` customizations; `postCreateCommand` steps already live in the image | document, not started |
 | VS Code path: nested-repo and `.git/modules/**/config` checks in `initialize.sh` | scenario 3 on the reopen path | exact-path allowlist parsing in POSIX sh; mounts cannot be added dynamically, so module configs can only be refused, not mounted | not started |
 | Nested-repos allowlist: exact paths only, refuse entries added since the last recreate | an agent-created repository admitted by a glob (scenario 3) | projects listing many audit targets type more lines | small, not started |

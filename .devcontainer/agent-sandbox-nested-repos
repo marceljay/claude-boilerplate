@@ -11,8 +11,13 @@
 #
 # This file is read on the HOST and sits under the read-only .devcontainer
 # overlay, so the agent cannot list its own repositories. Per-project:
-# sync-harness.sh copies it only when missing. Also set, on the host,
-# `git config diff.ignoreSubmodules all` so status/diff/log never enter them.
+# sync-harness.sh copies it only when missing. A listed repository is one
+# you trust: on the host, never run git, a git-aware prompt or an IDE inside
+# it (its config and hooks are writable from the container). `git config
+# diff.ignoreSubmodules all` on the host only keeps plain status/diff/log
+# from spawning git in it by accident; it is a reporting setting, not a
+# boundary. For untrusted code prefer a clone the host never sees (a Docker
+# volume), see README "Auditing another repository".
 #
 # vendor/some-lib
 # audits/*

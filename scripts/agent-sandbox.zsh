@@ -307,9 +307,10 @@ _agent_sandbox_check_nested_repos() {
   emulate -L zsh
   local dir=$1 unlisted
   if unlisted=$(_agent_sandbox_unlisted_nested_repos "$dir"); then
-    # All listed. Still worth one line: the host's git enters them unless told not to.
+    # All listed. Still worth one line: a listed repository is trusted, and the
+    # plain status/diff on the host spawn git in it unless told not to.
     if [[ -n $(_agent_sandbox_nested_repos "$dir") ]] && ! grep -qE '^[[:space:]]*ignoreSubmodules[[:space:]]*=[[:space:]]*all' "$dir/.git/config" 2>/dev/null; then
-      print -u2 "agent-sandbox: note: nested repositories are listed, but the host's git still enters them — set \`git config diff.ignoreSubmodules all\` on the host."
+      print -u2 "agent-sandbox: note: nested repositories are listed; never run git, a git prompt or an IDE inside them on the host. \`git config diff.ignoreSubmodules all\` keeps plain status/diff from spawning git there by accident (not a boundary)."
     fi
     return 0
   fi
@@ -318,7 +319,7 @@ _agent_sandbox_check_nested_repos() {
   print -u2 "agent-sandbox: a submodule entry for one of them makes the host's git read its config (core.fsmonitor)."
   print -u2 "agent-sandbox: list the ones you expect in .devcontainer/agent-sandbox-nested-repos (on the host), or remove them."
   if ! grep -qE '^[[:space:]]*ignoreSubmodules[[:space:]]*=[[:space:]]*all' "$dir/.git/config" 2>/dev/null; then
-    print -u2 "agent-sandbox: also, on the host, \`git config diff.ignoreSubmodules all\` stops status/diff/log from entering them."
+    print -u2 "agent-sandbox: also, on the host, \`git config diff.ignoreSubmodules all\` keeps plain status/diff/log from spawning git in them by accident (a reporting setting, not a boundary)."
   fi
   return 1
 }

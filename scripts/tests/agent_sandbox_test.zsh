@@ -313,6 +313,8 @@ reset_state image container running iptables_drop has_tmux
 print -r -- "$(printf 'a%.0s' {1..64})" > "$AGENT_SANDBOX_STUB_STATE/image_hash"
 run_agent agent-sandbox "$proj"
 assert_has "drift: label mismatch → warning" "$stderr" ".devcontainer changed since the last build"
+assert_has "  points at agent-sandbox-rebuild" "$stderr" "run agent-sandbox-rebuild"
+assert_not_has "  does not tell the user to run git on the host" "$stderr" "git diff"
 assert_eq "  still attaches" "tmux" "$(actions)"
 
 reset_state image container running iptables_drop has_tmux
@@ -477,6 +479,34 @@ assert_eq "linked worktree commondir redirected → agent-sandbox refuses" 1 $rc
 assert_has "  names the file" "$stderr" ".git/worktrees/wt/commondir"
 printf '../..' > "$proj/.git/worktrees/wt/commondir"
 ( cd "$proj" && git worktree remove --force .claude/worktrees/wt && git branch -q -D wt )
+
+# Unfinished rebase / am / sequencer state: warned about, never blocking,
+# found with the shell (the directories are created by hand, no git runs).
+reset_state image has_tmux
+run_agent agent-sandbox "$proj"
+assert_not_has "no rebase state → no rebase warning" "$stderr" "unfinished rebase"
+for st in rebase-merge rebase-apply sequencer; do
+  mkdir "$proj/.git/$st"
+  [[ $st == rebase-merge ]] && print 'exec touch PLANTED' > "$proj/.git/$st/git-rebase-todo"
+  reset_state image has_tmux
+  run_agent agent-sandbox "$proj"
+  assert_eq ".git/$st present → agent-sandbox still attaches" "run firewall tmux" "$(actions)"
+  assert_has "  warns and names .git/$st" "$stderr" "agent-sandbox:   .git/$st"
+  assert_has "  says abort, never continue" "$stderr" "never continue it"
+  rm -rf "$proj/.git/$st"
+done
+[[ -f $proj/PLANTED ]] && bad "  the planted exec line was not run" || ok "  the planted exec line was not run"
+mkdir -p "$proj/.git/worktrees/wt/rebase-merge"
+reset_state image has_tmux
+run_agent agent-sandbox "$proj"
+assert_has "rebase state in a linked worktree → named" "$stderr" "agent-sandbox:   .git/worktrees/wt/rebase-merge"
+rm -rf "$proj/.git/worktrees"
+mkdir "$proj/.git/rebase-merge"
+reset_state image container running iptables_drop has_tmux; built_hash
+out=$(agent-sandbox-rebuild "$proj" 2>&1); rc=$?
+assert_has "rebase state → the review gate warns too" "$out" "agent-sandbox:   .git/rebase-merge"
+assert_eq "  and the rebuild still runs" "build rm run" "$(actions)"
+rm -rf "$proj/.git/rebase-merge"
 
 ( cd "$proj" && git init -q "$tmp/subsrc" && cd "$tmp/subsrc" && echo a > a && git add a && git -c user.name=t -c user.email=t@t commit -q -m a )
 ( cd "$proj" && git -c protocol.file.allow=always submodule add -q "$tmp/subsrc" sub 2>/dev/null && git -c user.name=t -c user.email=t@t commit -q -m sub )

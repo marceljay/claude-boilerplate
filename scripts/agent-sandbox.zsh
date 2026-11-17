@@ -22,8 +22,9 @@
 #                                     afterwards — review, then
 #                                     agent-sandbox-rebuild.
 #   agent-sandbox-rebuild [dir]       fresh base image + newest Claude Code,
-#                                     new container (review `git diff --
-#                                     .devcontainer` first)
+#                                     new container. Shows what changed
+#                                     in .devcontainer since the last
+#                                     build, without git, and asks first.
 #   agent-sandbox-recreate [dir]      new container from the existing image
 #                                     (after env, port, read-only mount or .git/config
 #                                     changes), no build
@@ -83,6 +84,13 @@
 # attacker-controlled by assumption, and `git status` would execute them
 # (core.fsmonitor). The only git call in this file is `git config --global`,
 # run from /.
+#
+# Not covered by any mount: the rest of .git is writable, so the container
+# can leave an interactive rebase stopped before an `exec` line, and `git
+# rebase --continue` (or --skip) on the host runs that line as you.
+# `agent-sandbox` and the review gate warn when .git/rebase-merge,
+# .git/rebase-apply or .git/sequencer exists (checked with the shell). Abort
+# a rebase you did not start; never continue it.
 #
 # Requires zsh 5.9 or newer (macOS ships it; on Linux install zsh — bash
 # users get a shim from `sync-harness.sh --install-shell`) and `docker` on
@@ -268,6 +276,31 @@ _agent_sandbox_check_commondir() {
   return $bad
 }
 
+# An unfinished rebase, `git am` or cherry-pick/revert sequence recorded in
+# .git (or in a linked worktree's git directory). All of these are writable
+# from inside the container, and an interactive rebase's todo list can hold
+# `exec` lines: `git rebase --continue` or `--skip` on the host runs them as
+# the user. `git status` shows at most the next two todo lines, so a later
+# `exec` is not visible there. Warns, never blocks: the user may have a
+# rebase of their own in progress. Checked with the shell, never with git.
+_agent_sandbox_warn_git_in_progress() {
+  emulate -L zsh
+  local dir=$1 p
+  local -a found
+  for p in "$dir"/.git/{rebase-merge,rebase-apply,sequencer}(N) "$dir"/.git/worktrees/*/{rebase-merge,rebase-apply,sequencer}(N); do
+    found+=("${p#$dir/}")
+  done
+  (( $#found )) || return 0
+  print -u2 "agent-sandbox: WARNING: an unfinished rebase, am or cherry-pick/revert sequence is recorded in $dir:"
+  for p in "${found[@]}"; do print -u2 -r -- "agent-sandbox:   $p"; done
+  print -u2 "agent-sandbox: the container can write these, and a rebase todo list can hold \`exec\` lines that"
+  print -u2 "agent-sandbox: \`git rebase --continue\` or \`--skip\` runs on the host as you. If you did not start it on"
+  print -u2 "agent-sandbox: the host, abort it (\`git rebase --abort\`, \`git am --abort\`, \`git cherry-pick --abort\`);"
+  print -u2 "agent-sandbox: never continue it. Before continuing one of your own, read the todo file"
+  print -u2 "agent-sandbox: (.git/rebase-merge/git-rebase-todo) for \`exec\` lines."
+  return 0
+}
+
 # Nested repositories (a .git dir or file below the top level). A submodule
 # entry in the index makes the host's `git status` read the nested repo's
 # config, including core.fsmonitor. Worktrees the harness creates and
@@ -310,7 +343,7 @@ _agent_sandbox_check_nested_repos() {
     # All listed. Still worth one line: a listed repository is trusted, and the
     # plain status/diff on the host spawn git in it unless told not to.
     if [[ -n $(_agent_sandbox_nested_repos "$dir") ]] && ! grep -qE '^[[:space:]]*ignoreSubmodules[[:space:]]*=[[:space:]]*all' "$dir/.git/config" 2>/dev/null; then
-      print -u2 "agent-sandbox: note: nested repositories are listed; never run git, a git prompt or an IDE inside them on the host. \`git config diff.ignoreSubmodules all\` keeps plain status/diff from spawning git there by accident (not a boundary)."
+      print -u2 "agent-sandbox: note: nested repositories are listed; never run git, a git prompt or an IDE inside them on the host. \`git config diff.ignoreSubmodules all\` prevents accidents from plain status/diff/commit only: \`git add .\` and a .gitmodules entry with ignore=none still run their config, so do not rely on it."
     fi
     return 0
   fi
@@ -318,8 +351,9 @@ _agent_sandbox_check_nested_repos() {
   print -u2 -r -- "$unlisted" | sed 's/^/agent-sandbox:   /' >&2
   print -u2 "agent-sandbox: a submodule entry for one of them makes the host's git read its config (core.fsmonitor)."
   print -u2 "agent-sandbox: list the ones you expect in .devcontainer/agent-sandbox-nested-repos (on the host), or remove them."
+  print -u2 "agent-sandbox: until then, do not run git in $dir on the host: \`git status\` and \`git add\` can run their config."
   if ! grep -qE '^[[:space:]]*ignoreSubmodules[[:space:]]*=[[:space:]]*all' "$dir/.git/config" 2>/dev/null; then
-    print -u2 "agent-sandbox: also, on the host, \`git config diff.ignoreSubmodules all\` keeps plain status/diff/log from spawning git in them by accident (a reporting setting, not a boundary)."
+    print -u2 "agent-sandbox: (\`git config diff.ignoreSubmodules all\` prevents accidents from plain status/diff/commit only; \`git add .\` and a .gitmodules entry with ignore=none still run their config, so do not rely on it.)"
   fi
   return 1
 }
@@ -463,6 +497,7 @@ _agent_sandbox_review_gate() {
   emulate -L zsh
   local dir=$1 name=$2 action=$3 state=$(_agent_sandbox_state_dir "$2") reply ask=0 out
   _agent_sandbox_check_commondir "$dir" || return 1
+  _agent_sandbox_warn_git_in_progress "$dir"
 
   if _agent_sandbox_changed_since_build "$dir" "$name"; then
     ask=1
@@ -528,7 +563,7 @@ _agent_sandbox_drift_warn() {
   if [[ ! $built =~ '^[0-9a-f]{64}$' ]]; then
     print -u2 "agent-sandbox: WARNING: image $name carries no .devcontainer hash (built outside agent-sandbox?) — agent-sandbox-rebuild labels it"
   elif [[ $built != $now ]]; then
-    print -u2 "agent-sandbox: WARNING: .devcontainer changed since the last build — review \`git diff -- .devcontainer\`, then agent-sandbox-rebuild"
+    print -u2 "agent-sandbox: WARNING: .devcontainer changed since the last build — run agent-sandbox-rebuild: it shows the diff (without git) and asks before building"
   fi
   # Linux only: an image built for another uid cannot write the bind mount.
   local want=$(_agent_sandbox_host_uid) have
@@ -566,6 +601,7 @@ agent-sandbox() {
   _agent_sandbox_check "$1" "$mode" || return 1
   local dir=$(_agent_sandbox_dir "$1") name=$(_agent_sandbox_name "$1") current
   _agent_sandbox_check_commondir "$dir" || return 1
+  _agent_sandbox_warn_git_in_progress "$dir"
   _agent_sandbox_check_nested_repos "$dir" || return 1
   [[ $mode == setup ]] && _agent_sandbox_setup_banner
 

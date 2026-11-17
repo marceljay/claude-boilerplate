@@ -15,6 +15,9 @@
 #      need sources); .git/commondir, when present, must hold exactly "."
 #      and every .git/worktrees/*/commondir must hold "../..". Anything else
 #      redirects git on the host to a config directory the agent controls.
+#      An unfinished rebase, am or sequencer run in .git gets a warning (not
+#      a refusal): its todo list is writable from inside and may hold `exec`
+#      lines that `git rebase --continue` would run on this host.
 #   3. Sources. Creates the .git/commondir placeholder (".", no newline) and
 #      an empty .vscode/ when missing, so the read-only mounts can bind.
 #
@@ -59,6 +62,13 @@ for w in "$dir"/.git/worktrees/*/commondir; do
   [ -e "$w" ] || continue
   [ "$(cat "$w")" = "../.." ] && continue
   fail "DANGER: $w does not hold '../..'. git run inside that worktree on this host would read config and hooks from the directory it names. Inspect and remove it first."
+done
+
+# Warn only: the user may have a rebase of their own in progress.
+for p in "$dir"/.git/rebase-merge "$dir"/.git/rebase-apply "$dir"/.git/sequencer \
+         "$dir"/.git/worktrees/*/rebase-merge "$dir"/.git/worktrees/*/rebase-apply "$dir"/.git/worktrees/*/sequencer; do
+  [ -e "$p" ] || continue
+  printf '%s WARNING: %s exists: an unfinished rebase, am or cherry-pick/revert sequence. The container can write it, and a rebase todo list can hold exec lines that "git rebase --continue" or "--skip" runs on this host as you. If you did not start it on the host, abort it (git rebase --abort, git am --abort, git cherry-pick --abort); never continue it. Before continuing one of your own, read .git/rebase-merge/git-rebase-todo for exec lines.\n' "$tag" "$p" >&2
 done
 
 # 3. Sources ------------------------------------------------------------------

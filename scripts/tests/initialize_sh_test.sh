@@ -126,7 +126,21 @@ d=$(fresh_repo j)
 out=$(cd "$d" && AGENT_SANDBOX_ALLOW_VSCODE=1 sh "$script" 2>&1); rc=$?
 check "defaults to cwd" test "$rc" -eq 0 -a -f "$d/.git/commondir"
 
-# 12. git was never executed, in any case above.
+# 12. Unfinished rebase / am / sequencer state: warned about, not refused.
+for st in rebase-merge rebase-apply sequencer; do
+  d=$(fresh_repo k-$st); mkdir "$d/.git/$st"
+  AGENT_SANDBOX_ALLOW_VSCODE=1 run "$d"; rc=$?
+  check "$st present exits 0" test "$rc" -eq 0
+  check "$st present warns and names it" grep -q "WARNING: $d/.git/$st exists" <<<"$out"
+  check "$st warning says never continue" grep -q 'never continue it' <<<"$out"
+  check "$st: sources still created" test -f "$d/.git/commondir" -a -d "$d/.vscode"
+done
+d=$(fresh_repo l); mkdir -p "$d/.git/worktrees/t1/rebase-merge"; printf '../..' > "$d/.git/worktrees/t1/commondir"
+AGENT_SANDBOX_ALLOW_VSCODE=1 run "$d"; rc=$?
+check "worktree rebase state exits 0" test "$rc" -eq 0
+check "worktree rebase state named" grep -q 'worktrees/t1/rebase-merge exists' <<<"$out"
+
+# 13. git was never executed, in any case above.
 check "git never run" test ! -e "$tmp/GIT_WAS_RUN"
 
 echo "$pass passed, $fail failed"

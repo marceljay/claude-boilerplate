@@ -276,7 +276,7 @@ package, with no human in the loop.
   replaced by a writable copy. `/pr` pushes without `-u`, `ccw` uses
   `--no-track`, so nothing in the harness needs to write them.
 
-  **Two ways around the read-only mounts, both reproduced on git 2.39 and 2.43.**
+  **Ways around the read-only mounts, reproduced on git 2.39 and 2.43.**
   They need only what a normal-mode container already has: a writable `.git`
   directory and a writable working tree.
 
@@ -308,13 +308,33 @@ package, with no human in the loop.
      (verified); and your own discipline, since any git process whose working
      directory is inside it reads its config. `git config
      diff.ignoreSubmodules all` on the host removes the accidental trigger
-     (plain `status`, `diff`, `log`, `commit`, `stash`, `checkout`, `add`,
-     `gc`, `fsck` and the `--recurse-submodules` forms of `fetch`, `grep`,
-     `ls-files` and `push` then spawn no git in a nested repository, verified
-     on git 2.39), but it is a reporting setting, not a boundary:
-     `--ignore-submodules=none`, `git submodule foreach`, an IDE's repository
-     detection when the project is opened on the host, GitLens, or a
-     git-aware shell prompt after `cd` into the directory all run its config.
+     (plain `status`, `diff`, `log`, `commit`, `stash`, `checkout`, `add
+     <other file>`, `gc`, `fsck` and the `--recurse-submodules` forms of
+     `fetch`, `grep`, `ls-files` and `push` then spawn no git in a nested
+     repository, verified on git 2.39), but it is a reporting setting, not a
+     boundary: `--ignore-submodules=none`, `git submodule foreach`, an IDE's
+     repository detection when the project is opened on the host, GitLens, or
+     a git-aware shell prompt after `cd` into the directory all run its
+     config. Two more limits, found on git 2.39.5 on 2026-11-16: `git add .`,
+     `git add -A` and `git add -u` run the nested config whether or not the
+     setting is present; and a `.gitmodules` file in the working tree
+     (writable from inside) with `ignore = none` for the path overrides the
+     setting, so plain `status` and `diff` run the nested config again. An
+     agent that plants the nested repository can plant that file too.
+     **The check runs only when `agent-sandbox` starts and in the review
+     gate (accepted 2026-11-17).** A process in the container can create the
+     nested repository and `git add` it in the middle of a session; until
+     the next `agent-sandbox`, nothing on the host notices, and `git status`
+     run on the host before that next start executes the nested config as you.
+     Having the harness write `diff.ignoreSubmodules = all` into
+     `.git/config` by default was considered and rejected (2026-11-17): the
+     `.gitmodules` override defeats it, `git add` is not covered, and it
+     hides real submodule changes from `git status`. It prevents accidents
+     only and must not be relied on. Nothing on the host can stop the agent
+     from creating a nested repository, so the rule for the time between
+     two checks is the one under Residual: while a container exists, run
+     git on the host only after `agent-sandbox` or the find command under
+     Verify has shown no unlisted nested repository.
      Prefer exact paths over globs in the allowlist: a glob also admits a
      repository the agent creates under it. For code you do not trust, keep
      the clone off the host altogether (a Docker volume mounted into the
@@ -330,6 +350,27 @@ package, with no human in the loop.
      (a submodule added inside is covered from the next `agent-sandbox-recreate`),
      and `agent-sandbox` refuses to attach when any `.git/worktrees/*/commondir` holds
      anything but `../..`.
+
+  4. **An interactive rebase left stopped before an `exec` line** (external
+     review, 2026-11-16; reproduced on git 2.39.5 and 2.43.0). Config, hooks
+     and commondir are read-only, but the rest of `.git` is not: the agent
+     starts `git rebase -i` with a todo list of `break` followed by `exec
+     <command>` and leaves it stopped. Nothing runs yet. On the host, `git
+     status` reports "interactive rebase in progress" and shows at most the
+     next two todo lines, so an `exec` further down is not visible there;
+     `git rebase --continue` or `git rebase --skip` runs the command as you.
+     `git rebase --abort` and `--quit` do not (verified on 2.39.5). No mount
+     can close this: git inside the container needs to write these
+     directories for its own rebases. Sandbox path: `agent-sandbox` and the
+     review gate warn, without blocking, when `.git/rebase-merge`,
+     `.git/rebase-apply` or `.git/sequencer` exists, in the main git
+     directory or under `.git/worktrees/*/`, checked with the shell. VS Code
+     path: `initialize.sh` prints the same warning before every start. The
+     warning has the same limit as the nested-repository check: a rebase
+     planted after the last attach is not announced. **Rule: abort a rebase
+     you did not start; never continue it.** Before continuing one you did
+     start while a container had the repository mounted, read
+     `.git/rebase-merge/git-rebase-todo` for `exec` lines.
 
   **The harness itself must not be the trigger.** Until this review,
   `agent-sandbox-rebuild` ran `git status` in the repo on the host before showing
@@ -354,7 +395,15 @@ package, with no human in the loop.
   are the only gates, and both are one click. A host-side `git config` write
   after the container started is invisible inside until `agent-sandbox-recreate`
   (the mount holds the old inode). A nested repository you listed is trusted
-  by you, not checked by the harness.
+  by you, not checked by the harness. Accepted on both paths
+  (2026-11-17): nested repositories and unfinished rebases are looked for only when
+  `agent-sandbox` starts, in the review gate, and (rebases only) in
+  `initialize.sh`. Between those points the agent can create either, and
+  host git then runs agent-chosen commands on `git status` (nested
+  repository with a submodule entry) or `git rebase --continue` (planted
+  rebase). While a container exists, attach or run the checks under Verify
+  before using git in the repository on the host, and never continue a
+  rebase you did not start.
 
 - **Verify:** Inside: `git config x.y z` fails, `mv .git .git.x` fails with
   "Device or resource busy", `echo ../x > .git/commondir` fails, `cat
@@ -365,7 +414,8 @@ package, with no human in the loop.
   -path './.git' -not -path './.claude/worktrees/*'` lists only what
   `.devcontainer/agent-sandbox-nested-repos` names; `git config --get
   diff.ignoreSubmodules` prints `all` if any are listed (accident guard, not
-  a control); then `git config
+  a control); `ls -d .git/rebase-merge .git/rebase-apply .git/sequencer
+  .git/worktrees/*/rebase-merge` lists nothing you did not start; then `git config
   --show-origin --list | grep -E 'hooksPath|fsmonitor|sshCommand|filter'`
   shows nothing unexpected. `grep -c 'git status' ~/.config/zsh/agent-sandbox.zsh`
   prints `0`.
@@ -681,7 +731,7 @@ channels at the bottom.
 | `.devcontainer` edits reach the next build | read-only mount, hash drift warning, review gate on rebuild | read-only mount; no warning, no gate | 1, 4 |
 | Firewall changed from inside | root only, sudo limited to the baked script | same | 2 |
 | First-start firewall failure | container stopped | loopback-only DROP table until restart (exit trap) | 2 |
-| `.git/config`, `.git/hooks` executed by host git | read-only, `.git` is a mount point, `.git/commondir` is a read-only placeholder, `.git/modules/**/config` read-only, worktree commondirs verified, unlisted nested repos refused | read-only, `.git` is a mount point, placeholder read-only, commondirs verified by `initialize.sh`; module configs and nested repos unchecked | 3 |
+| `.git/config`, `.git/hooks` executed by host git | read-only, `.git` is a mount point, `.git/commondir` is a read-only placeholder, `.git/modules/**/config` read-only, worktree commondirs verified, unlisted nested repos refused and unfinished rebases warned about (both at attach and in the gate only) | read-only, `.git` is a mount point, placeholder read-only, commondirs verified and unfinished rebases warned about by `initialize.sh`; module configs and nested repos unchecked | 3 |
 | `.vscode/` executed by the editor on open | read-only | read-only, and the editor is attached | 3 |
 | Harness runs git in the repo on the host | never (diffs against copies kept outside the repo) | the editor does, constantly | 3 |
 | `initializeCommand` runs on the host | never read | fixed to `initialize.sh` (opt-in, guards); editable only from the host | 4 |
@@ -723,6 +773,7 @@ place, whatever the code says.
 - [ ] `git status`, `git commit`, `ccw x` and `git push` work inside with the placeholder in place; `git status` and the editor work on the host (scenario 3)
 - [ ] Inside: `git init vendor/x`; on the host `agent-sandbox` refuses and names `vendor/x`; list it in `.devcontainer/agent-sandbox-nested-repos`; `agent-sandbox` attaches (scenario 3)
 - [ ] Inside: `ccw t`, then write anything but `../..` to `.git/worktrees/t/commondir`; on the host `agent-sandbox` refuses and names the file; restore `../..` (scenario 3)
+- [ ] Inside: `GIT_SEQUENCE_EDITOR='printf "break\nexec touch PLANTED\n" >' git rebase -i HEAD~1`; on the host `agent-sandbox` warns and names `.git/rebase-merge` and still attaches; `git rebase --abort` on the host leaves no `PLANTED` file (scenario 3)
 - [ ] In a project with a registered submodule listed in `agent-sandbox-nested-repos`: inside, `echo x >> .git/modules/<name>/config` fails (scenario 3)
 - [ ] `/pr` on a feature branch, `ccw test`, and `claude --worktree test` work with the read-only `.git/config`; report any config-write complaint
 

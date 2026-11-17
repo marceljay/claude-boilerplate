@@ -24,9 +24,11 @@ the detach script (step 0: `rm -rf
   `agent-sandbox-rebuild`.
 - **Writable** (`agent-sandbox --setup`, or a container without the read-only mounts) →
   proceed as written.
-  Under `agent-sandbox --setup`, remind the user at the end: review
-  `git diff -- .devcontainer`, then `agent-sandbox-rebuild`; plain `agent-sandbox` refuses
-  to attach to the setup container until then.
+  Under `agent-sandbox --setup`, remind the user at the end: run
+  `agent-sandbox-rebuild`, which shows what changed in `.devcontainer`,
+  `.git/config` and `.git/hooks` without running git and asks before
+  building, and avoid git in the repo on the host until then; plain
+  `agent-sandbox` refuses to attach to the setup container until then.
 
 0. **Guard:** if a `.boilerplate-dev` file exists at the repo root, this is the
    boilerplate's own development repo — do NOT offer to detach and skip the

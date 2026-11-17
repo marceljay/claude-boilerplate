@@ -466,8 +466,9 @@ config as environment variables, which win over a per-repo `user.email`.
 
 **Drift warning.** The image is labelled with a hash of `.devcontainer/` at
 build time. When `agent-sandbox` finds the directory changed since then, it
-warns (`.devcontainer changed since the last build — review git diff --
-.devcontainer, then agent-sandbox-rebuild`) and still attaches. Changes there
+warns (`.devcontainer changed since the last build — run
+agent-sandbox-rebuild: it shows the diff (without git) and asks before
+building`) and still attaches. Changes there
 only take effect at a rebuild, which is exactly when they must have been
 reviewed.
 

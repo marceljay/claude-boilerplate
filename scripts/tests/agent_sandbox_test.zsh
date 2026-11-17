@@ -540,6 +540,52 @@ reset_state
 run_agent agent-sandbox-recreate "$proj"
 assert_eq "agent-sandbox-recreate without image → error" 1 $rc
 
+print "agent-sandbox-check (no docker, no git)"
+reset_state
+out=$(agent-sandbox-check "$proj" 2>&1); rc=$?
+assert_eq "clean project → exit 0" 0 $rc
+assert_has "  says what was checked" "$out" "no unlisted nested repository"
+assert_eq "  no docker call" "" "$(<"$AGENT_SANDBOX_STUB_STATE/log")"
+out=$(agent-sandbox-check -q "$proj" 2>&1); rc=$?
+assert_eq "  -q on a clean project prints nothing" "0:" "$rc:$out"
+mkdir -p "$proj/src/deep"
+out=$(cd "$proj/src/deep" && agent-sandbox-check 2>&1); rc=$?
+assert_has "started in a subfolder → checks the project root" "$out" "$proj: no commondir redirect"
+out=$(agent-sandbox-check "$tmp/home" 2>&1); rc=$?
+assert_eq "outside a project → exit 0" 0 $rc
+assert_has "  says nothing was checked" "$out" "nothing checked"
+out=$(agent-sandbox-check -q "$tmp/home" 2>&1)
+assert_eq "  -q outside a project prints nothing" "" "$out"
+run_agent agent-sandbox-check --bogus "$proj"
+assert_eq "unknown option → exit 2" 2 $rc
+mkdir -p "$proj/vendor/lib/.git" "$proj/vendor/lib/.devcontainer"
+run_agent agent-sandbox-check "$proj"
+assert_eq "unlisted nested repo → exit 1" 1 $rc
+assert_has "  names it" "$stderr" "vendor/lib"
+assert_has "  says not to run git on the host" "$stderr" "do not run git in $proj on the host"
+out=$(cd "$proj/vendor/lib" && agent-sandbox-check -q 2>&1); rc=$?
+assert_eq "started inside the nested repo (which has its own .git and .devcontainer) → still exit 1" 1 $rc
+assert_has "  checked the outer project" "$out" "do not run git in $proj on the host"
+printf 'vendor/lib\n' > "$proj/.devcontainer/agent-sandbox-nested-repos"
+run_agent agent-sandbox-check "$proj"
+assert_eq "listed nested repo → exit 0" 0 $rc
+assert_has "  with the note about listed repositories" "$stderr" "nested repositories are listed"
+run_agent agent-sandbox-check -q "$proj"
+assert_eq "  -q leaves the note out" "0:" "$rc:$stderr"
+rm -rf "$proj/vendor" "$proj/src" "$proj/.devcontainer/agent-sandbox-nested-repos"
+cp "$proj/.git/commondir" "$tmp/commondir.orig"
+print '../.alt' > "$proj/.git/commondir"
+run_agent agent-sandbox-check -q "$proj"
+assert_eq "commondir redirect → exit 1" 1 $rc
+assert_has "  names the file" "$stderr" ".git/commondir"
+cp "$tmp/commondir.orig" "$proj/.git/commondir"
+mkdir "$proj/.git/rebase-merge"
+run_agent agent-sandbox-check -q "$proj"
+assert_eq "unfinished rebase → warning, exit 0" 0 $rc
+assert_has "  names .git/rebase-merge" "$stderr" "agent-sandbox:   .git/rebase-merge"
+rm -rf "$proj/.git/rebase-merge"
+assert_eq "  no docker call in any case above" "" "$(<"$AGENT_SANDBOX_STUB_STATE/log")"
+
 reset_state image container running
 run_agent agent-sandbox-stop "$proj"
 assert_eq "agent-sandbox-stop → stop" "stop" "$(actions)"

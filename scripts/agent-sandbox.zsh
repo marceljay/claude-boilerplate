@@ -31,6 +31,12 @@
 #   agent-sandbox-stop [dir]          stop the container (sign-in and history
 #                                     are kept)
 #   agent-sandbox-ports [dir]         host ports published for the container
+#   agent-sandbox-check [-q] [dir]    the host-side checks alone, no Docker:
+#                                     commondir redirect, unlisted nested
+#                                     repositories (exit 1), unfinished
+#                                     rebase (warning). Run it before git
+#                                     on the host while a container exists;
+#                                     -q prints only findings.
 #   agent-sandbox-shell [dir]         plain zsh, no tmux (same as
 #                                     agent-sandbox --no-tmux)
 #
@@ -282,7 +288,8 @@ _agent_sandbox_check_commondir() {
 # `exec` lines: `git rebase --continue` or `--skip` on the host runs them as
 # the user. `git status` shows at most the next two todo lines, so a later
 # `exec` is not visible there. Warns, never blocks: the user may have a
-# rebase of their own in progress. Checked with the shell, never with git.
+# rebase of their own in progress, so callers ignore the status (1 when
+# something was found). Checked with the shell, never with git.
 _agent_sandbox_warn_git_in_progress() {
   emulate -L zsh
   local dir=$1 p
@@ -298,7 +305,7 @@ _agent_sandbox_warn_git_in_progress() {
   print -u2 "agent-sandbox: the host, abort it (\`git rebase --abort\`, \`git am --abort\`, \`git cherry-pick --abort\`);"
   print -u2 "agent-sandbox: never continue it. Before continuing one of your own, read the todo file"
   print -u2 "agent-sandbox: (.git/rebase-merge/git-rebase-todo) for \`exec\` lines."
-  return 0
+  return 1
 }
 
 # Nested repositories (a .git dir or file below the top level). A submodule
@@ -342,7 +349,8 @@ _agent_sandbox_check_nested_repos() {
   if unlisted=$(_agent_sandbox_unlisted_nested_repos "$dir"); then
     # All listed. Still worth one line: a listed repository is trusted, and the
     # plain status/diff on the host spawn git in it unless told not to.
-    if [[ -n $(_agent_sandbox_nested_repos "$dir") ]] && ! grep -qE '^[[:space:]]*ignoreSubmodules[[:space:]]*=[[:space:]]*all' "$dir/.git/config" 2>/dev/null; then
+    # $2 = quiet leaves the line out (agent-sandbox-check -q).
+    if [[ $2 != quiet && -n $(_agent_sandbox_nested_repos "$dir") ]] && ! grep -qE '^[[:space:]]*ignoreSubmodules[[:space:]]*=[[:space:]]*all' "$dir/.git/config" 2>/dev/null; then
       print -u2 "agent-sandbox: note: nested repositories are listed; never run git, a git prompt or an IDE inside them on the host. \`git config diff.ignoreSubmodules all\` prevents accidents from plain status/diff/commit only: \`git add .\` and a .gitmodules entry with ignore=none still run their config, so do not rely on it."
     fi
     return 0
@@ -682,6 +690,57 @@ agent-sandbox-recreate() {
   docker rm -f "$name" >/dev/null 2>&1
   _agent_sandbox_create "$dir" normal || return 1
   print "agent-sandbox: recreated $name; run: agent-sandbox${1:+ $1}"
+}
+
+# The outermost folder at or above $1 that holds a .git directory and a
+# .devcontainer directory: the project `agent-sandbox` mounts. Outermost,
+# not nearest: a nested repository the agent created can carry both, and a
+# check started inside it must still look at the real project. Prints
+# nothing when there is none.
+_agent_sandbox_project_root() {
+  emulate -L zsh
+  local d=$(_agent_sandbox_dir "$1") root=""
+  while true; do
+    [[ -d $d/.git && -d $d/.devcontainer ]] && root=$d
+    [[ $d == / ]] && break
+    d=${d:h}
+  done
+  print -r -- "$root"
+}
+
+# The host-side checks without Docker and without attaching, for use right
+# before git on the host: `agent-sandbox-check && git status`. Returns 1 for
+# what `agent-sandbox` refuses on (commondir redirect, unlisted nested
+# repository), 0 otherwise; an unfinished rebase is a warning, as at attach.
+# Outside a project it checks nothing and returns 0. Runs no git.
+agent-sandbox-check() {
+  emulate -L zsh
+  local quiet=0
+  while [[ $1 == -* ]]; do
+    case $1 in
+      -q|--quiet) quiet=1 ;;
+      *) print -u2 "agent-sandbox-check: unknown option $1 (known: -q, --quiet)"; return 2 ;;
+    esac
+    shift
+  done
+  local root=$(_agent_sandbox_project_root "$1") bad=0 warned=0
+  if [[ -z $root ]]; then
+    (( quiet )) || print -u2 "agent-sandbox-check: no project (a folder with .git and .devcontainer) at or above $(_agent_sandbox_dir "$1"); nothing checked"
+    return 0
+  fi
+  _agent_sandbox_check_commondir "$root" || bad=1
+  _agent_sandbox_warn_git_in_progress "$root" || warned=1
+  if (( quiet )); then
+    _agent_sandbox_check_nested_repos "$root" quiet || bad=1
+  else
+    _agent_sandbox_check_nested_repos "$root" || bad=1
+  fi
+  if (( bad )); then
+    print -u2 "agent-sandbox-check: do not run git in $root on the host until the above is resolved"
+    return 1
+  fi
+  (( quiet || warned )) || print "agent-sandbox-check: $root: no commondir redirect, no unlisted nested repository, no unfinished rebase"
+  return 0
 }
 
 agent-sandbox-stop()  { emulate -L zsh; docker stop "$(_agent_sandbox_name "$1")" >/dev/null }

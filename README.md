@@ -396,6 +396,7 @@ flowchart TD
 | `agent-sandbox-recreate` | New container from the existing image — after changing `agent-sandbox-ports`, the shortcut flags, or `.git/config` on the host. Same review prompt as `agent-sandbox-rebuild`. |
 | `agent-sandbox-stop` | Stops the container; sign-in, memory and history live in volumes and survive. |
 | `agent-sandbox-ports` | Host ports published for the container (`docker port`). |
+| `agent-sandbox-check [-q]` | The host-side checks alone, without Docker and without attaching: `.git/commondir` redirect and unlisted nested repositories (exit 1), unfinished rebase (warning). Works from any subfolder of the project. `-q` prints only findings. |
 
 Names are `claude-<folder>` (lowercased, odd characters become `-`), and
 containers you created by hand under that name are picked up as they are.
@@ -404,6 +405,25 @@ refuses to attach when the existing container mounts the other folder.
 
 The container's time zone comes from `AGENT_SANDBOX_TZ` (default `$TZ`, else
 Europe/Berlin). Set it in `~/.zshrc` before the `source` line.
+
+**Check before git on the host.** `agent-sandbox` looks for nested
+repositories and unfinished rebases only when it starts; the agent can
+create either afterwards, and `git status` or `git rebase --continue` on the
+host would then run a command the agent chose
+([security model, scenario 3](docs/SECURITY-MODEL.md)). While a container
+exists, run the check first: `agent-sandbox-check && git status`. To have it
+run before every `git` you type in a zsh on the host, add this to
+`~/.zshrc` after the `source` line (optional, not installed for you):
+
+```zsh
+git() { agent-sandbox-check -q || return 1; command git "$@" }
+```
+
+Outside a project the check does nothing. Limits: it covers only `git`
+typed in that shell, not an editor, a git-aware prompt or a script that
+calls git on its own; it walks the project tree on every call, which is
+noticeable in a large repository; and an unfinished rebase is a warning,
+not a stop, so `git rebase --abort` keeps working.
 
 ### 3.4 What is different inside the sandbox
 

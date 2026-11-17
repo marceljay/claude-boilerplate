@@ -333,8 +333,14 @@ package, with no human in the loop.
      only and must not be relied on. Nothing on the host can stop the agent
      from creating a nested repository, so the rule for the time between
      two checks is the one under Residual: while a container exists, run
-     git on the host only after `agent-sandbox` or the find command under
-     Verify has shown no unlisted nested repository.
+     git on the host only after `agent-sandbox` or `agent-sandbox-check`
+     has shown no unlisted nested repository. `agent-sandbox-check` (added
+     2026-11-17) runs the commondir, nested-repository and rebase checks
+     without Docker and without attaching, so the check can directly
+     precede the git command: `agent-sandbox-check && git status`. The
+     README shows an optional zsh function that runs it before every `git`
+     typed in that shell. It remains detection: an editor, a git-aware
+     prompt or a script calls git without it.
      Prefer exact paths over globs in the allowlist: a glob also admits a
      repository the agent creates under it. For code you do not trust, keep
      the clone off the host altogether (a Docker volume mounted into the
@@ -401,9 +407,10 @@ package, with no human in the loop.
   `initialize.sh`. Between those points the agent can create either, and
   host git then runs agent-chosen commands on `git status` (nested
   repository with a submodule entry) or `git rebase --continue` (planted
-  rebase). While a container exists, attach or run the checks under Verify
+  rebase). While a container exists, attach or run `agent-sandbox-check`
   before using git in the repository on the host, and never continue a
-  rebase you did not start.
+  rebase you did not start. Git started by an editor, a git-aware shell
+  prompt or a script is not preceded by any check.
 
 - **Verify:** Inside: `git config x.y z` fails, `mv .git .git.x` fails with
   "Device or resource busy", `echo ../x > .git/commondir` fails, `cat
@@ -774,6 +781,7 @@ place, whatever the code says.
 - [ ] Inside: `git init vendor/x`; on the host `agent-sandbox` refuses and names `vendor/x`; list it in `.devcontainer/agent-sandbox-nested-repos`; `agent-sandbox` attaches (scenario 3)
 - [ ] Inside: `ccw t`, then write anything but `../..` to `.git/worktrees/t/commondir`; on the host `agent-sandbox` refuses and names the file; restore `../..` (scenario 3)
 - [ ] Inside: `GIT_SEQUENCE_EDITOR='printf "break\nexec touch PLANTED\n" >' git rebase -i HEAD~1`; on the host `agent-sandbox` warns and names `.git/rebase-merge` and still attaches; `git rebase --abort` on the host leaves no `PLANTED` file (scenario 3)
+- [ ] Inside: `git init vendor/y`; on the host, without attaching, `agent-sandbox-check` exits 1 and names `vendor/y`, also when started from a subfolder; after removing it, `agent-sandbox-check` exits 0 (scenario 3)
 - [ ] In a project with a registered submodule listed in `agent-sandbox-nested-repos`: inside, `echo x >> .git/modules/<name>/config` fails (scenario 3)
 - [ ] `/pr` on a feature branch, `ccw test`, and `claude --worktree test` work with the read-only `.git/config`; report any config-write complaint
 
@@ -817,7 +825,7 @@ In rough order of value per effort:
 | `--security-opt no-new-privileges` and a user-namespace remap in `agent-sandbox.zsh` | privilege escalation inside the container (scenario 2); on Linux hosts this is also host protection, since no VM sits in between | `no-new-privileges` breaks `sudo`, so the firewall would have to run from `agent-sandbox.zsh` as `docker exec -u root` only (which it already can); userns remap changes bind-mount ownership on Linux hosts, usually harmless on Docker Desktop | investigate |
 | Fine-grained GitHub token scoped to this repository for `gh auth` inside the container | blast radius of a leaked token (scenario 13) | per-project token management | user practice, document in README |
 | Read-only `.claude/` mount (hooks, `settings.json`) on the sandbox path | the agent editing the hooks that screen its own commands | `/remember`, `update-config`, the status line and the `log`/`update-status` skills write there; would need a split between code and state | deferred (decided 2026-11-14) |
-| Nested repositories in a Docker volume: an opt-in list (`.devcontainer/agent-sandbox-volumes`) of paths `agent-sandbox` mounts as named volumes, so an audit clone never exists on the host filesystem | the whole nested-repository class on the host (scenario 3): no host git, IDE or prompt can reach it, nothing to allowlist | code not browsable from a host editor; lives only as long as the volume; not available on the reopen path without a devcontainer.json edit | proposed 2026-11-16 |
+| Nested repositories in a Docker volume: an opt-in list (`.devcontainer/agent-sandbox-volumes`) of paths `agent-sandbox` mounts as named volumes, so an audit clone never exists on the host filesystem | the whole nested-repository class on the host (scenario 3): no host git, IDE or prompt can reach it, nothing to allowlist; once it exists, any nested repository on the host that is not a registered submodule can be refused, with no glob allowlist | code not browsable from a host editor; lives only as long as the volume; not available on the reopen path without a devcontainer.json edit | proposed 2026-11-16 |
 | VS Code path: attach to the `agent-sandbox` container instead of reopen (README instructions plus an attached-container configuration for the extensions) | the dynamic checks (nested repos, module configs, drift gate) on the editor path | attach ignores `devcontainer.json` customizations; `postCreateCommand` steps already live in the image | document, not started |
 | VS Code path: nested-repo and `.git/modules/**/config` checks in `initialize.sh` | scenario 3 on the reopen path | exact-path allowlist parsing in POSIX sh; mounts cannot be added dynamically, so module configs can only be refused, not mounted | not started |
 | Nested-repos allowlist: exact paths only, refuse entries added since the last recreate | an agent-created repository admitted by a glob (scenario 3) | projects listing many audit targets type more lines | small, not started |

@@ -216,6 +216,7 @@ agent-sandbox-rebuild() { _agent_sandbox_zsh agent-sandbox-rebuild "\$@"; }
 agent-sandbox-recreate() { _agent_sandbox_zsh agent-sandbox-recreate "\$@"; }
 agent-sandbox-stop() { _agent_sandbox_zsh agent-sandbox-stop "\$@"; }
 agent-sandbox-ports() { _agent_sandbox_zsh agent-sandbox-ports "\$@"; }
+agent-sandbox-check() { _agent_sandbox_zsh agent-sandbox-check "\$@"; }
 EOF
 }
 

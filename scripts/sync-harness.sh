@@ -24,9 +24,11 @@
 #     scripts}) and files (.claude/README.md, .devcontainer/STACKS.md,
 #     .devcontainer/init-firewall.sh — the firewall LOGIC; the domain list
 #     lives in allowed-domains.txt — and .devcontainer/claude-harness.zsh,
-#     the shell shortcuts). Mirroring also deletes files this repo
-#     has since retired (e.g. removed commands) — it lists those and asks
-#     first.
+#     the shell shortcuts). In the mirrored dirs, the boilerplate's git
+#     history decides each file: an outdated unedited copy is updated, a
+#     locally edited one shows its diff and asks, a file this repo has
+#     retired is listed (with the removing commit) and asked about, and a
+#     file this repo never shipped is the project's own and is kept.
 #   - SPLICES .devcontainer/Dockerfile: everything above its
 #     `# ==== PROJECT LAYERS ====` marker is harness and is replaced with the
 #     boilerplate's version; everything below (stack toolchains) is kept.
@@ -103,7 +105,7 @@ say() {
   local c=""
   case "$word" in
     WARNING) c="$C_RED$C_BOLD" ;;
-    overwrote|spliced|moved|created|removed|copied) c="$C_YELLOW" ;;
+    overwrote|updated|spliced|moved|created|removed|copied) c="$C_YELLOW" ;;
     "in sync"|kept) c="$C_DIM" ;;
     differs|splicing|note) c="$C_CYAN" ;;
   esac
@@ -441,29 +443,116 @@ echo "Syncing harness: $SRC -> $TARGET"
 echo
 
 # --- 1. Mirror the pure-harness directories --------------------------------
+# Each file is classified against the boilerplate's git history, so neither
+# a local edit nor a project's own file is lost without asking:
+#   - same content as here             → nothing to do
+#   - matches a past boilerplate version → outdated copy; updated silently
+#   - matches no boilerplate version    → edited in the target; diff + ask
+#   - only in the target, path never shipped here → project's own; kept
+#   - only in the target, path shipped here once  → retired upstream; ask
+# Without git history (no .git, or a shallow clone) every file that differs
+# counts as edited and every target-only file is asked about.
 MIRROR_DIRS=".claude/commands .claude/skills .claude/agents .claude/hooks .claude/scripts"
+
+HAVE_HISTORY=0
+if git -C "$SRC" rev-parse --git-dir >/dev/null 2>&1 &&
+   [ "$(git -C "$SRC" rev-parse --is-shallow-repository 2>/dev/null)" = false ]; then
+  HAVE_HISTORY=1
+fi
 
 # Relative file list of a dir, minus caches/cruft. Runs in a subshell (cd).
 list_files() {
-  (cd "$1" && find . -type f ! -path '*__pycache__*' ! -name '.DS_Store' | sort)
+  (cd "$1" && find . -type f ! -path '*__pycache__*' ! -name '.DS_Store' | sed 's|^\./||' | sort)
+}
+
+# Did the boilerplate ever ship this path ($1, relative to $SRC)?
+shipped_upstream() {
+  [ "$HAVE_HISTORY" = 1 ] && [ -n "$(git -C "$SRC" log -1 --format=%h -- "$1" 2>/dev/null)" ]
+}
+
+# Is the target file $2 byte-identical to some committed version of $1?
+matches_past_version() {
+  [ "$HAVE_HISTORY" = 1 ] || return 1
+  local blob c
+  blob=$(git -C "$SRC" hash-object -- "$2") || return 1
+  while IFS= read -r c; do
+    [ "$(git -C "$SRC" rev-parse -q --verify "$c:$1" 2>/dev/null)" = "$blob" ] && return 0
+  done < <(git -C "$SRC" log --format=%H -- "$1" 2>/dev/null)
+  return 1
 }
 
 for d in $MIRROR_DIRS; do
   [ -d "$SRC/$d" ] || continue
   mkdir -p "$TARGET/$d"
-  # Files that exist only in the target: retired upstream, or the project's
-  # own additions — ask before removing them.
-  deletions=$(comm -13 <(list_files "$SRC/$d") <(list_files "$TARGET/$d"))
-  if [ -n "$deletions" ]; then
-    echo "$d: target-only files (retired upstream, or this project's own?):"
-    echo "$deletions" | sed 's/^/    /'
-    if ask "  Delete them in the target?"; then
-      echo "$deletions" | (cd "$TARGET/$d" && xargs rm -f --)
+  n_new=0 n_updated=0 n_kept=0
+
+  # Files only in the target. fd 3 keeps stdin free for the prompts.
+  retired="" own=""
+  while IFS= read -r p <&3; do
+    if shipped_upstream "$d/$p"; then
+      note=$(git -C "$SRC" log -1 --diff-filter=D --format='removed in %h (%ad)' --date=short -- "$d/$p")
+      matches_past_version "$d/$p" "$TARGET/$d/$p" || note="$note, EDITED in target"
+      retired="$retired$p"$'\t'"$note"$'\n'
+    else
+      own="$own$p"$'\n'
+    fi
+  done 3< <(comm -13 <(list_files "$SRC/$d") <(list_files "$TARGET/$d"))
+
+  if [ -n "$own" ]; then
+    if [ "$HAVE_HISTORY" = 1 ]; then
+      printf '%s' "$own" | while IFS= read -r p; do say kept "$d/$p (project's own file)"; done
+    else
+      echo "$d: target-only files (no boilerplate git history to tell retired from own):"
+      printf '%s' "$own" | sed 's/^/    /'
+      if ask "  Delete them in the target?"; then
+        printf '%s' "$own" | while IFS= read -r p; do
+          rm -f -- "$TARGET/$d/$p"
+          (cd "$TARGET/$d" && rmdir -p "$(dirname "$p")" 2>/dev/null) || true
+          say removed "$d/$p"
+        done
+      fi
     fi
   fi
-  (cd "$SRC/$d" && tar --exclude='__pycache__' --exclude='.DS_Store' -cf - .) |
-    (cd "$TARGET/$d" && tar -xf -)
-  echo "mirrored  $d"
+  if [ -n "$retired" ]; then
+    echo "$d: files the boilerplate has retired:"
+    printf '%s' "$retired" | awk -F'\t' '{ printf "    %s  (%s)\n", $1, $2 }'
+    if ask "  Delete them in the target?"; then
+      printf '%s' "$retired" | cut -f1 | while IFS= read -r p; do
+        rm -f -- "$TARGET/$d/$p"
+        (cd "$TARGET/$d" && rmdir -p "$(dirname "$p")" 2>/dev/null) || true
+        say removed "$d/$p"
+      done
+    fi
+  fi
+
+  # Files the boilerplate ships: copy new ones, update outdated ones, ask
+  # about edited ones.
+  while IFS= read -r p <&3; do
+    src="$SRC/$d/$p" dst="$TARGET/$d/$p"
+    if [ ! -e "$dst" ]; then
+      mkdir -p "$(dirname "$dst")"; cp -p "$src" "$dst"; n_new=$((n_new + 1))
+    elif cmp -s "$src" "$dst"; then
+      [ -x "$src" ] && [ ! -x "$dst" ] && chmod +x "$dst"
+    elif matches_past_version "$d/$p" "$dst"; then
+      cp -p "$src" "$dst"; n_updated=$((n_updated + 1))
+    else
+      echo
+      say differs "$d/$p (edited in target — matches no boilerplate version)"
+      show_diff "$dst" "$src"
+      case "$(ask3 "Overwrite $d/$p with the boilerplate version?")" in
+        overwrite) cp -p "$src" "$dst"; say overwrote "$d/$p"; n_updated=$((n_updated + 1)) ;;
+        upstream)  cp -p "$src" "$dst.upstream"; n_kept=$((n_kept + 1))
+                   say kept "$d/$p (target version); boilerplate copy written to $p.upstream" ;;
+        *)         say kept "$d/$p (target version)"; n_kept=$((n_kept + 1)) ;;
+      esac
+    fi
+  done 3< <(list_files "$SRC/$d")
+
+  if [ $((n_new + n_updated + n_kept)) -eq 0 ]; then
+    say "in sync" "$d"
+  else
+    say updated "$d ($n_new new, $n_updated updated, $n_kept kept with local edits)"
+  fi
 done
 
 # init-firewall.sh is mirrored because it is pure logic now — the per-project

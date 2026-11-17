@@ -23,6 +23,11 @@
 #   (suffixed `(container)` inside the dev container, where the host-side
 #   forwarded port can differ) or `dev server down`; omitted for projects
 #   without a dev server.
+# - harness: the boilerplate version this project's .claude/ came from, read
+#   from .claude/HARNESS_VERSION (written by sync-harness.sh / new-project.sh)
+#   and shortened from `v0.3.0-alpha-95-gab33011` to `v0.3.0-alpha+95`. In
+#   the boilerplate's own repo (.boilerplate-dev) it is computed live.
+#   Omitted when neither applies.
 #
 # Runs locally on every response and does NOT consume API tokens — status
 # lines never enter the model context. Needs `jq`; git and the port probe
@@ -121,6 +126,19 @@ if $has_dev_server; then
     if printf '%s\n' "$listening" | grep -qx "$p"; then dev="dev server up :$p$where"; break; fi
   done
   segments+=("$dev")
+fi
+
+# --- harness version --------------------------------------------------------
+hv=''
+if [ -f "$dir/.claude/HARNESS_VERSION" ]; then
+  hv=$(head -1 "$dir/.claude/HARNESS_VERSION" 2>/dev/null)
+elif [ -f "$dir/.boilerplate-dev" ]; then
+  hv=$(git -C "$dir" describe --tags --always 2>/dev/null)
+fi
+if [ -n "$hv" ]; then
+  # v0.3.0-alpha-95-gab33011 -> v0.3.0-alpha+95; a bare tag or sha stays as is.
+  hv=$(printf '%s' "$hv" | sed -E 's/-([0-9]+)-g[0-9a-f]+/+\1/')
+  segments+=("harness $hv")
 fi
 
 # --- print ------------------------------------------------------------------

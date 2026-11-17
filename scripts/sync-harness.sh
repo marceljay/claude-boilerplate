@@ -49,6 +49,8 @@
 #   - INSTALL and REPLACE ask for the container name up front (default: the
 #     directory name, or the old name in REPLACE) and write it into the
 #     copied devcontainer.json, so /init has nothing left to rename.
+#   - Writes .claude/HARNESS_VERSION (`git describe` of this repo, e.g.
+#     v0.3.0-alpha-95-gab33011); the status line shows it.
 #   - Never touches: settings.local.json, .claude/logs/, _planning/,
 #     project code, git state.
 #
@@ -440,7 +442,28 @@ elif [ ! -d "$TARGET/.claude" ]; then
 fi
 
 echo "Syncing harness: $SRC -> $TARGET"
+# Harness version: `git describe` of this repo (last tag, commits since, sha),
+# written to the target's .claude/HARNESS_VERSION, which the status line shows.
+HARNESS_VERSION=$(git -C "$SRC" describe --tags --always --dirty 2>/dev/null || echo unknown)
+old_version=$(cat "$TARGET/.claude/HARNESS_VERSION" 2>/dev/null || echo none)
+if [ "$old_version" = "$HARNESS_VERSION" ]; then
+  echo "Harness version: $HARNESS_VERSION (unchanged)"
+else
+  echo "Harness version: $old_version -> $HARNESS_VERSION"
+fi
 echo
+
+# Unchanged items are collected and reported in one line at the end, so a
+# rerun with nothing to do prints only what needs attention.
+IN_SYNC=()
+unchanged() { IN_SYNC+=("$1"); }
+# Fingerprint of the target's .devcontainer/, to say at the end whether the
+# container needs a rebuild.
+devcontainer_fingerprint() {
+  [ -d "$TARGET/.devcontainer" ] || return 0
+  (cd "$TARGET/.devcontainer" && find . -type f -exec cksum {} + 2>/dev/null | sort)
+}
+DEVCONTAINER_BEFORE=$(devcontainer_fingerprint)
 
 # --- 1. Mirror the pure-harness directories --------------------------------
 # Each file is classified against the boilerplate's git history, so neither
@@ -484,7 +507,7 @@ matches_past_version() {
 for d in $MIRROR_DIRS; do
   [ -d "$SRC/$d" ] || continue
   mkdir -p "$TARGET/$d"
-  n_new=0 n_updated=0 n_kept=0
+  n_changed=0
 
   # Files only in the target. fd 3 keeps stdin free for the prompts.
   retired="" own=""
@@ -530,29 +553,27 @@ for d in $MIRROR_DIRS; do
   while IFS= read -r p <&3; do
     src="$SRC/$d/$p" dst="$TARGET/$d/$p"
     if [ ! -e "$dst" ]; then
-      mkdir -p "$(dirname "$dst")"; cp -p "$src" "$dst"; n_new=$((n_new + 1))
+      mkdir -p "$(dirname "$dst")"; cp -p "$src" "$dst"; n_changed=$((n_changed + 1))
+      say copied "$d/$p (new in the boilerplate)"
     elif cmp -s "$src" "$dst"; then
       [ -x "$src" ] && [ ! -x "$dst" ] && chmod +x "$dst"
     elif matches_past_version "$d/$p" "$dst"; then
-      cp -p "$src" "$dst"; n_updated=$((n_updated + 1))
+      cp -p "$src" "$dst"; n_changed=$((n_changed + 1))
+      say updated "$d/$p"
     else
       echo
       say differs "$d/$p (edited in target — matches no boilerplate version)"
       show_diff "$dst" "$src"
       case "$(ask3 "Overwrite $d/$p with the boilerplate version?")" in
-        overwrite) cp -p "$src" "$dst"; say overwrote "$d/$p"; n_updated=$((n_updated + 1)) ;;
-        upstream)  cp -p "$src" "$dst.upstream"; n_kept=$((n_kept + 1))
+        overwrite) cp -p "$src" "$dst"; say overwrote "$d/$p"; n_changed=$((n_changed + 1)) ;;
+        upstream)  cp -p "$src" "$dst.upstream"; n_changed=$((n_changed + 1))
                    say kept "$d/$p (target version); boilerplate copy written to $p.upstream" ;;
-        *)         say kept "$d/$p (target version)"; n_kept=$((n_kept + 1)) ;;
+        *)         say kept "$d/$p (target version)"; n_changed=$((n_changed + 1)) ;;
       esac
     fi
   done 3< <(list_files "$SRC/$d")
 
-  if [ $((n_new + n_updated + n_kept)) -eq 0 ]; then
-    say "in sync" "$d"
-  else
-    say updated "$d ($n_new new, $n_updated updated, $n_kept kept with local edits)"
-  fi
+  [ "$n_changed" -eq 0 ] && unchanged "$d"
 done
 
 # init-firewall.sh is mirrored because it is pure logic now — the per-project
@@ -561,9 +582,20 @@ done
 for f in .claude/README.md .devcontainer/STACKS.md .devcontainer/init-firewall.sh .devcontainer/initialize.sh .devcontainer/claude-harness.zsh; do
   [ -f "$SRC/$f" ] || continue
   mkdir -p "$TARGET/$(dirname "$f")"
-  cp -p "$SRC/$f" "$TARGET/$f"
-  say "copied" "$f"
+  if [ ! -f "$TARGET/$f" ]; then
+    cp -p "$SRC/$f" "$TARGET/$f"; say "copied" "$f (was missing in target)"
+  elif cmp -s "$SRC/$f" "$TARGET/$f"; then
+    unchanged "$f"
+  else
+    cp -p "$SRC/$f" "$TARGET/$f"; say "updated" "$f"
+  fi
 done
+
+if [ "$old_version" != "$HARNESS_VERSION" ]; then
+  [ "$old_version" = none ] && verb=created || verb=updated
+  printf '%s\n' "$HARNESS_VERSION" > "$TARGET/.claude/HARNESS_VERSION"
+  say "$verb" ".claude/HARNESS_VERSION ($HARNESS_VERSION)"
+fi
 
 # --- 2. Dockerfile: splice at the project-layers marker ---------------------
 # Above the marker = harness (replaced); below = the project's own layers
@@ -633,12 +665,12 @@ if [ -f "$SRC/$DOCKERFILE" ]; then
     cp -p "$SRC/$DOCKERFILE" "$TARGET/$DOCKERFILE"
     say "copied" "$DOCKERFILE (was missing in target)"
   elif cmp -s "$SRC/$DOCKERFILE" "$TARGET/$DOCKERFILE"; then
-    say "in sync" "$DOCKERFILE"
+    unchanged "$DOCKERFILE"
   elif has_marker "$SRC/$DOCKERFILE" && has_marker "$TARGET/$DOCKERFILE"; then
     spliced=$(mktemp)
     { dockerfile_head "$SRC/$DOCKERFILE"; dockerfile_tail "$TARGET/$DOCKERFILE"; } > "$spliced"
     if cmp -s "$spliced" "$TARGET/$DOCKERFILE"; then
-      say "in sync" "$DOCKERFILE (harness section; project layers untouched)"
+      unchanged "$DOCKERFILE"
     else
       echo
       say "splicing" "$DOCKERFILE — harness section refreshed, project layers below the marker kept:"
@@ -744,9 +776,9 @@ for f in $ASK_FILES; do
     cp -p "$SRC/$f" "$TARGET/$f"
     say "copied" "$f (was missing in target)"
   elif cmp -s "$SRC/$f" "$TARGET/$f"; then
-    say "in sync" "$f"
+    unchanged "$f"
   elif [ "$f" = "$DEVCONTAINER" ] && devcontainer_in_sync_modulo_fields; then
-    say "in sync" "$f (name / CLAUDE_SHORTCUT_FLAGS are the target's own)"
+    unchanged "$f"
   else
     ask_first "$f"
   fi
@@ -808,9 +840,14 @@ if [ "$ADOPT" = 1 ]; then
   echo "     container, asks commit/testing policy, and flags non-Node stacks"
   echo "     (recipes: .devcontainer/STACKS.md — the container ships Node-only)."
 else
+  if [ "${#IN_SYNC[@]}" -gt 0 ]; then
+    say "in sync" "${#IN_SYNC[@]} more files and directories already match the boilerplate"
+  fi
   echo
   echo "Done. Not touched: settings.local.json, .claude/logs/, _planning/."
-  echo "If .devcontainer/ files changed, rebuild the target's container to apply."
+  if [ "$(devcontainer_fingerprint)" != "$DEVCONTAINER_BEFORE" ]; then
+    echo "${C_BOLD}.devcontainer/ changed — rebuild the target's container to apply.${C_OFF}"
+  fi
 fi
 
 # --- 5. Host-side agent-sandbox.zsh (not part of the target; lives in ~/.config) ----

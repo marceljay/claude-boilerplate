@@ -131,6 +131,11 @@ mkdir -p _planning/plans _planning/specs
 find _planning/plans -type f ! -name '.gitkeep' -delete
 touch _planning/plans/.gitkeep _planning/specs/.gitkeep
 
+# Record the harness version before the boilerplate's history is dropped;
+# the status line shows it and sync-harness.sh updates it.
+git describe --tags --always --dirty 2>/dev/null > .claude/HARNESS_VERSION \
+  || rm -f .claude/HARNESS_VERSION
+
 if [ "$KEEP_GIT" -eq 0 ]; then
   rm -rf .git
   git init -q

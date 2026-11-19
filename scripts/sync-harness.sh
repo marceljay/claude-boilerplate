@@ -315,6 +315,8 @@ install_shell() {
   say "copied" "$AGENT_ZSH_DEST"
   echo "          AGENT_SANDBOX_VERSION=${version:-?}  sha256 $new_sha"
   offer_zshrc_line
+  say "note" "shells that are already open keep the old functions; open a new tab or run:"
+  echo "          source $AGENT_ZSH_DEST"
 }
 
 # ~/.zshrc gets exactly one line, appended, only on a yes, only if absent.

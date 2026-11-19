@@ -645,12 +645,18 @@ agent-sandbox() {
   _agent_sandbox_firewall "$name" || return 1
   _agent_sandbox_drift_warn "$dir" "$name"
 
+  # docker exec passes no locale and sets TERM=xterm. Without a UTF-8
+  # locale the tmux client replaces every non-ASCII character with "_";
+  # C.UTF-8 is the one UTF-8 locale the image always has.
+  local -a env=(-e LANG=C.UTF-8 -e TERM=xterm-256color)
+  [[ -n $COLORTERM ]] && env+=(-e COLORTERM="$COLORTERM")
+
   # tmux if the image has it (sessions survive closing the tab), else plain zsh.
   if (( use_tmux )) && docker exec "$name" sh -c 'command -v tmux' >/dev/null 2>&1; then
-    docker exec -it "$name" tmux new-session -A -s main
+    docker exec -it "${env[@]}" "$name" tmux new-session -A -s main
   else
     (( use_tmux )) && print -u2 "agent-sandbox: no tmux in the image, opening zsh (closing this tab ends whatever runs in it)"
-    docker exec -it "$name" zsh
+    docker exec -it "${env[@]}" "$name" zsh
   fi
 }
 

@@ -1,7 +1,7 @@
 # agent-sandbox.zsh: run Claude Code in a per-project Docker container — plain Docker
 # from the host, no devcontainer CLI, no VS Code attach.
 #
-# AGENT_SANDBOX_VERSION=1.5.1
+# AGENT_SANDBOX_VERSION=1.6.0
 #
 # Source this from ~/.zshrc (`scripts/sync-harness.sh --install-shell` copies
 # it to ~/.config/zsh/agent-sandbox.zsh and prints the line). Keep the installed copy
@@ -65,7 +65,11 @@
 #     under .git/worktrees/, which `agent-sandbox` verifies says "../..".
 #     Caveat: git rewrites .git/config by renaming a new file over it, so
 #     after a host-side `git remote add`, `git config` or `push -u` the
-#     container still sees the OLD inode — `agent-sandbox-recreate`.
+#     container still sees the OLD inode — `agent-sandbox-recreate`. Docker
+#     Desktop has also been seen to drop that mount entirely on a restart
+#     while `docker inspect` still lists it, so every attach reads the
+#     container's own /proc/1/mountinfo and refuses when a read-only path
+#     is missing or writable.
 #   - two named volumes: <name>-config (/home/node/.claude: sign-in, memory,
 #     sessions) and <name>-history (/commandhistory)
 #   - the environment devcontainer.json's containerEnv sets (keep the two in
@@ -594,6 +598,57 @@ _agent_sandbox_setup_banner() {
   print -u2 "agent-sandbox: =============================================="
 }
 
+# Container paths _agent_sandbox_create mounts read-only in normal mode,
+# one per line. $1 = dir.
+_agent_sandbox_ro_paths() {
+  emulate -L zsh
+  local dir=$1 m
+  print -l /workspace/.devcontainer /workspace/.vscode /workspace/.git/hooks \
+    /workspace/.git/config /workspace/.git/commondir
+  for m in "$dir"/.git/modules/**/config(N.); do
+    print -r -- "/workspace/${m#$dir/}"
+  done
+}
+
+# Checks the read-only mounts from inside the running container: `docker
+# inspect` keeps listing a mount the container no longer has (seen with
+# Docker Desktop after the host replaced .git/config by rename), so only
+# the container's own mount table counts. Returns 1 when a path is not
+# mounted or mounted writable. $1 = dir, $2 = name, $3 = the [dir] argument
+# as the user typed it (for the hint).
+_agent_sandbox_verify_mounts() {
+  emulate -L zsh
+  local dir=$1 name=$2 arg=$3 info line p key opts
+  local -a f bad
+  local -A opts_of
+  if ! info=$(docker exec "$name" cat /proc/1/mountinfo 2>/dev/null) || [[ -z $info ]]; then
+    print -u2 "agent-sandbox: cannot read the mount table inside $name, so the read-only mounts are unverified; not attaching"
+    return 1
+  fi
+  # Field 5 is the mount point (space, tab, newline and backslash escaped as
+  # octal), field 6 the per-mount options. A later line is mounted on top.
+  for line in ${(f)info}; do
+    f=(${=line})
+    opts_of[${f[5]}]=${f[6]}
+  done
+  for p in ${(f)"$(_agent_sandbox_ro_paths "$dir")"}; do
+    key=${p//\\/\\134}; key=${key// /\\040}; key=${key//$'\t'/\\011}
+    opts=${opts_of[$key]}
+    if [[ -z $opts ]]; then
+      bad+=("$p (not mounted)")
+    elif [[ ,$opts, != *,ro,* ]]; then
+      bad+=("$p (mounted writable)")
+    fi
+  done
+  (( $#bad )) || return 0
+  print -u2 "agent-sandbox: read-only protection missing inside $name:"
+  for p in $bad; do print -u2 "agent-sandbox:   $p"; done
+  print -u2 "agent-sandbox: the agent could change git config or hooks that the host's git and VS Code run."
+  print -u2 "agent-sandbox: not attaching. Run agent-sandbox-recreate${arg:+ $arg} (sign-in and history are kept),"
+  print -u2 "agent-sandbox: and check .git/config and .git/hooks for changes you did not make."
+  return 1
+}
+
 agent-sandbox() {
   emulate -L zsh
   local use_tmux=1 mode=normal
@@ -642,6 +697,10 @@ agent-sandbox() {
 
   _agent_sandbox_running "$name" || docker start "$name" >/dev/null || return 1
 
+  # Setup mode has no read-only mounts by design; it warns on its own.
+  if [[ $mode == normal ]]; then
+    _agent_sandbox_verify_mounts "$dir" "$name" "$1" || return 1
+  fi
   _agent_sandbox_firewall "$name" || return 1
   _agent_sandbox_drift_warn "$dir" "$name"
 

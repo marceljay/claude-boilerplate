@@ -56,7 +56,11 @@ case "$sub" in
     rm -f "$S/iptables_drop"
     touch "$S/container" "$S/running"
     echo normal > "$S/container_mode"
-    for a in "$@"; do case "$a" in agent-sandbox.mode=*) echo "${a#*=}" > "$S/container_mode" ;; esac; done ;;
+    : > "$S/module_mounts"
+    for a in "$@"; do case "$a" in
+      agent-sandbox.mode=*) echo "${a#*=}" > "$S/container_mode" ;;
+      *dst=/workspace/.git/modules/*,readonly) d="${a#*dst=}"; d="${d%,readonly}"; echo "${d// /\\040}" >> "$S/module_mounts" ;;
+    esac; done ;;
   start) rm -f "$S/iptables_drop"; touch "$S/running" ;;
   stop)  rm -f "$S/running" ;;
   rm)    rm -f "$S/container" "$S/running" "$S/container_mode" ;;
@@ -70,6 +74,18 @@ case "$sub" in
         if [ -e "$S/firewall_fail" ]; then echo "ERROR: stub firewall failure"; exit 1; fi
         touch "$S/iptables_drop"; echo "Firewall configuration complete" ;;
       *"command -v tmux"*) [ -e "$S/has_tmux" ] ;;
+      *"/proc/1/mountinfo"*)
+        [ -e "$S/mountinfo_fail" ] && exit 1
+        echo "60 1 0:40 / /workspace rw,relatime - virtiofs virtiofs0 rw"
+        for p in .devcontainer .vscode .git/hooks .git/config .git/commondir; do
+          [ "$p" = .git/config ] && [ -e "$S/mount_missing_config" ] && continue
+          o=ro; [ "$p" = .git/hooks ] && [ -e "$S/mount_rw_hooks" ] && o=rw
+          echo "61 60 0:40 /x /workspace/$p $o,nosuid,relatime - virtiofs virtiofs0 rw"
+        done
+        [ -e "$S/module_mounts" ] && while IFS= read -r d; do
+          echo "62 60 0:40 /x $d ro,nosuid,relatime - virtiofs virtiofs0 rw"
+        done < "$S/module_mounts"
+        : ;;
       *) : ;;   # tmux / zsh attach: log only
     esac ;;
   *) echo "stub docker: unhandled: $sub $*" >&2; exit 99 ;;
@@ -235,6 +251,37 @@ reset_state image container running iptables_drop has_tmux
 run_agent agent-sandbox --bogus "$proj"
 assert_eq "unknown option → exit 2" 2 $rc
 assert_eq "  nothing run" "" "$(actions)"
+
+print "read-only mounts verified inside the container"
+
+reset_state image container running iptables_drop has_tmux
+run_agent agent-sandbox "$proj"
+assert_eq "all read-only mounts present → attaches" "tmux" "$(actions)"
+assert_has "  reads the container's own mount table" "$(<$AGENT_SANDBOX_STUB_STATE/log)" "cat /proc/1/mountinfo"
+
+reset_state image container running iptables_drop has_tmux mount_missing_config
+run_agent agent-sandbox "$proj"
+assert_eq ".git/config not mounted → refuses" 1 $rc
+assert_eq "  no attach" "" "$(actions)"
+assert_has "  names the path" "$stderr" "/workspace/.git/config (not mounted)"
+assert_has "  points at agent-sandbox-recreate" "$stderr" "agent-sandbox-recreate $proj"
+
+reset_state image container running iptables_drop has_tmux mount_rw_hooks
+run_agent agent-sandbox "$proj"
+assert_eq ".git/hooks mounted writable → refuses" 1 $rc
+assert_has "  names the path" "$stderr" "/workspace/.git/hooks (mounted writable)"
+
+reset_state image container running iptables_drop has_tmux mountinfo_fail
+run_agent agent-sandbox "$proj"
+assert_eq "mount table unreadable → refuses" 1 $rc
+assert_has "  says why" "$stderr" "unverified"
+
+mkdir -p "$proj/.git/modules/sub mod"; : > "$proj/.git/modules/sub mod/config"
+reset_state image container running iptables_drop has_tmux
+run_agent agent-sandbox "$proj"
+assert_eq "submodule config not mounted → refuses" 1 $rc
+assert_has "  names it" "$stderr" "/workspace/.git/modules/sub mod/config (not mounted)"
+rm -rf "$proj/.git/modules"
 
 print "setup mode"
 

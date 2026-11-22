@@ -565,9 +565,17 @@ the VS Code path. The boundary is the same; what sits around it differs.
   iTerm2's `tmux -CC` integration for sandbox sessions: that path has had
   several code-execution CVEs, and the point of tmux here is a plain
   scrollback. The container's `/etc/tmux.conf` turns off `set-clipboard` and
-  `allow-passthrough`, so a command inside cannot write your clipboard or
-  relay raw escape sequences to your terminal. Any pane can `tmux set` them
-  back, so treat them as a default, not a boundary.
+  `allow-passthrough`, so escape sequences a program prints don't reach your
+  clipboard or terminal. That is a default, not a boundary: tmux's own
+  commands (`tmux set-buffer -w`) still write the clipboard and
+  `tmux refresh-client -l` can read it.
+- **Keep iTerm2's clipboard access off.** In iTerm2 → Settings → General →
+  Selection, leave "Applications in terminal may access clipboard" off. That
+  setting is what actually stops the container from writing or reading your
+  clipboard. To copy from a sandbox pane, hold Option while dragging, then
+  press Cmd-C. Read a command copied from the container before running it on
+  the host: text can be printed invisibly and still be copied. Details:
+  [SECURITY-MODEL.md §4.8](docs/SECURITY-MODEL.md#48-terminal-and-clipboard-escape-sequences).
 - **Turn off title reporting.** In iTerm2 → Profiles → Terminal, turn off
   "Terminal may report window title" and similar "report …" options. A
   process in the container sets the title, and a terminal that echoes it

@@ -559,16 +559,63 @@ package, with no human in the loop.
 
 - **Mitigation:** `/etc/tmux.conf` sets `set-clipboard off` and
   `allow-passthrough off`, so tmux does not forward OSC 52 or raw passthrough
-  sequences. README asks for iTerm2 3.6.10 or later, no `tmux -CC`, and
-  "Terminal may report window title" off; on Linux, check the terminal's own
+  sequences that a program prints. README asks for iTerm2 3.6.10 or later, no
+  `tmux -CC`, "Terminal may report window title" off, and the terminal's
+  clipboard access for applications off; on Linux, check the terminal's own
   OSC 52 and title-report settings.
 
-- **Residual:** Any pane can run `tmux set -g set-clipboard on`; the config is
-  a default, not an enforcement. `agent-sandbox --no-tmux` and `docker exec` shells
-  bypass tmux entirely. The terminal's own parser is the trust boundary and is
-  outside this repo.
+- **Residual:** `set-clipboard off` stops only OSC 52 that a program prints.
+  tmux's own commands still reach the terminal (tested on tmux 3.3a, the
+  image's version): `tmux set-buffer -w` and `tmux load-buffer -w` write the
+  host clipboard, and `tmux refresh-client -l` asks the terminal for the host
+  clipboard and stores the answer in a paste buffer the agent can read. Any
+  pane can also run `tmux set -g set-clipboard on`. The control that holds is
+  the host terminal's clipboard permission: with it off, none of these
+  reach the clipboard. `agent-sandbox --no-tmux` and `docker exec` shells
+  bypass tmux entirely. The terminal's own parser is the trust boundary and
+  is outside this repo.
 
-- **Verify:** Inside tmux: `tmux show -g set-clipboard` prints `off`.
+- **Verify:** Inside tmux: `tmux show -g set-clipboard` prints `off`. Then
+  copy some text on the host, run `tmux set-buffer -w PROBE`, and paste on the
+  host: the paste must still be your own text, not `PROBE`. If `PROBE` comes
+  out, the terminal grants clipboard access to applications; turn it off.
+
+#### Clipboard exploit paths
+
+The clipboard links the container and host shells, so it gets its own
+list. Each row says what the agent does and whether the defaults stop it.
+
+| Path | What the agent does | Gain | Stopped by |
+| --- | --- | --- | --- |
+| Clipboard write, then paste on the host | puts a command on the host clipboard, or replaces something you just copied, by printing OSC 52, running `tmux set-buffer -w`, or running `tmux set -g set-clipboard on` first | you paste it into a host shell or app: host code execution, or a changed address or command | printed OSC 52: `set-clipboard off`; the `tmux` commands: only the terminal's clipboard permission being off |
+| Clipboard read | `tmux refresh-client -l`, then `tmux show-buffer` | whatever is on the host clipboard: passwords and tokens from a password manager, 2FA codes | only the terminal refusing clipboard reads; several terminals answer them, some after a prompt |
+| Hidden text in a native selection | prints text the terminal renders invisibly (concealed SGR 8, foreground colour equal to background) between visible characters | you select what looks like `npm test`, copy it, and paste `npm test; curl …\|sh` on the host | nothing in the container; the host shell's bracketed paste puts the full text on the command line for review instead of running it |
+| Pasted secrets in the container | reads every pane with `tmux capture-pane`, reads tmux paste buffers and shell history | anything you paste or type into any container pane | nothing; the agent sees the whole container |
+| Answer-back injection | sets the window title, then asks the terminal to report it | text injected into the shell input | "Terminal may report window title" off |
+
+#### Safe ways to copy and paste
+
+From safest to least safe:
+
+1. **Native selection with the terminal's clipboard access off.** Hold the
+   terminal's bypass key while dragging (Option in iTerm2, Fn in macOS
+   Terminal, Shift in most others) and copy with Cmd-C or Ctrl-Shift-C. Your
+   terminal does the copying, so no escape sequence or container process is
+   involved. Hidden text is the remaining risk: paste a command copied from
+   the container into a host shell, read the whole line, then press Enter.
+   For anything long, paste into an editor first.
+2. **Copy and paste between container panes with tmux** (drag, then
+   `Ctrl-b ]`). The text never reaches the host, but the agent can read tmux
+   buffers, so don't use this for secrets.
+3. **Paste from the host into the container.** Safe for the host, but assume
+   the agent sees everything you paste. Use a scoped token rather than your
+   main one.
+4. **Avoid:** turning on the terminal's clipboard access for applications,
+   whether or not you also set `set-clipboard external` or `on`. A normal tmux
+   drag then copies to the host clipboard, but so can any process in the
+   container (`tmux set-buffer -w`), and terminals that allow reads give
+   your clipboard to `tmux refresh-client -l`. Also avoid iTerm2's `tmux -CC`
+   integration.
 
 ### 4.9 Exfiltration through allowed egress
 
@@ -748,7 +795,7 @@ channels at the bottom.
 | `$BROWSER` opens host URLs | absent | present | 5 |
 | `.gitconfig` | name and email only | whole file plus credential proxy | 6 |
 | Published ports | `agent-sandbox-ports` list, loopback, ephemeral | every opened port, auto-forwarded | 7 |
-| Terminal escape sequences | tmux defaults off clipboard and passthrough | VS Code terminal, its own handling | 8 |
+| Terminal escape sequences | tmux defaults off clipboard and passthrough; `tmux set-buffer -w` and `refresh-client -l` still reach the terminal, so its clipboard permission decides | VS Code terminal, its own handling | 8 |
 | GitHub-wide egress | open | open | 9 |
 | DNS tunnelling via the resolver | open, narrowed to configured resolvers | same | 9 |
 | Package code runs in the container | inside the boundary | inside the boundary | 10 |
@@ -804,6 +851,7 @@ place, whatever the code says.
 ### 6.5 Host and terminal
 
 - [ ] Inside tmux, `tmux show -g set-clipboard` prints `off` (scenario 8)
+- [ ] Copy text on the host, run `tmux set-buffer -w PROBE` inside, paste on the host: your own text comes out, not `PROBE` (terminal clipboard access off, scenario 8)
 - [ ] On the host, `ls -l ~/.config/zsh/agent-sandbox.zsh` is a regular file, mode 0644, and its SHA-256 matches `scripts/agent-sandbox.zsh` at the reviewed commit (scenario 14)
 
 ## 7. Open items and proposed next controls

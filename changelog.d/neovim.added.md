@@ -1,0 +1,1 @@
+- **Neovim in the dev container**: Neovim 0.12.6 (sha256-pinned upstream release, no plugins) and ripgrep are installed, with netrw defaults that make `:Lexplore` a file tree on the left. Gives the `scripts/agent-sandbox.zsh` path an editor without VS Code.

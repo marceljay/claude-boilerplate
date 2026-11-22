@@ -40,6 +40,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   nano \
   vim \
   tmux \
+  ripgrep \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Upgrade npm as root BEFORE NPM_CONFIG_PREFIX is set. If this runs after the
@@ -101,6 +102,28 @@ RUN ARCH=$(dpkg --print-architecture) && \
   echo "$DELTA_SHA256  git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb" | sha256sum -c - && \
   dpkg -i "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb" && \
   rm "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb"
+
+# Neovim for the no-VS-Code path (scripts/agent-sandbox.zsh + tmux). Debian
+# bookworm ships 0.7, too old for the built-in LSP/treesitter defaults, so
+# take the upstream release tarball, sha256-pinned per architecture like
+# git-delta above. No plugins and no config are installed: a plugin manager
+# fetches and runs unpinned code at startup. Bumping NVIM_VERSION means
+# recomputing both hashes (sha256sum on the release .tar.gz files).
+ARG NVIM_VERSION=0.12.6
+ARG NVIM_SHA256_ARM64=8f1f64a0bdb97247034038c3823c6cbad5bdf9ecd5751b85494b71c3ee04c815
+ARG NVIM_SHA256_AMD64=474430d53e6264f6d6dd18db42d6dc9df3a1b56ca9e88a325bbf860e1a811d87
+RUN ARCH=$(dpkg --print-architecture) && \
+  case "$ARCH" in \
+    arm64) NVIM_ARCH=arm64;  NVIM_SHA256="$NVIM_SHA256_ARM64" ;; \
+    amd64) NVIM_ARCH=x86_64; NVIM_SHA256="$NVIM_SHA256_AMD64" ;; \
+    *) echo "ERROR: no recorded neovim hash for arch '$ARCH'"; exit 1 ;; \
+  esac && \
+  curl -fsSLo /tmp/nvim.tar.gz "https://github.com/neovim/neovim/releases/download/v${NVIM_VERSION}/nvim-linux-${NVIM_ARCH}.tar.gz" && \
+  echo "$NVIM_SHA256  /tmp/nvim.tar.gz" | sha256sum -c - && \
+  tar -C /opt -xzf /tmp/nvim.tar.gz && \
+  ln -s "/opt/nvim-linux-${NVIM_ARCH}/bin/nvim" /usr/local/bin/nvim && \
+  rm /tmp/nvim.tar.gz && \
+  nvim --version | head -1
 
 # Set up non-root user
 USER $USERNAME
@@ -238,6 +261,26 @@ RUN printf '%s\n' \
   'set -g allow-passthrough off' \
   'set -g mouse on' > /etc/tmux.conf && \
   chmod 0644 /etc/tmux.conf
+
+# Neovim defaults: netrw (the built-in file browser) as an IDE-style tree on
+# the left — open it with :Lexplore. A plugin/ file under /etc/xdg is the
+# one system location nvim loads even when ~/.config/nvim/init.lua exists
+# (sysinit.lua is never read; /etc/xdg/nvim/init.lua is skipped once a user
+# config exists). plugin/ runs AFTER the user's init.lua, so each value is
+# set only if still unset — the user config stays the override.
+# Root-owned, so the agent can't change it.
+RUN mkdir -p /etc/xdg/nvim/plugin && \
+  printf '%s\n' \
+  'local defaults = {' \
+  '  netrw_liststyle = 3,     -- tree view' \
+  '  netrw_browse_split = 4,  -- open files in the previous window' \
+  '  netrw_winsize = 25,      -- :Lexplore width in percent' \
+  '  netrw_banner = 0,        -- hide the help banner' \
+  '}' \
+  'for k, v in pairs(defaults) do' \
+  '  if vim.g[k] == nil then vim.g[k] = v end' \
+  'end' > /etc/xdg/nvim/plugin/harness-defaults.lua && \
+  chmod 0644 /etc/xdg/nvim/plugin/harness-defaults.lua
 USER $USERNAME
 
 # Everything ABOVE the marker line below is harness: scripts/sync-harness.sh

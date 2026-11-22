@@ -102,6 +102,18 @@ cc-update() {
   echo "cc-update: a container rebuild reinstalls CLAUDE_CODE_VERSION from devcontainer.json (default latest, i.e. this version or newer)"
 }
 
+# lvim [nvim args...]
+# Neovim with netrw (the built-in file browser) as a tree on the left. With
+# file arguments the cursor starts in the first file, not in the tree.
+# Tree style and width come from /etc/xdg/nvim/plugin/harness-defaults.lua.
+lvim() {
+  if (( $# )); then
+    nvim "$@" +Lexplore '+wincmd p'
+  else
+    nvim +Lexplore
+  fi
+}
+
 cc-help() {
   local f="${CLAUDE_SHORTCUT_FLAGS:-(none — set CLAUDE_SHORTCUT_FLAGS in devcontainer.json containerEnv)}"
   cat <<HELP
@@ -114,6 +126,8 @@ Claude Code shortcuts (this container only):
   cc-update [ver]     reinstall Claude Code         update between rebuilds
                       (the only way that works here; \`claude update\` is blocked)
   cc-help             this list
+Editor:
+  lvim [files]        nvim with a file tree on the left (:Lex toggles it)
 Extra flags the session shortcuts pass (CLAUDE_SHORTCUT_FLAGS): $f
 Full commands are in shell history too: Ctrl-R "claude". Plain \`claude\` keeps prompts.
 Firewall: sudo /usr/local/bin/init-firewall.sh re-applies it on this live container

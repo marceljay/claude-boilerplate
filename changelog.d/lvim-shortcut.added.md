@@ -1,0 +1,1 @@
+- **`lvim` shortcut**: starts Neovim with the file tree open on the left; with file arguments the cursor starts in the first file. Listed in `cc-help`.

@@ -179,15 +179,19 @@ flags non-Node stacks (the container ships Node-only; recipes are in
 once afterwards, as in Path A step 5.
 
 Re-run the same command later to pull harness updates into the project. This
-**refresh mode**:
+**refresh mode** asks before every change it makes (default No; answering No
+to everything leaves the project unchanged). It:
 
-- mirrors commands, skills, agents, hooks and the firewall script, and
-  confirms deletions;
+- lists the boilerplate commits since the project's last sync, and stops to
+  ask when your boilerplate checkout is older than that (wrong branch, stale
+  clone);
+- offers updates to commands, skills, agents, hooks and the firewall script
+  one file at a time with a diff, and asks before deleting retired ones;
 - warns about hook files your kept `settings.json` does not wire;
-- splices the `Dockerfile` at its `# ==== PROJECT LAYERS ====` marker, so
-  upstream fixes land while your stack layers below it stay;
-- shows a diff and asks before touching files that hold per-project edits,
-  such as `allowed-domains.txt` or `devcontainer.json`. Answer `u` to keep
+- offers to replace the `Dockerfile` section above its
+  `# ==== PROJECT LAYERS ====` marker; your stack layers below it are kept;
+- for files that hold per-project edits, such as `allowed-domains.txt` or
+  `devcontainer.json`, says so above the diff. Answer `u` to keep
   yours and get the boilerplate version beside it as `<file>.upstream` for a
   hand merge. Overwriting `devcontainer.json` keeps your container `"name"`
   and `CLAUDE_SHORTCUT_FLAGS`, and a copy that differs only in those two

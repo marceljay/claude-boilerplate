@@ -675,7 +675,11 @@ _agent_sandbox_version() {
   if [[ $now != "$loaded" ]]; then
     print -r -- "agent-sandbox: the file there is now ${now:-missing} — open a new shell (or source ~/.zshrc) to load it"
   fi
-  [[ $(whence -w git) == "git: function" ]] || print -r -- "agent-sandbox: git init guard inactive here: $(whence -w git)"
+  if [[ $(whence -w git) != "git: function" ]]; then
+    print -r -- "agent-sandbox: git init guard inactive here: $(whence -w git) takes precedence"
+  elif [[ $functions[git] != *AGENT_SANDBOX_GIT_INIT_GUARD* ]]; then
+    print -r -- "agent-sandbox: git init guard inactive here: another git function replaced it (see: whence -v git)"
+  fi
 }
 
 agent-sandbox() {
@@ -894,13 +898,14 @@ _agent_sandbox_git_init_target() {   # args of a git command line → dir of `in
 
 if (( ! $+functions[git] )) || [[ $functions[git] == *AGENT_SANDBOX_GIT_INIT_GUARD* ]]; then
   git() {
+    emulate -L zsh
     local guard=${AGENT_SANDBOX_GIT_INIT_GUARD:-1} dir reply
     if [[ $guard == always || ( $guard != 0 && -t 0 ) ]]; then
       dir=$(_agent_sandbox_git_init_target "$@")
       if [[ -n $dir && -e $dir/.git ]]; then
-        print -u2 "agent-sandbox: $dir is already a git repository. git init changes nothing useful there,"
-        print -u2 "agent-sandbox: but it rewrites .git/config, which detaches an agent-sandbox container's read-only"
-        print -u2 "agent-sandbox: mount of it (agent-sandbox then refuses to attach until agent-sandbox-recreate)."
+        print -u2 "agent-sandbox: $dir already has a .git — reinitializing it could break agent-sandbox."
+        print -u2 "agent-sandbox: git init rewrites .git/config, which detaches the container's read-only mount of it;"
+        print -u2 "agent-sandbox: agent-sandbox then refuses to attach until agent-sandbox-recreate (ending any running session)."
         read -r "reply?agent-sandbox: reinitialize it anyway? [y/N] " || reply=n
         [[ $reply == [yY]* ]] || { print -u2 "agent-sandbox: git init skipped"; return 1 }
       fi

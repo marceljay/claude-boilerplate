@@ -611,7 +611,7 @@ cfg_id() { stat -c '%i %Y' "$gi/old/.git/config" 2>/dev/null || stat -f '%i %m' 
 before=$(cfg_id)
 out=$(print n | AGENT_SANDBOX_GIT_INIT_GUARD=always git init "$gi/old" 2>&1); rc=$?
 assert_eq "git init in an existing repo, 'n' → skipped" 1 $rc
-assert_has "  explains the detached mount" "$out" "detaches an agent-sandbox container's read-only"
+assert_has "  says it could break agent-sandbox" "$out" "reinitializing it could break agent-sandbox"
 assert_eq "  .git/config untouched" "$before" "$(cfg_id)"
 out=$(cd "$gi/old" && print n | AGENT_SANDBOX_GIT_INIT_GUARD=always git init 2>&1); rc=$?
 assert_eq "  same for a bare 'git init' inside it" 1 $rc
@@ -638,6 +638,8 @@ assert_not_has "  no stale-file note when unchanged" "$out" "the file there is n
 assert_not_has "  guard active" "$out" "guard inactive"
 ( _agent_sandbox_loaded_version() { print 0.0.1 }; agent-sandbox --version ) 2>&1 | grep -q "open a new shell" \
   && ok "  says when the file on disk is newer than the loaded copy" || bad "  says when the file on disk is newer than the loaded copy"
+( git() { command git "$@" }; agent-sandbox --version ) 2>&1 | grep -q "another git function replaced it" \
+  && ok "  says when another git function replaced the guard" || bad "  says when another git function replaced the guard"
 
 print "agent-sandbox-check (no docker, no git)"
 reset_state

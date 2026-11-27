@@ -58,6 +58,9 @@
 #   - Before syncing, lists the boilerplate commits since the version
 #     recorded there that touched the synced paths (title plus the summary
 #     paragraph of each body, newest 25), so you know what is arriving.
+#     When this checkout is OLDER than that version, or on a different
+#     line (wrong branch, stale clone), it lists the harness commits the
+#     sync would remove and asks before going on (default No: stop).
 #   - Never touches: settings.local.json, .claude/logs/, _planning/,
 #     project code, git state.
 #
@@ -77,6 +80,8 @@
 # only (skipped inside the container); refuses a symlinked destination and
 # never creates one — the installed copy must live where no agent can write
 # (README "Run without VS Code"). agent-sandbox.zsh is never copied into targets.
+# Before the replace prompt it lists the commits since the installed copy,
+# and warns when the installed version is higher than the one offered.
 
 set -euo pipefail
 
@@ -142,6 +147,47 @@ file_header() {
   printf '%s\n' "$C_OFF"
   [ -z "$stat" ] || printf '%s%s-%s%s lines = the target'"'"'s current text (gone if overwritten), %s+%s%s = boilerplate%s\n' \
     "$C_DIM" "$C_RED" "$C_OFF" "$C_DIM" "$C_GREEN" "$C_OFF" "$C_DIM" "$C_OFF"
+}
+
+# Commits in this repo after $1 (exclusive) up to HEAD that touched the
+# pathspecs in $3…, oldest first, under the heading $2. Each shows its title
+# and the summary paragraph its body opens with (the repo's commit
+# convention); at most the newest MAX_CHANGES. Merges are skipped.
+# Informational only: never fails the script.
+MAX_CHANGES=25
+print_commits() {
+  local rev="$1" heading="$2" log n
+  shift 2
+  log=$(git -C "$SRC" log --no-merges --reverse --format='%h%x1f%s%x1f%b%x1e' "$rev..HEAD" -- "$@" 2>/dev/null) || return 0
+  n=$(printf '%s' "$log" | tr -cd '\036' | wc -c | tr -d ' ')
+  if [ "$n" -eq 0 ]; then
+    say "in sync" "no commits since $heading"
+    return 0
+  fi
+  printf '%sChanges since %s%s (%s commit%s, oldest first):\n' \
+    "$C_BOLD" "$heading" "$C_OFF" "$n" "$([ "$n" -eq 1 ] || echo s)"
+  if [ "$n" -gt "$MAX_CHANGES" ]; then
+    echo "  ${C_DIM}($((n - MAX_CHANGES)) older not shown: git -C $SRC log --oneline $rev..HEAD -- $*)${C_OFF}"
+  fi
+  printf '%s' "$log" | awk -v RS="$(printf '\036')" -F "$(printf '\037')" \
+      -v max="$MAX_CHANGES" -v total="$n" -v b="$C_BOLD" -v d="$C_DIM" -v o="$C_OFF" '
+    { sub(/^\n+/, "") }
+    $1 == "" { next }
+    ++i > total - max {
+      printf "  %s%s%s %s\n", d, $1, o, b $2 o
+      body = $3; p = index(body, "\n\n"); if (p) body = substr(body, 1, p - 1)
+      m = split(body, l, "\n")
+      for (k = 1; k <= m; k++) if (l[k] != "" && l[k] !~ /^Co-Authored-By:/) printf "          %s%s%s\n", d, l[k], o
+    }'
+  if [ -n "$(git -C "$SRC" status --porcelain -- "$@" 2>/dev/null)" ]; then
+    echo "  ${C_DIM}plus uncommitted changes in $SRC${C_OFF}"
+  fi
+}
+
+# "branch <name>" or "detached at <sha>" for this checkout, for warnings.
+src_ref() {
+  local b; b=$(git -C "$SRC" symbolic-ref -q --short HEAD 2>/dev/null) && { echo "branch $b"; return; }
+  echo "detached at $(git -C "$SRC" rev-parse --short HEAD 2>/dev/null)"
 }
 
 REPLACE=0
@@ -249,6 +295,45 @@ EOF
 
 # Install or update the host-side agent-sandbox.zsh. Returns 0 unless something is
 # wrong with the environment (symlink, syntax error, no zsh); declining is 0.
+# Commits to scripts/agent-sandbox.zsh since the installed copy. The copy
+# records only a version number, so find the newest commit whose file is
+# byte-identical to it; failing that (installed from an uncommitted file),
+# the commit that introduced its version line.
+agent_zsh_changes() {
+  local path=scripts/agent-sandbox.zsh blob c base="" installed
+  git -C "$SRC" rev-parse --git-dir >/dev/null 2>&1 || return 0
+  installed=$(grep -m1 -E '^# AGENT_SANDBOX_VERSION=' "$AGENT_ZSH_DEST" | cut -d= -f2)
+  blob=$(git -C "$SRC" hash-object -- "$AGENT_ZSH_DEST" 2>/dev/null) || return 0
+  while IFS= read -r c; do
+    if [ "$(git -C "$SRC" rev-parse -q --verify "$c:$path" 2>/dev/null)" = "$blob" ]; then base=$c; break; fi
+  done < <(git -C "$SRC" log --format=%H -- "$path" 2>/dev/null)
+  if [ -n "$base" ]; then
+    print_commits "$base" "installed ${installed:-?} ($(git -C "$SRC" rev-parse --short "$base"))" "$path"
+  elif [ -n "$installed" ] &&
+       base=$(git -C "$SRC" log --reverse --format=%H -S"AGENT_SANDBOX_VERSION=$installed" -- "$path" 2>/dev/null | awk 'NR == 1') &&
+       [ -n "$base" ]; then
+    say note "the installed copy matches no committed version; listing from the commit that introduced ${installed}:"
+    print_commits "$base" "${installed} ($(git -C "$SRC" rev-parse --short "$base"))" "$path"
+  else
+    say note "the installed copy (${installed:-no version line}) matches no committed version; see the diff below"
+  fi
+}
+
+# The installed copy has a higher version than this checkout's (or the same
+# number with different content): replacing it would be a downgrade. The
+# replace prompt that follows defaults to No; this makes the stakes visible.
+agent_zsh_downgrade_warning() {
+  local offered="$1" installed
+  installed=$(grep -m1 -E '^# AGENT_SANDBOX_VERSION=' "$AGENT_ZSH_DEST" | cut -d= -f2)
+  [ -n "$installed" ] && [ -n "$offered" ] || return 0
+  if [ "$installed" = "$offered" ]; then
+    say WARNING "installed and offered copies are both $installed but differ — one of them was edited or built from another branch"
+  elif [ "$(printf '%s\n%s\n' "$installed" "$offered" | sort -V | tail -n 1)" = "$installed" ]; then
+    say WARNING "DOWNGRADE: installed agent-sandbox.zsh is $installed, this checkout ($(src_ref)) offers $offered."
+    echo "          Answer N, check out main and pull in $SRC, then run --install-shell again."
+  fi
+}
+
 install_shell() {
   local version new_sha ts
   echo
@@ -327,6 +412,9 @@ install_shell() {
   else
     file_header "$AGENT_ZSH_DEST" "$AGENT_ZSH_DEST" "$AGENT_ZSH_SRC"
     say "differs" "$AGENT_ZSH_DEST vs scripts/agent-sandbox.zsh ${version:-?} (installed → boilerplate):"
+    agent_zsh_changes
+    agent_zsh_downgrade_warning "$version"
+    echo
     show_diff "$AGENT_ZSH_DEST" "$AGENT_ZSH_SRC"
     ask "Replace the installed agent-sandbox.zsh with this version?" || { say "kept" "$AGENT_ZSH_DEST"; return 0; }
     ts=$(date +%Y%m%d-%H%M%S)
@@ -467,7 +555,7 @@ elif [ ! -d "$TARGET/.claude" ]; then
   echo
 fi
 
-echo "Syncing harness: $SRC -> $TARGET"
+echo "Syncing harness: $SRC ($(git -C "$SRC" symbolic-ref -q --short HEAD 2>/dev/null || echo "detached HEAD")) -> $TARGET"
 # Harness version: `git describe` of this repo (last tag, commits since, sha),
 # written to the target's .claude/HARNESS_VERSION, which the status line shows.
 HARNESS_VERSION=$(git -C "$SRC" describe --tags --always --dirty 2>/dev/null || echo unknown)
@@ -484,9 +572,8 @@ fi
 # a sync copies. Each commit shows its title and the summary paragraph that
 # opens its body (the repo's commit convention). Informational only.
 HARNESS_PATHS=".claude .devcontainer .npmrc .worktreeinclude scripts/agent-sandbox.zsh :(exclude).claude/CUSTOM.md"
-MAX_CHANGES=25
 show_harness_changes() {
-  local old="$1" rev log n
+  local old="$1" rev
   case "$old" in none | unknown | "" | "$HARNESS_VERSION") return 0 ;; esac
   rev="${old%-dirty}"
   case "$rev" in *-g[0-9a-f]*) rev="${rev##*-g}" ;; esac
@@ -494,30 +581,21 @@ show_harness_changes() {
     say note "changes since $old: commit $rev is not in this checkout (fetch, or it was rebased away)"
     return 0
   fi
-  # shellcheck disable=SC2086  # HARNESS_PATHS is a list of pathspecs
-  log=$(git -C "$SRC" log --no-merges --reverse --format='%h%x1f%s%x1f%b%x1e' "$rev..HEAD" -- $HARNESS_PATHS 2>/dev/null) || return 0
-  n=$(printf '%s' "$log" | tr -cd '\036' | wc -c | tr -d ' ')
-  if [ "$n" -eq 0 ]; then
-    say "in sync" "no harness commits since $old"
+  # Older or diverged checkout: syncing would remove harness commits the
+  # target already has. Say which, and ask (default No: stop).
+  if ! git -C "$SRC" merge-base --is-ancestor "$rev" HEAD 2>/dev/null; then
+    local how="is on a different line than"
+    git -C "$SRC" merge-base --is-ancestor HEAD "$rev" 2>/dev/null && how="is OLDER than"
+    say WARNING "this checkout ($(src_ref)) $how the target's harness ($old)."
+    echo "          Syncing would remove these harness commits from the target:"
+    # shellcheck disable=SC2086
+    git -C "$SRC" log --no-merges --format='            %h %s' "HEAD..$rev" -- $HARNESS_PATHS 2>/dev/null | head -n "$MAX_CHANGES"
+    echo "          Usually: check out main and pull in $SRC, then sync again."
+    ask "Sync this older harness into the target anyway?" || { echo "Stopped; nothing was changed."; exit 1; }
     return 0
   fi
-  printf '%sChanges since %s%s (%s commit%s touching the harness, oldest first):\n' \
-    "$C_BOLD" "$old" "$C_OFF" "$n" "$([ "$n" -eq 1 ] || echo s)"
-  [ "$n" -gt "$MAX_CHANGES" ] &&
-    echo "  ${C_DIM}($((n - MAX_CHANGES)) older not shown: git -C $SRC log --oneline $rev..HEAD -- .claude .devcontainer)${C_OFF}"
-  printf '%s' "$log" | awk -v RS="$(printf '\036')" -F "$(printf '\037')" \
-      -v max="$MAX_CHANGES" -v total="$n" -v b="$C_BOLD" -v d="$C_DIM" -v o="$C_OFF" \
-      '
-    { sub(/^\n+/, "") }
-    $1 == "" { next }
-    ++i > total - max {
-      printf "  %s%s%s %s\n", d, $1, o, b $2 o
-      body = $3; p = index(body, "\n\n"); if (p) body = substr(body, 1, p - 1)
-      m = split(body, l, "\n")
-      for (k = 1; k <= m; k++) if (l[k] != "" && l[k] !~ /^Co-Authored-By:/) printf "          %s%s%s\n", d, l[k], o
-    }
-  '
-  case "$HARNESS_VERSION" in *-dirty) echo "  ${C_DIM}plus uncommitted changes in $SRC${C_OFF}" ;; esac
+  # shellcheck disable=SC2086  # HARNESS_PATHS is a list of pathspecs
+  print_commits "$rev" "$old (harness paths)" $HARNESS_PATHS
 }
 show_harness_changes "$old_version"
 echo

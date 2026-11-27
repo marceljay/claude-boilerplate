@@ -55,6 +55,9 @@
 #     copied devcontainer.json, so /init has nothing left to rename.
 #   - Writes .claude/HARNESS_VERSION (`git describe` of this repo, e.g.
 #     v0.3.0-alpha-95-gab33011); the status line shows it.
+#   - Before syncing, lists the boilerplate commits since the version
+#     recorded there that touched the synced paths (title plus the summary
+#     paragraph of each body, newest 25), so you know what is arriving.
 #   - Never touches: settings.local.json, .claude/logs/, _planning/,
 #     project code, git state.
 #
@@ -474,6 +477,49 @@ if [ "$old_version" = "$HARNESS_VERSION" ]; then
 else
   echo "Harness version: $old_version -> $HARNESS_VERSION"
 fi
+
+# What changed in the harness since the target's last sync: the commit in
+# its HARNESS_VERSION (`git describe` output: <tag>-<n>-g<sha>, a bare
+# <tag>, or a bare <sha>) up to this checkout's HEAD, limited to the paths
+# a sync copies. Each commit shows its title and the summary paragraph that
+# opens its body (the repo's commit convention). Informational only.
+HARNESS_PATHS=".claude .devcontainer .npmrc .worktreeinclude scripts/agent-sandbox.zsh :(exclude).claude/CUSTOM.md"
+MAX_CHANGES=25
+show_harness_changes() {
+  local old="$1" rev log n
+  case "$old" in none | unknown | "" | "$HARNESS_VERSION") return 0 ;; esac
+  rev="${old%-dirty}"
+  case "$rev" in *-g[0-9a-f]*) rev="${rev##*-g}" ;; esac
+  if ! git -C "$SRC" rev-parse -q --verify "$rev^{commit}" >/dev/null 2>&1; then
+    say note "changes since $old: commit $rev is not in this checkout (fetch, or it was rebased away)"
+    return 0
+  fi
+  # shellcheck disable=SC2086  # HARNESS_PATHS is a list of pathspecs
+  log=$(git -C "$SRC" log --no-merges --reverse --format='%h%x1f%s%x1f%b%x1e' "$rev..HEAD" -- $HARNESS_PATHS 2>/dev/null) || return 0
+  n=$(printf '%s' "$log" | tr -cd '\036' | wc -c | tr -d ' ')
+  if [ "$n" -eq 0 ]; then
+    say "in sync" "no harness commits since $old"
+    return 0
+  fi
+  printf '%sChanges since %s%s (%s commit%s touching the harness, oldest first):\n' \
+    "$C_BOLD" "$old" "$C_OFF" "$n" "$([ "$n" -eq 1 ] || echo s)"
+  [ "$n" -gt "$MAX_CHANGES" ] &&
+    echo "  ${C_DIM}($((n - MAX_CHANGES)) older not shown: git -C $SRC log --oneline $rev..HEAD -- .claude .devcontainer)${C_OFF}"
+  printf '%s' "$log" | awk -v RS="$(printf '\036')" -F "$(printf '\037')" \
+      -v max="$MAX_CHANGES" -v total="$n" -v b="$C_BOLD" -v d="$C_DIM" -v o="$C_OFF" \
+      '
+    { sub(/^\n+/, "") }
+    $1 == "" { next }
+    ++i > total - max {
+      printf "  %s%s%s %s\n", d, $1, o, b $2 o
+      body = $3; p = index(body, "\n\n"); if (p) body = substr(body, 1, p - 1)
+      m = split(body, l, "\n")
+      for (k = 1; k <= m; k++) if (l[k] != "" && l[k] !~ /^Co-Authored-By:/) printf "          %s%s%s\n", d, l[k], o
+    }
+  '
+  case "$HARNESS_VERSION" in *-dirty) echo "  ${C_DIM}plus uncommitted changes in $SRC${C_OFF}" ;; esac
+}
+show_harness_changes "$old_version"
 echo
 
 # Unchanged items are collected and reported in one line at the end, so a

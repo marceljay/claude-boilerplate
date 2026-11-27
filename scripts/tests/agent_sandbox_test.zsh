@@ -74,6 +74,7 @@ case "$sub" in
         if [ -e "$S/firewall_fail" ]; then echo "ERROR: stub firewall failure"; exit 1; fi
         touch "$S/iptables_drop"; echo "Firewall configuration complete" ;;
       *"command -v tmux"*) [ -e "$S/has_tmux" ] ;;
+      *"pgrep -x claude"*) [ -e "$S/claude_running" ] ;;
       *"/proc/1/mountinfo"*)
         [ -e "$S/mountinfo_fail" ] && exit 1
         echo "60 1 0:40 / /workspace rw,relatime - virtiofs virtiofs0 rw"
@@ -265,6 +266,7 @@ assert_eq ".git/config not mounted → refuses" 1 $rc
 assert_eq "  no attach" "" "$(actions)"
 assert_has "  names the path" "$stderr" "/workspace/.git/config (not mounted)"
 assert_has "  points at agent-sandbox-recreate" "$stderr" "agent-sandbox-recreate $proj"
+assert_has "  names the usual cause (host git rewrote .git/config)" "$stderr" "a git command on the HOST rewrote .git/config"
 
 reset_state image container running iptables_drop has_tmux mount_rw_hooks
 run_agent agent-sandbox "$proj"
@@ -586,6 +588,22 @@ assert_eq "  nothing recreated" "" "$(actions)"
 reset_state
 run_agent agent-sandbox-recreate "$proj"
 assert_eq "agent-sandbox-recreate without image → error" 1 $rc
+
+reset_state image container running iptables_drop has_tmux claude_running; built_hash
+out=$(print n | agent-sandbox-recreate "$proj" 2>&1); rc=$?
+assert_eq "agent-sandbox-recreate with Claude Code running and 'n' → aborted" 1 $rc
+assert_eq "  container kept" "" "$(actions)"
+assert_has "  says the session would end" "$out" "Claude Code is still running"
+reset_state image container running iptables_drop has_tmux claude_running; built_hash
+out=$(print y | agent-sandbox-recreate "$proj" 2>&1); rc=$?
+assert_eq "agent-sandbox-recreate with Claude Code running and 'y' → rm, run" "rm run" "$(actions)"
+reset_state image container running iptables_drop has_tmux claude_running; built_hash
+out=$(agent-sandbox-rebuild "$proj" </dev/null 2>&1); rc=$?
+assert_eq "agent-sandbox-rebuild with Claude Code running, EOF on the prompt → aborted before the build" 1 $rc
+assert_eq "  nothing built or removed" "" "$(actions)"
+reset_state image container iptables_drop has_tmux claude_running; built_hash
+run_agent agent-sandbox-recreate "$proj"
+assert_eq "agent-sandbox-recreate, container stopped → no session check, rm, run" "rm run" "$(actions)"
 
 print "agent-sandbox-check (no docker, no git)"
 reset_state

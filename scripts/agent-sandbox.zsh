@@ -1,7 +1,7 @@
 # agent-sandbox.zsh: run Claude Code in a per-project Docker container — plain Docker
 # from the host, no devcontainer CLI, no VS Code attach.
 #
-# AGENT_SANDBOX_VERSION=1.6.0
+# AGENT_SANDBOX_VERSION=1.6.1
 #
 # Source this from ~/.zshrc (`scripts/sync-harness.sh --install-shell` copies
 # it to ~/.config/zsh/agent-sandbox.zsh and prints the line). Keep the installed copy
@@ -644,6 +644,12 @@ _agent_sandbox_verify_mounts() {
   print -u2 "agent-sandbox: read-only protection missing inside $name:"
   for p in $bad; do print -u2 "agent-sandbox:   $p"; done
   print -u2 "agent-sandbox: the agent could change git config or hooks that the host's git and VS Code run."
+  if [[ ${(j: :)bad} == *"/workspace/.git/config (not mounted)"* ]]; then
+    # Docker Desktop binds a single file by inode; git rewrites .git/config
+    # via a lock file and rename, which leaves the container's mount behind.
+    print -u2 "agent-sandbox: usual cause: a git command on the HOST rewrote .git/config (git init, git remote add,"
+    print -u2 "agent-sandbox: git push -u, git branch -u, git config <key> <value>), which detaches the file mount."
+  fi
   print -u2 "agent-sandbox: not attaching. Run agent-sandbox-recreate${arg:+ $arg} (sign-in and history are kept),"
   print -u2 "agent-sandbox: and check .git/config and .git/hooks for changes you did not make."
   return 1
@@ -722,6 +728,23 @@ agent-sandbox() {
 agent-sandbox-setup() { emulate -L zsh; agent-sandbox --setup "$@" }
 agent-sandbox-shell() { emulate -L zsh; agent-sandbox --no-tmux "$@" }
 
+# Removing the container kills everything running in it. When Claude Code
+# is still running there, say so and ask (default No). Conversations are on
+# the config volume, so `claude --continue` resumes the last one; whatever
+# was mid-run is lost. $1 = name, $2 = action named in the question.
+_agent_sandbox_confirm_no_live_session() {
+  emulate -L zsh
+  local name=$1 action=$2 reply
+  [[ $(docker container inspect -f '{{.State.Running}}' "$name" 2>/dev/null) == true ]] || return 0
+  docker exec "$name" pgrep -x claude >/dev/null 2>&1 || return 0
+  print -u2 "agent-sandbox: Claude Code is still running in $name. The $action removes the container,"
+  print -u2 "agent-sandbox: which ends that session and anything it is running (conversations are kept;"
+  print -u2 "agent-sandbox: \`claude --continue\` resumes the last one)."
+  read -r "reply?agent-sandbox: end the session and $action? [y/N] " || reply=n
+  [[ $reply == [yY]* ]] || { print -u2 "agent-sandbox: aborted"; return 1 }
+  return 0
+}
+
 agent-sandbox-rebuild() {
   emulate -L zsh
   _agent_sandbox_check "$1" || return 1
@@ -731,6 +754,7 @@ agent-sandbox-rebuild() {
     _agent_sandbox_check_workspace "$dir" "$name" || return 1
   fi
   _agent_sandbox_review_gate "$dir" "$name" rebuild || return 1
+  _agent_sandbox_confirm_no_live_session "$name" rebuild || return 1
   # --no-cache: otherwise the cached layer keeps the old Claude Code ("latest" at first build)
   _agent_sandbox_build "$dir" --pull --no-cache || return 1
   docker rm -f "$name" >/dev/null 2>&1
@@ -752,6 +776,7 @@ agent-sandbox-recreate() {
   # The new container reads CLAUDE_SHORTCUT_FLAGS and agent-sandbox-ports from
   # .devcontainer, which a setup-mode agent could have edited.
   _agent_sandbox_review_gate "$dir" "$name" recreate || return 1
+  _agent_sandbox_confirm_no_live_session "$name" recreate || return 1
   docker rm -f "$name" >/dev/null 2>&1
   _agent_sandbox_create "$dir" normal || return 1
   print "agent-sandbox: recreated $name; run: agent-sandbox${1:+ $1}"

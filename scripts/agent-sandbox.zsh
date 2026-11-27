@@ -1,7 +1,7 @@
 # agent-sandbox.zsh: run Claude Code in a per-project Docker container — plain Docker
 # from the host, no devcontainer CLI, no VS Code attach.
 #
-# AGENT_SANDBOX_VERSION=1.6.1
+# AGENT_SANDBOX_VERSION=1.7.0
 #
 # Source this from ~/.zshrc (`scripts/sync-harness.sh --install-shell` copies
 # it to ~/.config/zsh/agent-sandbox.zsh and prints the line). Keep the installed copy
@@ -832,6 +832,58 @@ agent-sandbox-check() {
   (( quiet || warned )) || print "agent-sandbox-check: $root: no commondir redirect, no unlisted nested repository, no unfinished rebase"
   return 0
 }
+
+# Guard against re-running `git init` in an existing repository on the host.
+# It changes nothing useful there, but it rewrites .git/config by rename,
+# which detaches the container's read-only file mount of it: agent-sandbox
+# then refuses to attach until agent-sandbox-recreate. A fresh `git init`
+# passes straight through, as does every other git command. Asks only on a
+# terminal; scripts and pipes are never stopped. Bypass once with
+# `command git init`; turn off with AGENT_SANDBOX_GIT_INIT_GUARD=0 (=always
+# asks without a terminal too — the tests use it). Not installed over a git
+# function you defined yourself.
+_agent_sandbox_git_init_target() {   # args of a git command line → dir of `init`, or nothing
+  emulate -L zsh
+  local base=$PWD i=1 dir=""
+  local -a a=("$@")
+  while (( i <= $#a )); do
+    case ${a[i]} in
+      -C) [[ ${a[i+1]} == /* ]] && base=${a[i+1]} || base=$base/${a[i+1]}; (( i += 2 )) ;;
+      -c|--git-dir|--work-tree|--namespace|--exec-path|--config-env) (( i += 2 )) ;;
+      -*) (( i++ )) ;;
+      init) break ;;
+      *) return 0 ;;   # some other subcommand
+    esac
+  done
+  (( i <= $#a )) || return 0
+  for (( i++; i <= $#a; i++ )); do
+    case ${a[i]} in
+      --bare) return 0 ;;   # a bare repository has no .git to look at
+      --template|--separate-git-dir|-b|--initial-branch|--object-format|--ref-format) (( i++ )) ;;
+      -*) ;;
+      *) dir=${a[i]}; break ;;
+    esac
+  done
+  [[ -z $dir ]] && dir=$base || { [[ $dir == /* ]] || dir=$base/$dir }
+  print -r -- ${dir:A}
+}
+
+if (( ! $+functions[git] )) || [[ $functions[git] == *AGENT_SANDBOX_GIT_INIT_GUARD* ]]; then
+  git() {
+    local guard=${AGENT_SANDBOX_GIT_INIT_GUARD:-1} dir reply
+    if [[ $guard == always || ( $guard != 0 && -t 0 ) ]]; then
+      dir=$(_agent_sandbox_git_init_target "$@")
+      if [[ -n $dir && -e $dir/.git ]]; then
+        print -u2 "agent-sandbox: $dir is already a git repository. git init changes nothing useful there,"
+        print -u2 "agent-sandbox: but it rewrites .git/config, which detaches an agent-sandbox container's read-only"
+        print -u2 "agent-sandbox: mount of it (agent-sandbox then refuses to attach until agent-sandbox-recreate)."
+        read -r "reply?agent-sandbox: reinitialize it anyway? [y/N] " || reply=n
+        [[ $reply == [yY]* ]] || { print -u2 "agent-sandbox: git init skipped"; return 1 }
+      fi
+    fi
+    command git "$@"   # the user's own command, passed through unchanged
+  }
+fi
 
 agent-sandbox-stop()  { emulate -L zsh; docker stop "$(_agent_sandbox_name "$1")" >/dev/null }
 agent-sandbox-ports() { emulate -L zsh; docker port "$(_agent_sandbox_name "$1")" }

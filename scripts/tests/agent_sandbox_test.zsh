@@ -575,7 +575,7 @@ run_agent agent-sandbox "$proj"
 assert_not_has "  no hint once the host config has it" "$stderr" "ignoreSubmodules"
 ( cd "$proj" && git config --unset diff.ignoreSubmodules; git rm -q -f sub 2>/dev/null; rm -rf .git/modules/sub sub; git -c user.name=t -c user.email=t@t commit -q -m rmsub 2>/dev/null; git checkout -q -- .devcontainer 2>/dev/null; rm -f .devcontainer/agent-sandbox-nested-repos )
 
-n=$(grep -E '^[[:space:]]*[^#]*[[:space:]]git ' "$src" | grep -vE 'print|git config --global' | wc -l)
+n=$(grep -E '^[[:space:]]*[^#]*[[:space:]]git ' "$src" | grep -vE 'print|git config --global|# the user.s own command, passed through' | wc -l)
 assert_eq "no git invocation in agent-sandbox.zsh except git config --global" 0 "$n"
 
 reset_state image container running iptables_drop has_tmux; built_hash
@@ -604,6 +604,31 @@ assert_eq "  nothing built or removed" "" "$(actions)"
 reset_state image container iptables_drop has_tmux claude_running; built_hash
 run_agent agent-sandbox-recreate "$proj"
 assert_eq "agent-sandbox-recreate, container stopped → no session check, rm, run" "rm run" "$(actions)"
+
+print "git init guard (host shell)"
+gi="$tmp/gi"; mkdir -p "$gi/new" "$gi/old"; command git -C "$gi/old" init -q
+cfg_id() { stat -c '%i %Y' "$gi/old/.git/config" 2>/dev/null || stat -f '%i %m' "$gi/old/.git/config" }
+before=$(cfg_id)
+out=$(print n | AGENT_SANDBOX_GIT_INIT_GUARD=always git init "$gi/old" 2>&1); rc=$?
+assert_eq "git init in an existing repo, 'n' → skipped" 1 $rc
+assert_has "  explains the detached mount" "$out" "detaches an agent-sandbox container's read-only"
+assert_eq "  .git/config untouched" "$before" "$(cfg_id)"
+out=$(cd "$gi/old" && print n | AGENT_SANDBOX_GIT_INIT_GUARD=always git init 2>&1); rc=$?
+assert_eq "  same for a bare 'git init' inside it" 1 $rc
+out=$(print n | AGENT_SANDBOX_GIT_INIT_GUARD=always git -C "$gi" init old 2>&1); rc=$?
+assert_eq "  same for 'git -C <parent> init old'" 1 $rc
+out=$(print y | AGENT_SANDBOX_GIT_INIT_GUARD=always git init -q "$gi/old" 2>&1); rc=$?
+assert_eq "  'y' → runs git init" 0 $rc
+out=$(AGENT_SANDBOX_GIT_INIT_GUARD=always git init -q "$gi/new" </dev/null 2>&1); rc=$?
+assert_eq "fresh git init → no prompt, runs" 0 $rc
+[[ -d $gi/new/.git ]] && ok "  repository created" || bad "  repository created"
+out=$(git init -q "$gi/old" </dev/null 2>&1); rc=$?
+assert_eq "no terminal (default guard) → passes through" 0 $rc
+out=$(cd "$gi/old" && AGENT_SANDBOX_GIT_INIT_GUARD=always git status --short </dev/null 2>&1); rc=$?
+assert_eq "other git commands pass through" 0 $rc
+assert_eq "  argument parser: 'status' is not init" "" "$(_agent_sandbox_git_init_target status)"
+assert_eq "  argument parser: 'init --bare x' is skipped" "" "$(_agent_sandbox_git_init_target init --bare x)"
+assert_eq "  argument parser: '-c k=v init -b main d' → d" "$gi/d" "$(cd "$gi" && _agent_sandbox_git_init_target -c k=v init -b main d)"
 
 print "agent-sandbox-check (no docker, no git)"
 reset_state

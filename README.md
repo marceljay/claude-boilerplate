@@ -396,6 +396,7 @@ flowchart TD
 | `agent-sandbox-recreate` | New container from the existing image — after changing `agent-sandbox-ports`, the shortcut flags, or `.git/config` on the host. Same review prompt as `agent-sandbox-rebuild`, and the same question when Claude Code is still running in it: removing the container ends that session (`claude --continue` resumes the conversation). |
 | `agent-sandbox-stop` | Stops the container; sign-in, memory and history live in volumes and survive. |
 | `agent-sandbox-ports` | Host ports published for the container (`docker port`). |
+| `git init` (guard) | Sourcing `agent-sandbox.zsh` wraps `git` in your host shell for one case only: `git init` in a folder that is already a repository asks first, because it rewrites `.git/config` and detaches a container's read-only mount of it. Everything else, and any `git` run without a terminal, passes straight through. Bypass once with `command git init`; turn off with `AGENT_SANDBOX_GIT_INIT_GUARD=0`. |
 | `agent-sandbox-check [-q]` | The host-side checks alone, without Docker and without attaching: `.git/commondir` redirect and unlisted nested repositories (exit 1), unfinished rebase (warning). Works from any subfolder of the project. `-q` prints only findings. |
 
 Names are `claude-<folder>` (lowercased, odd characters become `-`), and

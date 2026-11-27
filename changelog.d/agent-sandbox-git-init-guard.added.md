@@ -1,0 +1,7 @@
+- **Host-side `git init` guard.** Sourcing `agent-sandbox.zsh` now asks
+  before `git init` runs in a folder that is already a repository: it
+  changes nothing useful there but rewrites `.git/config`, which detaches
+  an agent-sandbox container's read-only mount until
+  `agent-sandbox-recreate`. A fresh `git init`, every other git command and
+  non-interactive use pass through; `command git init` bypasses it once,
+  `AGENT_SANDBOX_GIT_INIT_GUARD=0` turns it off. agent-sandbox.zsh 1.7.0.

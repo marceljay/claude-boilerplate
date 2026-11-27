@@ -19,24 +19,27 @@
 # and run /init to gap-fill (.gitignore security entries, _planning/,
 # container rename, policies).
 #
-# REFRESH (target already has .claude/):
+# REFRESH (target already has .claude/): EVERY change asks first, default
+# No — an added, updated, renamed or deleted file, a chmod, the CUSTOM.md
+# stub, the recorded HARNESS_VERSION. Nothing in the target changes without
+# a yes. (A fresh INSTALL asks once for the whole install of files that do
+# not exist yet; an existing file is still asked about one by one.)
 #   - MIRRORS the pure-harness dirs (.claude/{commands,skills,agents,hooks,
 #     scripts}) and files (.claude/README.md, .devcontainer/STACKS.md,
 #     .devcontainer/init-firewall.sh — the firewall LOGIC; the domain list
 #     lives in allowed-domains.txt — and .devcontainer/claude-harness.zsh,
-#     the shell shortcuts). For each of these files, the boilerplate's git
-#     history decides: an outdated unedited copy is updated, a locally
-#     edited one shows its diff and asks. In the mirrored dirs, a file this
+#     the shell shortcuts). Each difference shows its diff and asks; the
+#     boilerplate's git history only labels it (an older boilerplate
+#     version vs. edited in the target). In the mirrored dirs, a file this
 #     repo has retired is listed (with the removing commit) and asked
 #     about, and a file this repo never shipped is the project's own and is
 #     kept.
 #   - SPLICES .devcontainer/Dockerfile: everything above its
 #     `# ==== PROJECT LAYERS ====` marker is harness and is replaced with the
 #     boilerplate's version; everything below (stack toolchains) is kept.
-#     The splice is silent only when the target's section above the marker
-#     matches a past boilerplate version; if it was edited there, the diff
-#     is shown and it asks first. A target Dockerfile without the marker
-#     falls back to ask-first.
+#     The diff is shown and it asks; it also says whether the section above
+#     the marker was edited in the target (those edits would go). A target
+#     Dockerfile without the marker falls back to ask-first.
 #   - For files that usually carry PER-PROJECT edits — .devcontainer/
 #     allowed-domains.txt (firewall domains), devcontainer.json (container
 #     name, stack features), .claude/CLAUDE.md (pure harness since
@@ -613,10 +616,10 @@ devcontainer_fingerprint() {
 DEVCONTAINER_BEFORE=$(devcontainer_fingerprint)
 
 # --- 1. Mirror the pure-harness directories --------------------------------
-# Each file is classified against the boilerplate's git history, so neither
-# a local edit nor a project's own file is lost without asking:
+# Each file is classified against the boilerplate's git history, which
+# decides how a difference is described — every change still asks:
 #   - same content as here             → nothing to do
-#   - matches a past boilerplate version → outdated copy; updated silently
+#   - matches a past boilerplate version → older version; diff + ask
 #   - matches no boilerplate version    → edited in the target; diff + ask
 #   - only in the target, path never shipped here → project's own; kept
 #   - only in the target, path shipped here once  → retired upstream; ask
@@ -632,6 +635,7 @@ fi
 
 # Relative file list of a dir, minus caches/cruft. Runs in a subshell (cd).
 list_files() {
+  [ -d "$1" ] || return 0
   (cd "$1" && find . -type f ! -path '*__pycache__*' ! -name '.DS_Store' | sed 's|^\./||' | sort)
 }
 
@@ -651,24 +655,62 @@ matches_past_version() {
   return 1
 }
 
-# Sync one harness file ($1, relative to both roots), deciding by the
-# boilerplate's git history:
-#   - missing in the target              → copied
-#   - same content                        → nothing (exec bit fixed)
-#   - matches a past boilerplate version  → outdated copy; updated silently
-#   - matches no boilerplate version      → edited in the target; diff + ask
+# EVERY change to the target asks first (default No). The one exception is
+# a fresh install (ADOPT=1: no .claude/ in the target, or --replace), where
+# the single "Install the harness?" confirmation covers creating files that
+# do not exist yet; a file that already exists is still asked about.
+
+# Add a file missing in the target: $1 = path shown, $2 = source, $3 = dest,
+# $4 = why it is offered. Shows the start of the file, then asks.
+add_file() {
+  local f="$1" src="$2" dst="$3" why="$4" n
+  if [ "$ADOPT" = 1 ]; then
+    mkdir -p "$(dirname "$dst")"; cp -p "$src" "$dst"; say copied "$f"
+    return 0
+  fi
+  n=$(wc -l < "$src" | tr -d ' ')
+  file_header "$f (new file, $n lines)"
+  say note "$f — $why"
+  head -n 15 "$src" | sed 's/^/    /'
+  [ "$n" -le 15 ] || echo "    … $((n - 15)) more lines (full file: $src)"
+  if ask "Add $f to the target?"; then
+    mkdir -p "$(dirname "$dst")"; cp -p "$src" "$dst"; say copied "$f"
+  else
+    say kept "$f not added"
+  fi
+}
+
+# Sync one harness file ($1, relative to both roots). Every difference is
+# shown and asked about; the boilerplate's git history only decides how it
+# is described:
+#   - missing in the target              → shown, asked (add_file)
+#   - same content, exec bit missing      → asked
+#   - matches a past boilerplate version  → "outdated, not edited": diff, ask
+#   - matches no boilerplate version      → "edited in target": diff, ask
 # Returns 0 when it reported something, 1 when the file was already in sync.
 sync_harness_file() {
   local f="$1" src="$SRC/$1" dst="$TARGET/$1"
   if [ ! -e "$dst" ]; then
-    mkdir -p "$(dirname "$dst")"; cp -p "$src" "$dst"
-    say copied "$f (new in the boilerplate)"
+    add_file "$f" "$src" "$dst" "new in the boilerplate"
   elif cmp -s "$src" "$dst"; then
-    [ -x "$src" ] && [ ! -x "$dst" ] && chmod +x "$dst"
-    return 1
+    # Executable per the COMMITTED mode, not the file system: a macOS bind
+    # mount shows every file as executable.
+    [ "$(git -C "$SRC" ls-files -s -- "$f" 2>/dev/null | cut -d' ' -f1)" = 100755 ] && [ ! -x "$dst" ] || return 1
+    if ask "$f is executable in the boilerplate but not in the target — chmod +x it?"; then
+      chmod +x "$dst"; say updated "$f (made executable)"
+    else
+      say kept "$f (not executable)"
+    fi
   elif matches_past_version "$f" "$dst"; then
-    cp -p "$src" "$dst"
-    say updated "$f"
+    file_header "$f" "$dst" "$src"
+    say differs "$f (an older boilerplate version, not edited in the target)"
+    show_diff "$dst" "$src"
+    case "$(ask3 "Update $f to the boilerplate version?")" in
+      overwrite) cp -p "$src" "$dst"; say updated "$f" ;;
+      upstream)  cp -p "$src" "$dst.upstream"
+                 say kept "$f (target version); boilerplate copy written to $f.upstream" ;;
+      *)         say kept "$f (target version)" ;;
+    esac
   else
     file_header "$f" "$dst" "$src"
     say differs "$f (edited in target — matches no boilerplate version)"
@@ -685,7 +727,6 @@ sync_harness_file() {
 
 for d in $MIRROR_DIRS; do
   [ -d "$SRC/$d" ] || continue
-  mkdir -p "$TARGET/$d"
   n_changed=0
 
   # Files only in the target. fd 3 keeps stdin free for the prompts.
@@ -738,8 +779,8 @@ for d in $MIRROR_DIRS; do
   [ "$n_changed" -eq 0 ] && unchanged "$d"
 done
 
-# Single harness files, same history rule as the mirrored dirs: an
-# unedited outdated copy is updated, an edited one is shown and asked about.
+# Single harness files, same rule as the mirrored dirs: every difference is
+# shown and asked about.
 # init-firewall.sh belongs here because it is pure logic now — the
 # per-project domain list lives in allowed-domains.txt (ask-first, below).
 # cp -p keeps its exec bit.
@@ -748,11 +789,6 @@ for f in .claude/README.md .devcontainer/STACKS.md .devcontainer/init-firewall.s
   sync_harness_file "$f" || unchanged "$f"
 done
 
-if [ "$old_version" != "$HARNESS_VERSION" ]; then
-  [ "$old_version" = none ] && verb=created || verb=updated
-  printf '%s\n' "$HARNESS_VERSION" > "$TARGET/.claude/HARNESS_VERSION"
-  say "$verb" ".claude/HARNESS_VERSION ($HARNESS_VERSION)"
-fi
 
 # --- 2. Dockerfile: splice at the project-layers marker ---------------------
 # Above the marker = harness (replaced); below = the project's own layers
@@ -835,9 +871,7 @@ ask_first() {
 echo
 if [ -f "$SRC/$DOCKERFILE" ]; then
   if [ ! -f "$TARGET/$DOCKERFILE" ]; then
-    mkdir -p "$TARGET/.devcontainer"
-    cp -p "$SRC/$DOCKERFILE" "$TARGET/$DOCKERFILE"
-    say "copied" "$DOCKERFILE (was missing in target)"
+    add_file "$DOCKERFILE" "$SRC/$DOCKERFILE" "$TARGET/$DOCKERFILE" "missing in the target"
   elif cmp -s "$SRC/$DOCKERFILE" "$TARGET/$DOCKERFILE"; then
     unchanged "$DOCKERFILE"
   elif has_marker "$SRC/$DOCKERFILE" && has_marker "$TARGET/$DOCKERFILE"; then
@@ -845,20 +879,17 @@ if [ -f "$SRC/$DOCKERFILE" ]; then
     { dockerfile_head "$SRC/$DOCKERFILE"; dockerfile_tail "$TARGET/$DOCKERFILE"; } > "$spliced"
     if cmp -s "$spliced" "$TARGET/$DOCKERFILE"; then
       unchanged "$DOCKERFILE"
-    elif head_matches_past_version; then
-      file_header "$DOCKERFILE" "$TARGET/$DOCKERFILE" "$spliced"
-      say "splicing" "$DOCKERFILE — harness section refreshed, project layers below the marker kept:"
-      show_diff "$TARGET/$DOCKERFILE" "$spliced"
-      warn_if_base_image_changed "$TARGET/$DOCKERFILE" "$spliced"
-      cat "$spliced" > "$TARGET/$DOCKERFILE"
-      say "spliced" "$DOCKERFILE (review with git diff; rebuild the container to apply)"
     else
-      # The part above the marker was edited in the target (or there is no
-      # history to tell): a splice would drop those edits, so ask.
       file_header "$DOCKERFILE" "$TARGET/$DOCKERFILE" "$spliced"
-      say "differs" "$DOCKERFILE — the section ABOVE '$DOCKERFILE_MARKER' matches no boilerplate"
-      echo "          version, so it holds edits a splice would drop (lines marked - below)."
-      echo "          Project layers belong BELOW the marker; move them there to splice silently."
+      if head_matches_past_version; then
+        say "differs" "$DOCKERFILE — the section above '$DOCKERFILE_MARKER' is an older boilerplate"
+        echo "          version, not edited in the target; lines below the marker are kept."
+      else
+        # Edited above the marker (or no history to tell): those edits go.
+        say "differs" "$DOCKERFILE — the section ABOVE '$DOCKERFILE_MARKER' matches no boilerplate"
+        echo "          version, so it holds edits this replacement would drop (lines marked - below)."
+        echo "          Project layers belong BELOW the marker."
+      fi
       show_diff "$TARGET/$DOCKERFILE" "$spliced"
       case "$(ask3 "Replace everything above the PROJECT LAYERS line in $DOCKERFILE with the boilerplate version (lines below it are kept)?")" in
         overwrite)
@@ -912,12 +943,19 @@ here contradicts `.claude/CLAUDE.md`, this file wins.
      see it" or ".claude/ is gitignored here — personal tooling, not shared". -->
 '
 if [ ! -f "$CUSTOM" ]; then
-  mkdir -p "$TARGET/.claude"
-  printf '%s' "$CUSTOM_STUB" > "$CUSTOM"
-  say "created" ".claude/CUSTOM.md (stub — /init fills it; never synced)"
+  if [ "$ADOPT" = 1 ] || ask ".claude/CUSTOM.md is missing (.claude/CLAUDE.md imports it) — create the stub for /init to fill?"; then
+    mkdir -p "$TARGET/.claude"
+    printf '%s' "$CUSTOM_STUB" > "$CUSTOM"
+    say "created" ".claude/CUSTOM.md (stub — /init fills it; never synced)"
+  else
+    say "WARNING" ".claude/CUSTOM.md not created — .claude/CLAUDE.md's @CUSTOM.md import points at nothing"
+  fi
 fi
 BATON_RE='^- (Harness|STATUS\.md|Commit policy|Testing policy|Commit session links|Review page|Changelog):'
-if [ -f "$TARGET/.claude/CLAUDE.md" ] && grep -Eq "$BATON_RE" "$TARGET/.claude/CLAUDE.md"; then
+if [ -f "$TARGET/.claude/CLAUDE.md" ] && [ -f "$CUSTOM" ] && grep -Eq "$BATON_RE" "$TARGET/.claude/CLAUDE.md" && {
+     say "note" ".claude/CLAUDE.md holds per-project lines that belong in .claude/CUSTOM.md:"
+     grep -E "$BATON_RE" "$TARGET/.claude/CLAUDE.md" | sed 's/^/            /'
+     ask "Move them to .claude/CUSTOM.md?"; }; then
   moved="$(grep -E "$BATON_RE" "$TARGET/.claude/CLAUDE.md" | sed -E 's/ \(this repo\)\.?$//')"
   grep -q '^## Harness settings' "$CUSTOM" || printf '\n## Harness settings\n\n' >> "$CUSTOM"
   # Insert each line (whose key CUSTOM.md lacks) right after the heading.
@@ -948,13 +986,15 @@ for f in $COPY_IF_MISSING; do
     if [ -f "$TARGET/$f" ]; then
       say "WARNING" "$f and the old $(basename "$old") both exist — merge by hand, then delete the old one"
     else
-      mv "$old" "$TARGET/$f" && say "renamed" "$(basename "$old") → $f (old name from before the agent-sandbox rename)"
+      if ask "Rename $(basename "$old") to $(basename "$f") (its name before the agent-sandbox rename)?"; then
+        mv "$old" "$TARGET/$f" && say "renamed" "$(basename "$old") → $f"
+      else
+        say kept "$(basename "$old") under its old name — agent-sandbox reads only $(basename "$f")"
+      fi
     fi
   fi
   if [ ! -f "$TARGET/$f" ]; then
-    mkdir -p "$TARGET/$(dirname "$f")"
-    cp -p "$SRC/$f" "$TARGET/$f"
-    say "copied" "$f (was missing in target; never overwritten afterwards)"
+    add_file "$f" "$SRC/$f" "$TARGET/$f" "missing in the target (an empty template; never overwritten afterwards)"
   else
     say "kept" "$f (per-project)"
   fi
@@ -966,9 +1006,7 @@ ASK_FILES=".devcontainer/allowed-domains.txt .devcontainer/devcontainer.json .cl
 for f in $ASK_FILES; do
   [ -f "$SRC/$f" ] || continue
   if [ ! -f "$TARGET/$f" ]; then
-    mkdir -p "$TARGET/$(dirname "$f")"
-    cp -p "$SRC/$f" "$TARGET/$f"
-    say "copied" "$f (was missing in target)"
+    add_file "$f" "$SRC/$f" "$TARGET/$f" "missing in the target"
   elif cmp -s "$SRC/$f" "$TARGET/$f"; then
     unchanged "$f"
   elif [ "$f" = "$DEVCONTAINER" ] && devcontainer_in_sync_modulo_fields; then
@@ -1000,6 +1038,18 @@ if [ -f "$TARGET/.claude/settings.json" ]; then
   if [ -n "$unwired" ]; then
     say "WARNING" "hook file(s) present but not wired in .claude/settings.json:$unwired"
     echo "          copy their entries from $SRC/.claude/settings.json (\"hooks\") into yours, or they never run."
+  fi
+fi
+
+# --- 3c. Record the synced version -----------------------------------------
+# Last, so it reflects a run that got this far. Asked like any other change.
+if [ "$old_version" != "$HARNESS_VERSION" ]; then
+  [ "$old_version" = none ] && verb=created || verb=updated
+  if [ "$ADOPT" = 1 ] || ask "Record harness version $HARNESS_VERSION in .claude/HARNESS_VERSION (was $old_version)?"; then
+    printf '%s\n' "$HARNESS_VERSION" > "$TARGET/.claude/HARNESS_VERSION"
+    say "$verb" ".claude/HARNESS_VERSION ($HARNESS_VERSION)"
+  else
+    say kept ".claude/HARNESS_VERSION ($old_version) — the next sync lists changes from there"
   fi
 fi
 

@@ -392,10 +392,12 @@ flowchart TD
 | `agent-sandbox` | Builds the image if missing, creates the container if missing, starts it if stopped, applies the firewall if the OUTPUT policy isn't DROP, attaches to tmux. Idempotent; `Ctrl-b d` detaches, the session keeps running. |
 | `agent-sandbox --no-tmux` / `agent-sandbox-shell` | Same, but a plain zsh (closing the tab ends what runs in it). |
 | `agent-sandbox --setup` / `agent-sandbox-setup` | One-time container for `/init` and `scripts/new-project.sh`: no read-only mounts, permission prompts on. Plain `agent-sandbox` refuses to attach to it until you `agent-sandbox-rebuild`. |
-| `agent-sandbox-rebuild` | `docker build --pull --no-cache` (fresh base image, newest Claude Code), new container. When `.devcontainer` differs from what the current image was built from (uncommitted or committed), it lists the changes and asks first. |
-| `agent-sandbox-recreate` | New container from the existing image — after changing `agent-sandbox-ports`, the shortcut flags, or `.git/config` on the host. Same review prompt as `agent-sandbox-rebuild`. |
+| `agent-sandbox-rebuild` | `docker build --pull --no-cache` (fresh base image, newest Claude Code), new container. When `.devcontainer` differs from what the current image was built from (uncommitted or committed), it lists the changes and asks first. Asks before removing a container in which Claude Code is still running. |
+| `agent-sandbox-recreate` | New container from the existing image — after changing `agent-sandbox-ports`, the shortcut flags, or `.git/config` on the host. Same review prompt as `agent-sandbox-rebuild`, and the same question when Claude Code is still running in it: removing the container ends that session (`claude --continue` resumes the conversation). |
+| `agent-sandbox --version` | The `agent-sandbox.zsh` version this shell loaded and the file it came from; says when that file has changed since (open a new shell) and when the `git init` guard is inactive (e.g. an alias named `git`). |
 | `agent-sandbox-stop` | Stops the container; sign-in, memory and history live in volumes and survive. |
 | `agent-sandbox-ports` | Host ports published for the container (`docker port`). |
+| `git init` (guard) | Sourcing `agent-sandbox.zsh` wraps `git` in your host shell for one case only: `git init` in a folder that is already a repository asks first, because it rewrites `.git/config` and detaches a container's read-only mount of it. Everything else, and any `git` run without a terminal, passes straight through. Bypass once with `command git init`; turn off with `AGENT_SANDBOX_GIT_INIT_GUARD=0`. |
 | `agent-sandbox-check [-q]` | The host-side checks alone, without Docker and without attaching: `.git/commondir` redirect and unlisted nested repositories (exit 1), unfinished rebase (warning). Works from any subfolder of the project. `-q` prints only findings. |
 
 Names are `claude-<folder>` (lowercased, odd characters become `-`), and
@@ -412,12 +414,19 @@ create either afterwards, and `git status` or `git rebase --continue` on the
 host would then run a command the agent chose
 ([security model, scenario 3](docs/SECURITY-MODEL.md)). While a container
 exists, run the check first: `agent-sandbox-check && git status`. To have it
-run before every `git` you type in a zsh on the host, add this to
-`~/.zshrc` after the `source` line (optional, not installed for you):
+run before every `git` you type in a zsh on the host, set this in
+`~/.zshrc` (optional, off by default):
 
 ```zsh
-git() { agent-sandbox-check -q || return 1; command git "$@" }
+AGENT_SANDBOX_GIT_CHECK=1
 ```
+
+`agent-sandbox.zsh` already wraps `git` for the `git init` guard; the
+variable makes the same wrapper run `agent-sandbox-check -q` first. The
+older advice was a one-line `git() { agent-sandbox-check -q || return 1;
+command git "$@" }` in `~/.zshrc`. Placed before the `source` line it is
+taken over (check on, guard added); placed after, it replaces the guard,
+and `agent-sandbox --version` says so. Replace it with the variable.
 
 Outside a project the check does nothing. Limits: it covers only `git`
 typed in that shell, not an editor, a git-aware prompt or a script that

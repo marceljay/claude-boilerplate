@@ -74,6 +74,7 @@ case "$sub" in
         if [ -e "$S/firewall_fail" ]; then echo "ERROR: stub firewall failure"; exit 1; fi
         touch "$S/iptables_drop"; echo "Firewall configuration complete" ;;
       *"command -v tmux"*) [ -e "$S/has_tmux" ] ;;
+      *"pgrep -x claude"*) [ -e "$S/claude_running" ] ;;
       *"/proc/1/mountinfo"*)
         [ -e "$S/mountinfo_fail" ] && exit 1
         echo "60 1 0:40 / /workspace rw,relatime - virtiofs virtiofs0 rw"
@@ -265,6 +266,7 @@ assert_eq ".git/config not mounted → refuses" 1 $rc
 assert_eq "  no attach" "" "$(actions)"
 assert_has "  names the path" "$stderr" "/workspace/.git/config (not mounted)"
 assert_has "  points at agent-sandbox-recreate" "$stderr" "agent-sandbox-recreate $proj"
+assert_has "  names the usual cause (host git rewrote .git/config)" "$stderr" "a git command on the HOST rewrote .git/config"
 
 reset_state image container running iptables_drop has_tmux mount_rw_hooks
 run_agent agent-sandbox "$proj"
@@ -573,7 +575,7 @@ run_agent agent-sandbox "$proj"
 assert_not_has "  no hint once the host config has it" "$stderr" "ignoreSubmodules"
 ( cd "$proj" && git config --unset diff.ignoreSubmodules; git rm -q -f sub 2>/dev/null; rm -rf .git/modules/sub sub; git -c user.name=t -c user.email=t@t commit -q -m rmsub 2>/dev/null; git checkout -q -- .devcontainer 2>/dev/null; rm -f .devcontainer/agent-sandbox-nested-repos )
 
-n=$(grep -E '^[[:space:]]*[^#]*[[:space:]]git ' "$src" | grep -vE 'print|git config --global' | wc -l)
+n=$(grep -E '^[[:space:]]*[^#]*[[:space:]]git ' "$src" | grep -vE 'print|git config --global|# the user.s own command, passed through' | wc -l)
 assert_eq "no git invocation in agent-sandbox.zsh except git config --global" 0 "$n"
 
 reset_state image container running iptables_drop has_tmux; built_hash
@@ -586,6 +588,73 @@ assert_eq "  nothing recreated" "" "$(actions)"
 reset_state
 run_agent agent-sandbox-recreate "$proj"
 assert_eq "agent-sandbox-recreate without image → error" 1 $rc
+
+reset_state image container running iptables_drop has_tmux claude_running; built_hash
+out=$(print n | agent-sandbox-recreate "$proj" 2>&1); rc=$?
+assert_eq "agent-sandbox-recreate with Claude Code running and 'n' → aborted" 1 $rc
+assert_eq "  container kept" "" "$(actions)"
+assert_has "  says the session would end" "$out" "Claude Code is still running"
+reset_state image container running iptables_drop has_tmux claude_running; built_hash
+out=$(print y | agent-sandbox-recreate "$proj" 2>&1); rc=$?
+assert_eq "agent-sandbox-recreate with Claude Code running and 'y' → rm, run" "rm run" "$(actions)"
+reset_state image container running iptables_drop has_tmux claude_running; built_hash
+out=$(agent-sandbox-rebuild "$proj" </dev/null 2>&1); rc=$?
+assert_eq "agent-sandbox-rebuild with Claude Code running, EOF on the prompt → aborted before the build" 1 $rc
+assert_eq "  nothing built or removed" "" "$(actions)"
+reset_state image container iptables_drop has_tmux claude_running; built_hash
+run_agent agent-sandbox-recreate "$proj"
+assert_eq "agent-sandbox-recreate, container stopped → no session check, rm, run" "rm run" "$(actions)"
+
+print "git init guard (host shell)"
+gi="$tmp/gi"; mkdir -p "$gi/new" "$gi/old"; command git -C "$gi/old" init -q
+cfg_id() { stat -c '%i %Y' "$gi/old/.git/config" 2>/dev/null || stat -f '%i %m' "$gi/old/.git/config" }
+before=$(cfg_id)
+out=$(print n | AGENT_SANDBOX_GIT_INIT_GUARD=always git init "$gi/old" 2>&1); rc=$?
+assert_eq "git init in an existing repo, 'n' → skipped" 1 $rc
+assert_has "  says it could break agent-sandbox" "$out" "reinitializing it could break agent-sandbox"
+assert_eq "  .git/config untouched" "$before" "$(cfg_id)"
+out=$(cd "$gi/old" && print n | AGENT_SANDBOX_GIT_INIT_GUARD=always git init 2>&1); rc=$?
+assert_eq "  same for a bare 'git init' inside it" 1 $rc
+out=$(print n | AGENT_SANDBOX_GIT_INIT_GUARD=always git -C "$gi" init old 2>&1); rc=$?
+assert_eq "  same for 'git -C <parent> init old'" 1 $rc
+out=$(print y | AGENT_SANDBOX_GIT_INIT_GUARD=always git init -q "$gi/old" 2>&1); rc=$?
+assert_eq "  'y' → runs git init" 0 $rc
+out=$(AGENT_SANDBOX_GIT_INIT_GUARD=always git init -q "$gi/new" </dev/null 2>&1); rc=$?
+assert_eq "fresh git init → no prompt, runs" 0 $rc
+[[ -d $gi/new/.git ]] && ok "  repository created" || bad "  repository created"
+out=$(git init -q "$gi/old" </dev/null 2>&1); rc=$?
+assert_eq "no terminal (default guard) → passes through" 0 $rc
+out=$(cd "$gi/old" && AGENT_SANDBOX_GIT_INIT_GUARD=always git status --short </dev/null 2>&1); rc=$?
+assert_eq "other git commands pass through" 0 $rc
+assert_eq "  argument parser: 'status' is not init" "" "$(_agent_sandbox_git_init_target status)"
+assert_eq "  argument parser: 'init --bare x' is skipped" "" "$(_agent_sandbox_git_init_target init --bare x)"
+assert_eq "  argument parser: '-c k=v init -b main d' → d" "$gi/d" "$(cd "$gi" && _agent_sandbox_git_init_target -c k=v init -b main d)"
+
+print "git wrapper and the README's agent-sandbox-check one-liner"
+out=$(zsh -fc "git() { agent-sandbox-check -q || return 1; command git \"\$@\" }; source '$src'; print -r -- \$functions[git]")
+assert_has "README one-liner defined before sourcing → taken over by the guard" "$out" "AGENT_SANDBOX_GIT_INIT_GUARD"
+out=$(cd "$gi/old" && zsh -fc "git() { agent-sandbox-check -q || return 1; command git \"\$@\" }; source '$src'; agent-sandbox-check() { print CHECKED; return 1 }; git status" 2>&1); rc=$?
+assert_eq "  taken-over one-liner still runs agent-sandbox-check; a failing check stops git" 1 $rc
+assert_has "  (check ran)" "$out" "CHECKED"
+out=$(cd "$gi/old" && zsh -fc "source '$src'; agent-sandbox-check() { print CHECKED; return 1 }; git status" 2>&1); rc=$?
+assert_eq "no one-liner, AGENT_SANDBOX_GIT_CHECK unset → no check" 0 $rc
+out=$(cd "$gi/old" && AGENT_SANDBOX_GIT_CHECK=1 zsh -fc "source '$src'; agent-sandbox-check() { print CHECKED; return 1 }; git status" 2>&1); rc=$?
+assert_eq "AGENT_SANDBOX_GIT_CHECK=1 → check runs and can stop git" 1 $rc
+out=$(cd "$gi/old" && zsh -fc "git() { agent-sandbox-check -q || return 1; command git \"\$@\" }; source '$src'; AGENT_SANDBOX_GIT_CHECK=0; agent-sandbox-check() { return 1 }; git status" 2>&1); rc=$?
+assert_eq "  AGENT_SANDBOX_GIT_CHECK=0 turns the taken-over check off" 0 $rc
+out=$(zsh -fc "git() { print mine }; source '$src'; git")
+assert_eq "a different git function of the user's is left alone" "mine" "$out"
+
+print "agent-sandbox --version"
+out=$(agent-sandbox --version 2>&1); rc=$?
+assert_eq "--version → exit 0" 0 $rc
+assert_has "  prints the loaded version and file" "$out" "agent-sandbox.zsh $(grep -m1 -E "^# AGENT_SANDBOX_VERSION=" "$src" | cut -d= -f2) (loaded from ${src:A})"
+assert_not_has "  no stale-file note when unchanged" "$out" "the file there is now"
+assert_not_has "  guard active" "$out" "guard inactive"
+( _agent_sandbox_loaded_version() { print 0.0.1 }; agent-sandbox --version ) 2>&1 | grep -q "open a new shell" \
+  && ok "  says when the file on disk is newer than the loaded copy" || bad "  says when the file on disk is newer than the loaded copy"
+( git() { command git "$@" }; agent-sandbox --version ) 2>&1 | grep -q "another git function replaced it" \
+  && ok "  says when another git function replaced the guard" || bad "  says when another git function replaced the guard"
 
 print "agent-sandbox-check (no docker, no git)"
 reset_state

@@ -1,7 +1,7 @@
 # agent-sandbox.zsh: run Claude Code in a per-project Docker container — plain Docker
 # from the host, no devcontainer CLI, no VS Code attach.
 #
-# AGENT_SANDBOX_VERSION=1.6.0
+# AGENT_SANDBOX_VERSION=1.7.1
 #
 # Source this from ~/.zshrc (`scripts/sync-harness.sh --install-shell` copies
 # it to ~/.config/zsh/agent-sandbox.zsh and prints the line). Keep the installed copy
@@ -11,6 +11,7 @@
 # controls the next `agent-sandbox` you type. Update it only through the install step,
 # which shows the diff first.
 #
+#   agent-sandbox --version           version this shell loaded, and from where
 #   agent-sandbox [--no-tmux] [dir]   build/create/start whatever is missing,
 #                                     make sure the firewall is active, attach
 #                                     to tmux inside (plain zsh if the image
@@ -110,6 +111,15 @@
 # so the image is built with USER_UID/USER_GID = your ids (Docker Desktop
 # maps ownership itself and keeps the defaults). The image is labelled with
 # the uid it was built for; `agent-sandbox` warns when it no longer matches.
+
+# Which copy this shell sourced, and its version, for `agent-sandbox --version`.
+# Recorded as two functions, not variables: sourcing adds no globals.
+() {
+  local f=${${(%):-%x}:A} v
+  v=${${(M)${(f)"$(<$f)"}:#\# AGENT_SANDBOX_VERSION=*}[1]#*=}
+  functions[_agent_sandbox_loaded_file]="print -r -- ${(q)f}"
+  functions[_agent_sandbox_loaded_version]="print -r -- ${(q)v}"
+}
 
 typeset -g AGENT_SANDBOX_TZ=${AGENT_SANDBOX_TZ:-${TZ:-Europe/Berlin}}   # container time zone
 
@@ -644,9 +654,32 @@ _agent_sandbox_verify_mounts() {
   print -u2 "agent-sandbox: read-only protection missing inside $name:"
   for p in $bad; do print -u2 "agent-sandbox:   $p"; done
   print -u2 "agent-sandbox: the agent could change git config or hooks that the host's git and VS Code run."
+  if [[ ${(j: :)bad} == *"/workspace/.git/config (not mounted)"* ]]; then
+    # Docker Desktop binds a single file by inode; git rewrites .git/config
+    # via a lock file and rename, which leaves the container's mount behind.
+    print -u2 "agent-sandbox: usual cause: a git command on the HOST rewrote .git/config (git init, git remote add,"
+    print -u2 "agent-sandbox: git push -u, git branch -u, git config <key> <value>), which detaches the file mount."
+  fi
   print -u2 "agent-sandbox: not attaching. Run agent-sandbox-recreate${arg:+ $arg} (sign-in and history are kept),"
   print -u2 "agent-sandbox: and check .git/config and .git/hooks for changes you did not make."
   return 1
+}
+
+# Version this shell loaded, plus a note when the file on disk has changed
+# since (reinstalled, but this shell still runs the old functions).
+_agent_sandbox_version() {
+  emulate -L zsh
+  local file=$(_agent_sandbox_loaded_file) loaded=$(_agent_sandbox_loaded_version) now
+  now=$(grep -m1 -E '^# AGENT_SANDBOX_VERSION=' "$file" 2>/dev/null | cut -d= -f2)
+  print -r -- "agent-sandbox.zsh ${loaded:-?} (loaded from $file)"
+  if [[ $now != "$loaded" ]]; then
+    print -r -- "agent-sandbox: the file there is now ${now:-missing} — open a new shell (or source ~/.zshrc) to load it"
+  fi
+  if [[ $(whence -w git) != "git: function" ]]; then
+    print -r -- "agent-sandbox: git init guard inactive here: $(whence -w git) takes precedence"
+  elif [[ $functions[git] != *AGENT_SANDBOX_GIT_INIT_GUARD* ]]; then
+    print -r -- "agent-sandbox: git init guard inactive here: another git function replaced it (see: whence -v git)"
+  fi
 }
 
 agent-sandbox() {
@@ -656,7 +689,8 @@ agent-sandbox() {
     case $1 in
       --no-tmux) use_tmux=0 ;;
       --setup) mode=setup ;;
-      *) print -u2 "agent-sandbox: unknown option $1 (known: --no-tmux, --setup)"; return 2 ;;
+      --version) _agent_sandbox_version; return ;;
+      *) print -u2 "agent-sandbox: unknown option $1 (known: --no-tmux, --setup, --version)"; return 2 ;;
     esac
     shift
   done
@@ -722,6 +756,23 @@ agent-sandbox() {
 agent-sandbox-setup() { emulate -L zsh; agent-sandbox --setup "$@" }
 agent-sandbox-shell() { emulate -L zsh; agent-sandbox --no-tmux "$@" }
 
+# Removing the container kills everything running in it. When Claude Code
+# is still running there, say so and ask (default No). Conversations are on
+# the config volume, so `claude --continue` resumes the last one; whatever
+# was mid-run is lost. $1 = name, $2 = action named in the question.
+_agent_sandbox_confirm_no_live_session() {
+  emulate -L zsh
+  local name=$1 action=$2 reply
+  [[ $(docker container inspect -f '{{.State.Running}}' "$name" 2>/dev/null) == true ]] || return 0
+  docker exec "$name" pgrep -x claude >/dev/null 2>&1 || return 0
+  print -u2 "agent-sandbox: Claude Code is still running in $name. The $action removes the container,"
+  print -u2 "agent-sandbox: which ends that session and anything it is running (conversations are kept;"
+  print -u2 "agent-sandbox: \`claude --continue\` resumes the last one)."
+  read -r "reply?agent-sandbox: end the session and $action? [y/N] " || reply=n
+  [[ $reply == [yY]* ]] || { print -u2 "agent-sandbox: aborted"; return 1 }
+  return 0
+}
+
 agent-sandbox-rebuild() {
   emulate -L zsh
   _agent_sandbox_check "$1" || return 1
@@ -731,6 +782,7 @@ agent-sandbox-rebuild() {
     _agent_sandbox_check_workspace "$dir" "$name" || return 1
   fi
   _agent_sandbox_review_gate "$dir" "$name" rebuild || return 1
+  _agent_sandbox_confirm_no_live_session "$name" rebuild || return 1
   # --no-cache: otherwise the cached layer keeps the old Claude Code ("latest" at first build)
   _agent_sandbox_build "$dir" --pull --no-cache || return 1
   docker rm -f "$name" >/dev/null 2>&1
@@ -752,6 +804,7 @@ agent-sandbox-recreate() {
   # The new container reads CLAUDE_SHORTCUT_FLAGS and agent-sandbox-ports from
   # .devcontainer, which a setup-mode agent could have edited.
   _agent_sandbox_review_gate "$dir" "$name" recreate || return 1
+  _agent_sandbox_confirm_no_live_session "$name" recreate || return 1
   docker rm -f "$name" >/dev/null 2>&1
   _agent_sandbox_create "$dir" normal || return 1
   print "agent-sandbox: recreated $name; run: agent-sandbox${1:+ $1}"
@@ -807,6 +860,74 @@ agent-sandbox-check() {
   (( quiet || warned )) || print "agent-sandbox-check: $root: no commondir redirect, no unlisted nested repository, no unfinished rebase"
   return 0
 }
+
+# Guard against re-running `git init` in an existing repository on the host.
+# It changes nothing useful there, but it rewrites .git/config by rename,
+# which detaches the container's read-only file mount of it: agent-sandbox
+# then refuses to attach until agent-sandbox-recreate. A fresh `git init`
+# passes straight through, as does every other git command. Asks only on a
+# terminal; scripts and pipes are never stopped. Bypass once with
+# `command git init`; turn off with AGENT_SANDBOX_GIT_INIT_GUARD=0 (=always
+# asks without a terminal too — the tests use it).
+#
+# The same wrapper runs `agent-sandbox-check -q` before every git command
+# when AGENT_SANDBOX_GIT_CHECK=1 (README "Check before git on the host").
+# A git function that is exactly the README's older one-liner
+# (`git() { agent-sandbox-check -q || return 1; command git "$@" }`) is
+# taken over with the check on; any other git function of yours is left
+# alone, and `agent-sandbox --version` says the guard is inactive.
+_agent_sandbox_git_init_target() {   # args of a git command line → dir of `init`, or nothing
+  emulate -L zsh
+  local base=$PWD i=1 dir=""
+  local -a a=("$@")
+  while (( i <= $#a )); do
+    case ${a[i]} in
+      -C) [[ ${a[i+1]} == /* ]] && base=${a[i+1]} || base=$base/${a[i+1]}; (( i += 2 )) ;;
+      -c|--git-dir|--work-tree|--namespace|--exec-path|--config-env) (( i += 2 )) ;;
+      -*) (( i++ )) ;;
+      init) break ;;
+      *) return 0 ;;   # some other subcommand
+    esac
+  done
+  (( i <= $#a )) || return 0
+  for (( i++; i <= $#a; i++ )); do
+    case ${a[i]} in
+      --bare) return 0 ;;   # a bare repository has no .git to look at
+      --template|--separate-git-dir|-b|--initial-branch|--object-format|--ref-format) (( i++ )) ;;
+      -*) ;;
+      *) dir=${a[i]}; break ;;
+    esac
+  done
+  [[ -z $dir ]] && dir=$base || { [[ $dir == /* ]] || dir=$base/$dir }
+  print -r -- ${dir:A}
+}
+
+if (( $+functions[git] )) && [[ $functions[git] != *AGENT_SANDBOX_GIT_INIT_GUARD* ]] &&
+   [[ ${${functions[git]//[[:space:]]/}} == 'agent-sandbox-check-q||return1commandgit"$@"' ]]; then
+  _agent_sandbox_git_check_default() { return 0 }   # README one-liner taken over: check on
+  unfunction git
+fi
+if (( ! $+functions[git] )) || [[ $functions[git] == *AGENT_SANDBOX_GIT_INIT_GUARD* ]]; then
+  git() {
+    emulate -L zsh
+    local guard=${AGENT_SANDBOX_GIT_INIT_GUARD:-1} dir reply
+    if [[ ${AGENT_SANDBOX_GIT_CHECK:-} == 1 ]] ||
+       { [[ -z ${AGENT_SANDBOX_GIT_CHECK:-} ]] && (( $+functions[_agent_sandbox_git_check_default] )) }; then
+      agent-sandbox-check -q || return 1
+    fi
+    if [[ $guard == always || ( $guard != 0 && -t 0 ) ]]; then
+      dir=$(_agent_sandbox_git_init_target "$@")
+      if [[ -n $dir && -e $dir/.git ]]; then
+        print -u2 "agent-sandbox: $dir already has a .git — reinitializing it could break agent-sandbox."
+        print -u2 "agent-sandbox: git init rewrites .git/config, which detaches the container's read-only mount of it;"
+        print -u2 "agent-sandbox: agent-sandbox then refuses to attach until agent-sandbox-recreate (ending any running session)."
+        read -r "reply?agent-sandbox: reinitialize it anyway? [y/N] " || reply=n
+        [[ $reply == [yY]* ]] || { print -u2 "agent-sandbox: git init skipped"; return 1 }
+      fi
+    fi
+    command git "$@"   # the user's own command, passed through unchanged
+  }
+fi
 
 agent-sandbox-stop()  { emulate -L zsh; docker stop "$(_agent_sandbox_name "$1")" >/dev/null }
 agent-sandbox-ports() { emulate -L zsh; docker port "$(_agent_sandbox_name "$1")" }

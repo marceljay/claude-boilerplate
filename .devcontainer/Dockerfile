@@ -281,6 +281,14 @@ RUN mkdir -p /etc/xdg/nvim/plugin && \
   '  if vim.g[k] == nil then vim.g[k] = v end' \
   'end' > /etc/xdg/nvim/plugin/harness-defaults.lua && \
   chmod 0644 /etc/xdg/nvim/plugin/harness-defaults.lua
+
+# Mark /workspace as a safe git directory. On Docker Desktop's virtiofs a
+# bind-mounted file can briefly report a different owner, and git then
+# refuses with "detected dubious ownership". VS Code's Dev Containers
+# extension adds this exception itself; agent-sandbox (no VS Code) does
+# not, so the image carries it. System-level config in /etc/gitconfig is
+# root-owned, so the agent can't widen it.
+RUN git config --system --add safe.directory /workspace
 USER $USERNAME
 
 # Everything ABOVE the marker line below is harness: scripts/sync-harness.sh

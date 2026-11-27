@@ -630,6 +630,15 @@ assert_eq "  argument parser: 'status' is not init" "" "$(_agent_sandbox_git_ini
 assert_eq "  argument parser: 'init --bare x' is skipped" "" "$(_agent_sandbox_git_init_target init --bare x)"
 assert_eq "  argument parser: '-c k=v init -b main d' → d" "$gi/d" "$(cd "$gi" && _agent_sandbox_git_init_target -c k=v init -b main d)"
 
+print "agent-sandbox --version"
+out=$(agent-sandbox --version 2>&1); rc=$?
+assert_eq "--version → exit 0" 0 $rc
+assert_has "  prints the loaded version and file" "$out" "agent-sandbox.zsh $(grep -m1 -E "^# AGENT_SANDBOX_VERSION=" "$src" | cut -d= -f2) (loaded from ${src:A})"
+assert_not_has "  no stale-file note when unchanged" "$out" "the file there is now"
+assert_not_has "  guard active" "$out" "guard inactive"
+( _agent_sandbox_loaded_version() { print 0.0.1 }; agent-sandbox --version ) 2>&1 | grep -q "open a new shell" \
+  && ok "  says when the file on disk is newer than the loaded copy" || bad "  says when the file on disk is newer than the loaded copy"
+
 print "agent-sandbox-check (no docker, no git)"
 reset_state
 out=$(agent-sandbox-check "$proj" 2>&1); rc=$?

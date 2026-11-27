@@ -11,6 +11,7 @@
 # controls the next `agent-sandbox` you type. Update it only through the install step,
 # which shows the diff first.
 #
+#   agent-sandbox --version           version this shell loaded, and from where
 #   agent-sandbox [--no-tmux] [dir]   build/create/start whatever is missing,
 #                                     make sure the firewall is active, attach
 #                                     to tmux inside (plain zsh if the image
@@ -110,6 +111,15 @@
 # so the image is built with USER_UID/USER_GID = your ids (Docker Desktop
 # maps ownership itself and keeps the defaults). The image is labelled with
 # the uid it was built for; `agent-sandbox` warns when it no longer matches.
+
+# Which copy this shell sourced, and its version, for `agent-sandbox --version`.
+# Recorded as two functions, not variables: sourcing adds no globals.
+() {
+  local f=${${(%):-%x}:A} v
+  v=${${(M)${(f)"$(<$f)"}:#\# AGENT_SANDBOX_VERSION=*}[1]#*=}
+  functions[_agent_sandbox_loaded_file]="print -r -- ${(q)f}"
+  functions[_agent_sandbox_loaded_version]="print -r -- ${(q)v}"
+}
 
 typeset -g AGENT_SANDBOX_TZ=${AGENT_SANDBOX_TZ:-${TZ:-Europe/Berlin}}   # container time zone
 
@@ -655,6 +665,19 @@ _agent_sandbox_verify_mounts() {
   return 1
 }
 
+# Version this shell loaded, plus a note when the file on disk has changed
+# since (reinstalled, but this shell still runs the old functions).
+_agent_sandbox_version() {
+  emulate -L zsh
+  local file=$(_agent_sandbox_loaded_file) loaded=$(_agent_sandbox_loaded_version) now
+  now=$(grep -m1 -E '^# AGENT_SANDBOX_VERSION=' "$file" 2>/dev/null | cut -d= -f2)
+  print -r -- "agent-sandbox.zsh ${loaded:-?} (loaded from $file)"
+  if [[ $now != "$loaded" ]]; then
+    print -r -- "agent-sandbox: the file there is now ${now:-missing} — open a new shell (or source ~/.zshrc) to load it"
+  fi
+  [[ $(whence -w git) == "git: function" ]] || print -r -- "agent-sandbox: git init guard inactive here: $(whence -w git)"
+}
+
 agent-sandbox() {
   emulate -L zsh
   local use_tmux=1 mode=normal
@@ -662,7 +685,8 @@ agent-sandbox() {
     case $1 in
       --no-tmux) use_tmux=0 ;;
       --setup) mode=setup ;;
-      *) print -u2 "agent-sandbox: unknown option $1 (known: --no-tmux, --setup)"; return 2 ;;
+      --version) _agent_sandbox_version; return ;;
+      *) print -u2 "agent-sandbox: unknown option $1 (known: --no-tmux, --setup, --version)"; return 2 ;;
     esac
     shift
   done

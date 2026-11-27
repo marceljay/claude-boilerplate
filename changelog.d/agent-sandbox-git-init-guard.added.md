@@ -4,4 +4,6 @@
   an agent-sandbox container's read-only mount until
   `agent-sandbox-recreate`. A fresh `git init`, every other git command and
   non-interactive use pass through; `command git init` bypasses it once,
-  `AGENT_SANDBOX_GIT_INIT_GUARD=0` turns it off. agent-sandbox.zsh 1.7.0.
+  `AGENT_SANDBOX_GIT_INIT_GUARD=0` turns it off. `agent-sandbox --version`
+  shows the loaded version, flags a stale shell and an inactive guard.
+  agent-sandbox.zsh 1.7.0.

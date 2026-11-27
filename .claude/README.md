@@ -291,7 +291,7 @@ Add your own by dropping a folder with a `SKILL.md` here (its `description`
 frontmatter is what Claude matches against). For the full, auto-updating Superpowers
 set instead of these vendored copies, install the plugin (`/plugin marketplace add
 obra/superpowers-marketplace`). Subagents (§4) are a third, separate thing — a
-_whole separate Claude_ you delegate a task to, not an instruction set spliced into
+_whole separate Claude_ you delegate a task to, not an instruction set inserted into
 the current turn.
 
 ---

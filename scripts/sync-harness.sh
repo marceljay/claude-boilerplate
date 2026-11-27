@@ -34,7 +34,7 @@
 #     repo has retired is listed (with the removing commit) and asked
 #     about, and a file this repo never shipped is the project's own and is
 #     kept.
-#   - SPLICES .devcontainer/Dockerfile: everything above its
+#   - UPDATES .devcontainer/Dockerfile above its marker: everything above its
 #     `# ==== PROJECT LAYERS ====` marker is harness and is replaced with the
 #     boilerplate's version; everything below (stack toolchains) is kept.
 #     The diff is shown and it asks; it also says whether the section above
@@ -122,9 +122,9 @@ say() {
   local c=""
   case "$word" in
     WARNING) c="$C_RED$C_BOLD" ;;
-    overwrote|updated|spliced|moved|created|removed|copied) c="$C_YELLOW" ;;
+    overwrote|updated|moved|created|removed|copied) c="$C_YELLOW" ;;
     "in sync"|kept) c="$C_DIM" ;;
-    differs|splicing|note) c="$C_CYAN" ;;
+    differs|note) c="$C_CYAN" ;;
   esac
   printf '%s%-9s%s %s\n' "$c" "$word" "$C_OFF" "$*"
 }
@@ -790,7 +790,7 @@ for f in .claude/README.md .devcontainer/STACKS.md .devcontainer/init-firewall.s
 done
 
 
-# --- 2. Dockerfile: splice at the project-layers marker ---------------------
+# --- 2. Dockerfile: replace the harness section above the marker -----------
 # Above the marker = harness (replaced); below = the project's own layers
 # (kept). Matched on the fixed prefix so trailing commentary can change.
 DOCKERFILE=.devcontainer/Dockerfile
@@ -798,7 +798,7 @@ DOCKERFILE_MARKER='# ==== PROJECT LAYERS ===='
 
 # Line number of the first marker line (must start at column 1 — an indented
 # or otherwise mangled marker deliberately does NOT count, so such a target
-# falls back to ask-first instead of being mis-spliced). Empty if absent.
+# falls back to ask-first instead of being cut at the wrong line). Empty if absent.
 marker_line() { grep -n -m1 -F -- "$DOCKERFILE_MARKER" "$1" | grep "^[0-9]*:$DOCKERFILE_MARKER" | cut -d: -f1; }
 has_marker() { [ -n "$(marker_line "$1")" ]; }
 # Upstream part: through the marker line. Project part: everything after it.
@@ -807,7 +807,7 @@ dockerfile_tail() { tail -n +"$(( $(marker_line "$1") + 1 ))" "$1"; }
 
 # Is the target's section above the marker byte-identical to that section
 # of some committed boilerplate Dockerfile? Then it was never edited there
-# and splicing loses nothing. No history → no (ask instead).
+# and replacing it loses nothing. No history → no (ask instead).
 head_matches_past_version() {
   [ "$HAVE_HISTORY" = 1 ] || return 1
   local want past c rc=1
@@ -875,12 +875,12 @@ if [ -f "$SRC/$DOCKERFILE" ]; then
   elif cmp -s "$SRC/$DOCKERFILE" "$TARGET/$DOCKERFILE"; then
     unchanged "$DOCKERFILE"
   elif has_marker "$SRC/$DOCKERFILE" && has_marker "$TARGET/$DOCKERFILE"; then
-    spliced=$(mktemp)
-    { dockerfile_head "$SRC/$DOCKERFILE"; dockerfile_tail "$TARGET/$DOCKERFILE"; } > "$spliced"
-    if cmp -s "$spliced" "$TARGET/$DOCKERFILE"; then
+    df_new=$(mktemp)
+    { dockerfile_head "$SRC/$DOCKERFILE"; dockerfile_tail "$TARGET/$DOCKERFILE"; } > "$df_new"
+    if cmp -s "$df_new" "$TARGET/$DOCKERFILE"; then
       unchanged "$DOCKERFILE"
     else
-      file_header "$DOCKERFILE" "$TARGET/$DOCKERFILE" "$spliced"
+      file_header "$DOCKERFILE" "$TARGET/$DOCKERFILE" "$df_new"
       if head_matches_past_version; then
         say "differs" "$DOCKERFILE — the section above '$DOCKERFILE_MARKER' is an older boilerplate"
         echo "          version, not edited in the target; lines below the marker are kept."
@@ -890,27 +890,27 @@ if [ -f "$SRC/$DOCKERFILE" ]; then
         echo "          version, so it holds edits this replacement would drop (lines marked - below)."
         echo "          Project layers belong BELOW the marker."
       fi
-      show_diff "$TARGET/$DOCKERFILE" "$spliced"
+      show_diff "$TARGET/$DOCKERFILE" "$df_new"
       case "$(ask3 "Replace everything above the PROJECT LAYERS line in $DOCKERFILE with the boilerplate version (lines below it are kept)?")" in
         overwrite)
-          warn_if_base_image_changed "$TARGET/$DOCKERFILE" "$spliced"
-          cat "$spliced" > "$TARGET/$DOCKERFILE"
-          say "spliced" "$DOCKERFILE (review with git diff; rebuild the container to apply)" ;;
+          warn_if_base_image_changed "$TARGET/$DOCKERFILE" "$df_new"
+          cat "$df_new" > "$TARGET/$DOCKERFILE"
+          say "updated" "$DOCKERFILE above the marker (review with git diff; rebuild the container to apply)" ;;
         upstream)
-          cat "$spliced" > "$TARGET/$DOCKERFILE.upstream"
-          say "kept" "$DOCKERFILE (target version); spliced copy written to $DOCKERFILE.upstream"
+          cat "$df_new" > "$TARGET/$DOCKERFILE.upstream"
+          say "kept" "$DOCKERFILE (target version); boilerplate version (with your lines below the marker) written to $DOCKERFILE.upstream"
           echo "          — merge by hand, then delete the .upstream file" ;;
         *)
           say kept "$DOCKERFILE (target version)" ;;
       esac
     fi
-    rm -f "$spliced"
+    rm -f "$df_new"
   else
     file_header "$DOCKERFILE" "$TARGET/$DOCKERFILE" "$SRC/$DOCKERFILE"
     say "note" "$DOCKERFILE: target has no '$DOCKERFILE_MARKER' marker line (at column 1),"
-    echo "          so it can't be spliced. Answer y if it has no project-specific layers; otherwise u,"
+    echo "          so harness and project lines can't be told apart. Answer y if it has no project-specific layers; otherwise u,"
     echo "          then move your layers BELOW the marker in the .upstream copy and"
-    echo "          rename it over the target — future syncs then splice automatically."
+    echo "          rename it over the target — future syncs then replace only the section above it."
     ask_first "$DOCKERFILE" noheader
   fi
 fi

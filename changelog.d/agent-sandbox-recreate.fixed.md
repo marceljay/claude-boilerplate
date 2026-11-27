@@ -5,5 +5,5 @@
   read-only `.git/config` mount is missing, `agent-sandbox` now names the
   usual cause: a host git command (`git init`, `git remote add`,
   `push -u`, `git config`) rewrote the file, which detaches the mount.
-  Reinstall agent-sandbox.zsh (1.7.0) with
+  Reinstall agent-sandbox.zsh (1.7.1) with
   `scripts/sync-harness.sh --install-shell`.

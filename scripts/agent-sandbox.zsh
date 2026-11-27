@@ -1,7 +1,7 @@
 # agent-sandbox.zsh: run Claude Code in a per-project Docker container — plain Docker
 # from the host, no devcontainer CLI, no VS Code attach.
 #
-# AGENT_SANDBOX_VERSION=1.7.0
+# AGENT_SANDBOX_VERSION=1.7.1
 #
 # Source this from ~/.zshrc (`scripts/sync-harness.sh --install-shell` copies
 # it to ~/.config/zsh/agent-sandbox.zsh and prints the line). Keep the installed copy

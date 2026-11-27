@@ -414,12 +414,19 @@ create either afterwards, and `git status` or `git rebase --continue` on the
 host would then run a command the agent chose
 ([security model, scenario 3](docs/SECURITY-MODEL.md)). While a container
 exists, run the check first: `agent-sandbox-check && git status`. To have it
-run before every `git` you type in a zsh on the host, add this to
-`~/.zshrc` after the `source` line (optional, not installed for you):
+run before every `git` you type in a zsh on the host, set this in
+`~/.zshrc` (optional, off by default):
 
 ```zsh
-git() { agent-sandbox-check -q || return 1; command git "$@" }
+AGENT_SANDBOX_GIT_CHECK=1
 ```
+
+`agent-sandbox.zsh` already wraps `git` for the `git init` guard; the
+variable makes the same wrapper run `agent-sandbox-check -q` first. The
+older advice was a one-line `git() { agent-sandbox-check -q || return 1;
+command git "$@" }` in `~/.zshrc`. Placed before the `source` line it is
+taken over (check on, guard added); placed after, it replaces the guard,
+and `agent-sandbox --version` says so. Replace it with the variable.
 
 Outside a project the check does nothing. Limits: it covers only `git`
 typed in that shell, not an editor, a git-aware prompt or a script that

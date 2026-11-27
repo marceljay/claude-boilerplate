@@ -868,8 +868,14 @@ agent-sandbox-check() {
 # passes straight through, as does every other git command. Asks only on a
 # terminal; scripts and pipes are never stopped. Bypass once with
 # `command git init`; turn off with AGENT_SANDBOX_GIT_INIT_GUARD=0 (=always
-# asks without a terminal too — the tests use it). Not installed over a git
-# function you defined yourself.
+# asks without a terminal too — the tests use it).
+#
+# The same wrapper runs `agent-sandbox-check -q` before every git command
+# when AGENT_SANDBOX_GIT_CHECK=1 (README "Check before git on the host").
+# A git function that is exactly the README's older one-liner
+# (`git() { agent-sandbox-check -q || return 1; command git "$@" }`) is
+# taken over with the check on; any other git function of yours is left
+# alone, and `agent-sandbox --version` says the guard is inactive.
 _agent_sandbox_git_init_target() {   # args of a git command line → dir of `init`, or nothing
   emulate -L zsh
   local base=$PWD i=1 dir=""
@@ -896,10 +902,19 @@ _agent_sandbox_git_init_target() {   # args of a git command line → dir of `in
   print -r -- ${dir:A}
 }
 
+if (( $+functions[git] )) && [[ $functions[git] != *AGENT_SANDBOX_GIT_INIT_GUARD* ]] &&
+   [[ ${${functions[git]//[[:space:]]/}} == 'agent-sandbox-check-q||return1commandgit"$@"' ]]; then
+  _agent_sandbox_git_check_default() { return 0 }   # README one-liner taken over: check on
+  unfunction git
+fi
 if (( ! $+functions[git] )) || [[ $functions[git] == *AGENT_SANDBOX_GIT_INIT_GUARD* ]]; then
   git() {
     emulate -L zsh
     local guard=${AGENT_SANDBOX_GIT_INIT_GUARD:-1} dir reply
+    if [[ ${AGENT_SANDBOX_GIT_CHECK:-} == 1 ]] ||
+       { [[ -z ${AGENT_SANDBOX_GIT_CHECK:-} ]] && (( $+functions[_agent_sandbox_git_check_default] )) }; then
+      agent-sandbox-check -q || return 1
+    fi
     if [[ $guard == always || ( $guard != 0 && -t 0 ) ]]; then
       dir=$(_agent_sandbox_git_init_target "$@")
       if [[ -n $dir && -e $dir/.git ]]; then

@@ -630,6 +630,21 @@ assert_eq "  argument parser: 'status' is not init" "" "$(_agent_sandbox_git_ini
 assert_eq "  argument parser: 'init --bare x' is skipped" "" "$(_agent_sandbox_git_init_target init --bare x)"
 assert_eq "  argument parser: '-c k=v init -b main d' → d" "$gi/d" "$(cd "$gi" && _agent_sandbox_git_init_target -c k=v init -b main d)"
 
+print "git wrapper and the README's agent-sandbox-check one-liner"
+out=$(zsh -fc "git() { agent-sandbox-check -q || return 1; command git \"\$@\" }; source '$src'; print -r -- \$functions[git]")
+assert_has "README one-liner defined before sourcing → taken over by the guard" "$out" "AGENT_SANDBOX_GIT_INIT_GUARD"
+out=$(cd "$gi/old" && zsh -fc "git() { agent-sandbox-check -q || return 1; command git \"\$@\" }; source '$src'; agent-sandbox-check() { print CHECKED; return 1 }; git status" 2>&1); rc=$?
+assert_eq "  taken-over one-liner still runs agent-sandbox-check; a failing check stops git" 1 $rc
+assert_has "  (check ran)" "$out" "CHECKED"
+out=$(cd "$gi/old" && zsh -fc "source '$src'; agent-sandbox-check() { print CHECKED; return 1 }; git status" 2>&1); rc=$?
+assert_eq "no one-liner, AGENT_SANDBOX_GIT_CHECK unset → no check" 0 $rc
+out=$(cd "$gi/old" && AGENT_SANDBOX_GIT_CHECK=1 zsh -fc "source '$src'; agent-sandbox-check() { print CHECKED; return 1 }; git status" 2>&1); rc=$?
+assert_eq "AGENT_SANDBOX_GIT_CHECK=1 → check runs and can stop git" 1 $rc
+out=$(cd "$gi/old" && zsh -fc "git() { agent-sandbox-check -q || return 1; command git \"\$@\" }; source '$src'; AGENT_SANDBOX_GIT_CHECK=0; agent-sandbox-check() { return 1 }; git status" 2>&1); rc=$?
+assert_eq "  AGENT_SANDBOX_GIT_CHECK=0 turns the taken-over check off" 0 $rc
+out=$(zsh -fc "git() { print mine }; source '$src'; git")
+assert_eq "a different git function of the user's is left alone" "mine" "$out"
+
 print "agent-sandbox --version"
 out=$(agent-sandbox --version 2>&1); rc=$?
 assert_eq "--version → exit 0" 0 $rc
